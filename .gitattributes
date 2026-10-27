@@ -1,0 +1,8 @@
+# 把所有 Java、资源文件按原样保留，不做行尾转换
+*.java    linguist-generated=false  auto=false
+*.json    auto=false
+*.gradle  auto=false
+
+# 只在必须的地方（如 README、文档）开启 CRLF
+*.txt     auto=text
+README.md auto=text
