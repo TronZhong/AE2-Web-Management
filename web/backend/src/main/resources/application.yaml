@@ -1,3 +1,26 @@
 spring:
   application:
     name: ae2-web-management-backend
+  datasource:
+    url: jdbc:h2:file:./data/ae2web
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+server:
+  port: 8080
+
+app:
+  mod:
+    # 模组本地 API 地址，只应绑定本机回环地址
+    base-url: http://127.0.0.1:8090
+    # TODO 与模组配置文件保持一致，部署时务必替换为随机密钥
+    shared-secret: change-me
+  cors:
+    # 前端开发服务器地址，前端框架确定后按需调整
+    allowed-origins:
+      - http://localhost:5173
