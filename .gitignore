@@ -1,0 +1,26 @@
+# Gradle
+.gradle/
+**/build/
+!**/src/**/build/
+
+# Maven
+**/target/
+!**/src/main/**/target/
+!**/src/test/**/target/
+web/backend/.mvn/wrapper/maven-wrapper.jar
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Local nested repository
+/newrepo/
+
+# Minecraft development
+mod/run/
+mod/repo/
+mod/src/generated/**/.cache/

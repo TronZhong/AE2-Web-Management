@@ -1,0 +1,13 @@
+{
+  "itemGroup.ae2webmanagement": "Example Mod Tab",
+  "block.ae2webmanagement.example_block": "Example Block",
+  "item.ae2webmanagement.example_item": "Example Item",
+
+  "ae2webmanagement.configuration.title": "AE2 Web Management Configs",
+  "ae2webmanagement.configuration.section.ae2webmanagement.common.toml": "AE2 Web Management Configs",
+  "ae2webmanagement.configuration.section.ae2webmanagement.common.toml.title": "AE2 Web Management Configs",
+  "ae2webmanagement.configuration.items": "Item List",
+  "ae2webmanagement.configuration.logDirtBlock": "Log Dirt Block",
+  "ae2webmanagement.configuration.magicNumberIntroduction": "Magic Number Text",
+  "ae2webmanagement.configuration.magicNumber": "Magic Number"
+}

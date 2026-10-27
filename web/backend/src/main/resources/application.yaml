@@ -1,0 +1,3 @@
+spring:
+  application:
+    name: ae2-web-management-backend
