@@ -1,6 +1,7 @@
-# Frontend
+# 前端
 
-Reserved for the browser application. No frontend framework or package
-structure has been selected yet.
+浏览器 UI（预留，尚未选择框架与包结构）。
 
-The browser UI will communicate with `../backend` through its public API.
+> 权威文档见 [`docs/frontend/index.md`](../../docs/frontend/index.md)。本文只作指针。
+
+前端只与 `../backend` 的公开 API 通信。
