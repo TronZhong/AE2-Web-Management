@@ -48,6 +48,8 @@
 
 ## 关键设计决策
 
+> 已定稿的完整方案（控制器锚点身份、快照缓存、命令队列、契约形状）见 [技术设计](design.md)，本表为摘要。
+
 | 决策 | 内容 | 理由 |
 | --- | --- | --- |
 | 线程安全 | 所有触碰 AE2/世界状态的逻辑必须通过 `MinecraftServer#execute` 调度到主线程；HTTP/定时线程绝不直接访问世界 | 从独立线程访问世界会导致死锁 |
@@ -69,6 +71,7 @@
 
 ## 相关文档
 
+- [技术设计](design.md)（定稿方案）
 - [快速开始](getting-started.md)
 - [定位指南与源码映射](navigation.md)
 - [模组](mod/index.md) · [后端](backend/index.md) · [契约](contracts/index.md) · [前端](frontend/index.md)

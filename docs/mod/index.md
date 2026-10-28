@@ -52,10 +52,11 @@
 - [ ] **无本地数据 API**：计划的 127.0.0.1 端点（供后端 `RestClient` 调用）尚未实现。
 - [ ] 示例方块/物品/标签页/配置为模板残留，接入真实功能前需清理。
 
-> 后续实现顺序建议：引入 AE2 依赖 → 实现网格节点（放置 active / 拆除 inactive）→ 主线程快照 `getCachedInventory()` → 本地 127.0.0.1 数据 API（共享密钥）→ 接入 `contracts/` 定义的 schema。
+> 实现顺序与完整方案见 [技术设计](../design.md)：锚点身份（控制器 + `SavedData`）→ 注册器方块 → 4 秒快照循环 → 命令队列 → 本地 127.0.0.1 数据口。
 
 ## 相关文档
 
+- [技术设计](../design.md)（定稿方案）
 - [架构总览](../architecture.md)（线程安全、缓存、存档 ID 等设计约束）
 - [数据契约](../contracts/index.md)
 - [后端](../backend/index.md)

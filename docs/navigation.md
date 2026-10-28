@@ -18,6 +18,7 @@
 | 后端（Spring Boot） | [`backend/index.md`](backend/index.md) |
 | 数据契约 | [`contracts/index.md`](contracts/index.md) |
 | 前端 | [`frontend/index.md`](frontend/index.md) |
+| 技术设计（跨组件） | [`design.md`](design.md) |
 
 ## 概念 → 位置速查
 
@@ -43,5 +44,6 @@
 
 ## 相关文档
 
+- [技术设计](design.md)
 - [架构总览](architecture.md)
 - [快速开始](getting-started.md)

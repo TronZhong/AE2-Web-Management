@@ -19,6 +19,10 @@
 - [架构总览](architecture.md) — 组件职责、数据流、关键设计决策、当前实现状态。
 - [定位指南与源码映射](navigation.md) — 如何从概念反查代码位置。
 
+### 设计
+
+- [技术设计（已收敛）](design.md) — 控制器锚点身份、快照缓存、命令队列、在线判定、契约形状。
+
 ### 组件
 
 - [模组（NeoForge）](mod/index.md) — 游戏内数据出口，AE2 集成将在这里实现。
@@ -31,6 +35,7 @@
 | 要找什么 | 去这里 |
 | --- | --- |
 | 项目整体结构 | [README.md](../README.md)（根目录） |
+| 网络身份/快照/命令队列怎么设计 | [design.md](design.md) |
 | 某个后端包/类的职责 | [backend/index.md](backend/index.md) 的源码映射 |
 | 某个模组文件/配置的职责 | [mod/index.md](mod/index.md) 的源码映射 |
 | 后端配置项含义 | [backend/index.md](backend/index.md) › 配置 |
