@@ -15,6 +15,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 
@@ -34,6 +35,7 @@ import com.ae2webmanagement.ae2webmanagementmod.network.NetworkIdentity;
  */
 public final class NetworkIdentityStore extends SavedData {
 
+    private static final String SAVED_DATA_KEY = "ae2web_identities";
     private static final String KEY_IDENTITIES = "identities";
     private static final String KEY_ACCESS_ID = "accessId";
     private static final String KEY_LEVEL = "level";
@@ -49,6 +51,16 @@ public final class NetworkIdentityStore extends SavedData {
     private final Map<String, UUID> anchorToId = new HashMap<>();
 
     public NetworkIdentityStore() {
+    }
+
+    /**
+     * 获取存档级身份表。身份表始终挂载在 Overworld，不随接入方块所在维度分裂。
+     */
+    public static NetworkIdentityStore get(ServerLevel level) {
+        ServerLevel overworld = level.getServer().overworld();
+        return overworld.getDataStorage().computeIfAbsent(
+                new SavedData.Factory<>(NetworkIdentityStore::new, NetworkIdentityStore::load),
+                SAVED_DATA_KEY);
     }
 
     /** 从 NBT 加载已有数据。 */

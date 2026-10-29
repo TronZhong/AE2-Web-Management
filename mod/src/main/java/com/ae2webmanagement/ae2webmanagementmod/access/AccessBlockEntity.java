@@ -19,7 +19,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.saveddata.SavedData;
 
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
@@ -43,8 +42,6 @@ public class AccessBlockEntity extends BlockEntity
         implements IInWorldGridNodeHost, IGridNodeListener<AccessBlockEntity>, MenuProvider {
 
     private static final Logger LOGGER = LogUtils.getLogger();
-
-    private static final String SAVED_DATA_KEY = "ae2web_identities";
 
     /** 本方块实体对应的 AE2 托管网格节点。 */
     private final IManagedGridNode mainNode;
@@ -136,10 +133,7 @@ public class AccessBlockEntity extends BlockEntity
             return;
         }
 
-        NetworkIdentityStore store = sl.getDataStorage()
-                .computeIfAbsent(
-                        new SavedData.Factory<>(NetworkIdentityStore::new, NetworkIdentityStore::load),
-                        SAVED_DATA_KEY);
+        NetworkIdentityStore store = NetworkIdentityStore.get(sl);
 
         NetworkIdentityStore.Result result = store.addOrGet(this.controllerAnchor);
         this.registrationStatus = switch (result) {
