@@ -27,7 +27,15 @@ sourceSets.main.resources {
 }
 
 repositories {
-    // Add here additional repositories if required by some of the dependencies below.
+    // AE2（Applied Energistics 2）发布在 Modrinth Maven。
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content {
+            // 只从该仓库解析 AE2，避免污染其它依赖的解析。
+            includeGroup "maven.modrinth"
+        }
+    }
 }
 
 base {
@@ -116,6 +124,9 @@ configurations {
 }
 
 dependencies {
+    // AE2（Applied Energistics 2）：本模组的核心依赖，是游戏内数据出口的数据来源。
+    implementation "maven.modrinth:ae2:${ae2_version}"
+
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
@@ -151,6 +162,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             mod_name               : mod_name,
             mod_license            : mod_license,
             mod_version            : mod_version,
+            ae2_version            : ae2_version,
     ]
     inputs.properties replaceProperties
     expand replaceProperties

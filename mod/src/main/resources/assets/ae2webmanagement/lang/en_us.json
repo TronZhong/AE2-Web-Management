@@ -1,13 +1,12 @@
 {
-  "itemGroup.ae2webmanagement": "Example Mod Tab",
-  "block.ae2webmanagement.example_block": "Example Block",
-  "item.ae2webmanagement.example_item": "Example Item",
+  "itemGroup.ae2webmanagement": "AE2 Web Management",
+  "block.ae2webmanagement.access_block": "Access Block",
 
   "ae2webmanagement.configuration.title": "AE2 Web Management Configs",
   "ae2webmanagement.configuration.section.ae2webmanagement.common.toml": "AE2 Web Management Configs",
   "ae2webmanagement.configuration.section.ae2webmanagement.common.toml.title": "AE2 Web Management Configs",
-  "ae2webmanagement.configuration.items": "Item List",
-  "ae2webmanagement.configuration.logDirtBlock": "Log Dirt Block",
-  "ae2webmanagement.configuration.magicNumberIntroduction": "Magic Number Text",
-  "ae2webmanagement.configuration.magicNumber": "Magic Number"
+  "ae2webmanagement.configuration.httpBindAddress": "HTTP Bind Address",
+  "ae2webmanagement.configuration.httpPort": "HTTP Port",
+  "ae2webmanagement.configuration.sharedSecret": "Shared Secret",
+  "ae2webmanagement.configuration.snapshotIntervalSeconds": "Snapshot Interval (seconds)"
 }

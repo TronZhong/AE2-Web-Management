@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "ae2webmanagement:block/access_block"
+    }
+  }
+}

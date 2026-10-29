@@ -1,45 +1,38 @@
 package com.ae2webmanagement.ae2webmanagementmod;
 
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-// An example config class. This is not required, but it's a good idea to have one to keep your config organized.
-// 一个示例的配置类。它不是必需的，但有一个能帮你把配置组织得更清晰。
-// Demonstrates how to use Neo's config APIs
-// 演示如何使用 Neo(Forge) 的配置 API
-public class Config {
+/**
+ * 模组运行时配置。对应 docs/design.md 里的本地数据口与快照参数。
+ *
+ * <p>这里只定义配置项；业务代码通过 {@code Config.XXX.get()} 读取。
+ * 读取时机：启动/主线程时读取一次并缓存，避免在 HTTP/定时线程上直接触碰配置对象。
+ */
+public final class Config {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
-    public static final ModConfigSpec.BooleanValue LOG_DIRT_BLOCK = BUILDER
-            .comment("Whether to log the dirt block on common setup")
-            .define("logDirtBlock", true);
+    /** 本地数据口的监听地址。后端与模组同机部署，默认保持 127.0.0.1，勿对外暴露。 */
+    public static final ModConfigSpec.ConfigValue<String> HTTP_BIND_ADDRESS = BUILDER
+            .comment("Bind address of the local data API. Keep as 127.0.0.1 unless you know what you are doing.")
+            .define("httpBindAddress", "127.0.0.1");
 
-    public static final ModConfigSpec.IntValue MAGIC_NUMBER = BUILDER
-            .comment("A magic number")
-            .defineInRange("magicNumber", 42, 0, Integer.MAX_VALUE);
+    /** 本地数据口的 TCP 端口。 */
+    public static final ModConfigSpec.IntValue HTTP_PORT = BUILDER
+            .comment("TCP port of the local data API.")
+            .defineInRange("httpPort", 8090, 1, 65535);
 
-    public static final ModConfigSpec.ConfigValue<String> MAGIC_NUMBER_INTRODUCTION = BUILDER
-            .comment("What you want the introduction message to be for the magic number")
-            .define("magicNumberIntroduction", "The magic number is... ");
+    /** 与后端约定的共享密钥（请求头 X-Shared-Secret）。留空 = 关闭校验（仅限开发）。 */
+    public static final ModConfigSpec.ConfigValue<String> SHARED_SECRET = BUILDER
+            .comment("Shared secret checked against the backend's X-Shared-Secret header. Empty disables the check (dev only).")
+            .define("sharedSecret", "");
 
-    // a list of strings that are treated as resource locations for items
-    // 一个字符串列表，被视为物品的资源位置(ResourceLocation)
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> ITEM_STRINGS = BUILDER
-            .comment("A list of items to log on common setup.")
-            .defineListAllowEmpty("items", List.of("minecraft:iron_ingot"), () -> "", Config::validateItemName);
+    /** 快照刷新间隔（真实时间秒）。默认 4 秒。 */
+    public static final ModConfigSpec.IntValue SNAPSHOT_INTERVAL_SECONDS = BUILDER
+            .comment("How often (wall-clock seconds) the inventory/crafting snapshot is refreshed.")
+            .defineInRange("snapshotIntervalSeconds", 4, 1, 3600);
 
     static final ModConfigSpec SPEC = BUILDER.build();
 
-    private static boolean validateItemName(final Object obj) {
-        return obj instanceof String itemName && BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse(itemName));
+    private Config() {
     }
 }
