@@ -4,6 +4,8 @@ import java.util.function.Supplier;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -22,11 +24,10 @@ import appeng.api.networking.IInWorldGridNodeHost;
 import com.ae2webmanagement.ae2webmanagementmod.AE2WebManagement;
 
 /**
- * 「接入」方块相关的注册：方块、物品、方块实体类型、AE2 capability、及自有创造标签页。
+ * 「接入」方块相关的注册：方块/物品/方块实体/MenuType/创造标签页、AE2 capability。
  *
- * <p>全部注册都集中在此类中，通过 {@link #register(IEventBus)} 和 {@code @SubscribeEvent}
- * 方法接入模组的事件总线。方块实体的 AE2 网格能力通过 {@link AECapabilities#IN_WORLD_GRID_NODE_HOST}
- * 注册给 NeoForge，供 AE2 {@link appeng.api.networking.GridHelper#getNodeHost} 发现。
+ * <p>全部注册集中在此类，通过 {@link #register(IEventBus)} 和 {@code @SubscribeEvent}
+ * 方法接入模组事件总线。
  */
 public final class AccessRegistration {
 
@@ -38,6 +39,8 @@ public final class AccessRegistration {
             DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, AE2WebManagement.MODID);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, AE2WebManagement.MODID);
+    public static final DeferredRegister<MenuType<?>> MENUS =
+            DeferredRegister.create(Registries.MENU, AE2WebManagement.MODID);
 
     // ------------------------------ 方块 / 物品 ------------------------------
 
@@ -53,6 +56,12 @@ public final class AccessRegistration {
     public static final Supplier<BlockEntityType<AccessBlockEntity>> ACCESS_BLOCK_ENTITY = BLOCK_ENTITIES.register(
             "access_block",
             () -> BlockEntityType.Builder.of(AccessBlockEntity::new, ACCESS_BLOCK.get()).build(null));
+
+    // ------------------------------ 容器菜单 ------------------------------
+
+    public static final Supplier<MenuType<AccessMenu>> ACCESS_MENU = MENUS.register(
+            "access_menu",
+            () -> new MenuType<>(AccessMenu::new, FeatureFlags.DEFAULT_FLAGS));
 
     // ------------------------------ 创造标签页 ------------------------------
 
@@ -71,25 +80,17 @@ public final class AccessRegistration {
 
     // ------------------------------ 注册入口 ------------------------------
 
-    /**
-     * 注册方块、物品、方块实体、创造标签页。由 {@link AE2WebManagement} 构造器调用。
-     */
+    /** 由 {@link AE2WebManagement} 构造器调用。 */
     public static void register(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
         BLOCK_ENTITIES.register(modEventBus);
         CREATIVE_MODE_TABS.register(modEventBus);
+        MENUS.register(modEventBus);
     }
 
     // ------------------------------ AE2 网格 capability ------------------------------
 
-    /**
-     * 向 AE2 暴露 {@link IInWorldGridNodeHost} 能力，让 AE2 的 {@code GridHelper.getNodeHost}
-     * 能发现本方块实体为网格节点宿主。
-     *
-     * <p>注册方法为 {@link RegisterCapabilitiesEvent#registerBlockEntity registerBlockEntity}。
-     * 上下文类型为 {@code Void}（参见 {@link AECapabilities#IN_WORLD_GRID_NODE_HOST} 的声明）。
-     */
     @SubscribeEvent
     public static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(
