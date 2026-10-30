@@ -57,6 +57,7 @@ cd .\web\backend
 ## 提交与 PR
 
 - 沿用现有 Conventional Commits：`feat:`、`fix:`、`docs:`、`build:`、`test:`、`refactor:`，后接简短说明，例如 `feat: 支持网络库存查询`。
+- 版本号在 `mod/gradle.properties` 的 `mod_version` 中维护；当前为 `0.0.4`，以后每完成一次提交，下一版本号递增 1，例如 `0.0.5`、`0.0.6`。
 - 一次提交只处理一个主题；PR 说明应包含变更范围、行为变化、验证命令和相关 Issue。
 - UI 变更附截图；API、契约、配置或依赖变更必须单独说明。
 - 合并前确保模组 CI 与受影响的本地测试通过。

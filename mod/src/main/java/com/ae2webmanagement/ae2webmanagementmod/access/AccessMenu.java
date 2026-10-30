@@ -6,7 +6,6 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.inventory.Slot;
 
 /**
  * 「接入」方块的容器菜单，持有服务端 ↔ 客户端共享的状态数据。
@@ -36,7 +35,6 @@ public class AccessMenu extends AbstractContainerMenu {
         this.be = null;
         this.statusData = new SimpleContainerData(1);
         this.addDataSlots(this.statusData);
-        this.addPlayerSlots(playerInv);
     }
 
     /** 服务端构造：持有方块实体引用以执行业务逻辑。 */
@@ -45,7 +43,6 @@ public class AccessMenu extends AbstractContainerMenu {
         this.be = be;
         this.statusData = new SimpleContainerData(1);
         this.addDataSlots(this.statusData);
-        this.addPlayerSlots(playerInv);
 
         if (be.getControllerAnchor().isEmpty()) {
             this.statusData.set(0, STATUS_NO_CONTROLLER);
@@ -77,22 +74,6 @@ public class AccessMenu extends AbstractContainerMenu {
 
     public ContainerData getStatusData() {
         return this.statusData;
-    }
-
-    // ==================== 玩家物品栏 ====================
-
-    private void addPlayerSlots(Inventory playerInv) {
-        // 快捷栏 (0–8) → 物品栏 (9–35)
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                this.addSlot(new Slot(playerInv, 9 + row * 9 + col,
-                        8 + col * 18, 84 + row * 18));
-            }
-        }
-        for (int col = 0; col < 9; col++) {
-            this.addSlot(new Slot(playerInv, col,
-                    8 + col * 18, 142));
-        }
     }
 
     @Override

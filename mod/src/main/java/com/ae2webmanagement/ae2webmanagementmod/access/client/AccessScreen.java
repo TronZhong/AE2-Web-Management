@@ -12,14 +12,14 @@ import com.ae2webmanagement.ae2webmanagementmod.access.AccessMenu;
 /**
  * 「接入」方块的 GUI 屏幕（仅客户端加载）。
  *
- * <p>布局：标题 + 状态文字 + Register 按钮 + 玩家物品栏。
+ * <p>布局：标题 + 状态文字 + Register 按钮。
  */
 public final class AccessScreen extends AbstractContainerScreen<AccessMenu> {
 
     public AccessScreen(AccessMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
-        this.imageHeight = 166;
-        this.inventoryLabelY = this.imageHeight - 94;
+        this.imageWidth = 200;
+        this.imageHeight = 96;
     }
 
     @Override
@@ -27,21 +27,29 @@ public final class AccessScreen extends AbstractContainerScreen<AccessMenu> {
         super.init();
         this.addRenderableWidget(
                 Button.builder(Component.translatable("gui.ae2webmanagement.button.register"), this::onRegisterPress)
-                        .pos(this.leftPos + 50, this.topPos + 38)
+                        .pos(this.leftPos + 62, this.topPos + 58)
                         .size(76, 20)
                         .build());
     }
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        // 无背景纹理——使用默认深灰底色
+        guiGraphics.fill(this.leftPos, this.topPos,
+                this.leftPos + this.imageWidth, this.topPos + this.imageHeight, 0xCC101010);
+    }
+
+    @Override
+    protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        int titleX = (this.imageWidth - this.font.width(this.title)) / 2;
+        guiGraphics.drawString(this.font, this.title, titleX, 8, 0xFFFFFF, false);
     }
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         Component statusMsg = getStatusMessage();
-        guiGraphics.drawString(this.font, statusMsg, this.leftPos + 8, this.topPos + 22, 0x404040, false);
+        int statusX = this.leftPos + (this.imageWidth - this.font.width(statusMsg)) / 2;
+        guiGraphics.drawString(this.font, statusMsg, statusX, this.topPos + 30, 0xE0E0E0, false);
     }
 
     // ==================== 按钮 → 发包 ====================

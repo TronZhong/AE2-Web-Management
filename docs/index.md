@@ -25,10 +25,10 @@
 
 ### 组件
 
-- [模组（NeoForge）](mod/index.md) — 游戏内数据出口，AE2 集成将在这里实现。
+- [模组（NeoForge）](mod/index.md) — 游戏内数据出口：接入方块、身份表、快照、命令队列和本机 API。
 - [后端（Spring Boot）](backend/index.md) — Web API、认证、授权、持久化，以及到模组的数据转发。
 - [前端](frontend/index.md) — 浏览器 UI（预留）。
-- [数据契约](contracts/index.md) — 模组与后端之间的版本化数据约定（预留）。
+- [数据契约](contracts/index.md) — 模组与后端之间的初版本机 API 约定。
 
 ## 快速定位速查
 

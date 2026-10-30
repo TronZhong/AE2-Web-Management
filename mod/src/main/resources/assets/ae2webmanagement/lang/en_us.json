@@ -3,10 +3,10 @@
   "block.ae2webmanagement.access_block": "Access Block",
 
   "gui.ae2webmanagement.button.register": "Register",
-  "gui.ae2webmanagement.status.no_controller": "No ME controller located.",
-  "gui.ae2webmanagement.status.idle": "Click Register to save this network.",
-  "gui.ae2webmanagement.status.created": "Network identity created!",
-  "gui.ae2webmanagement.status.already_exists": "Already registered for this controller.",
+  "gui.ae2webmanagement.status.no_controller": "No ME controller found.",
+  "gui.ae2webmanagement.status.idle": "Ready to register.",
+  "gui.ae2webmanagement.status.created": "Network registered.",
+  "gui.ae2webmanagement.status.already_exists": "Already registered.",
 
   "ae2webmanagement.configuration.title": "AE2 Web Management Configs",
   "ae2webmanagement.configuration.section.ae2webmanagement.common.toml": "AE2 Web Management Configs",

@@ -63,7 +63,7 @@ cd .\web\backend
 - [x] 分层骨架、CORS、模组 `RestClient`、H2 文件库、配置绑定已就绪。
 - [ ] **未加认证**：计划引入 `Sa-Token`（`sa-token-spring-boot4-starter`）。
 - [ ] `controller/service/repository/domain/dto` 均为空，无实体、无接口。
-- [ ] 未接 `contracts/`，DTO 字段待契约定义后落地。
+- [ ] 初版本机 API 契约已记录，但 `controller/service/client/dto` 尚未实现转发。
 
 ## 相关文档
 

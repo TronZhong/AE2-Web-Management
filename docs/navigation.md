@@ -31,6 +31,13 @@
 | 后端运行配置（端口、数据源、app.*） | `web/backend/src/main/resources/application.yaml` |
 | 模组主类 / 方块物品注册 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/AE2WebManagement.java` |
 | 模组配置 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/Config.java` |
+| 网络身份表（SavedData） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/NetworkIdentityStore.java` |
+| 快照表（SavedData） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/SnapshotStore.java` |
+| 快照采集与缓存 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/SnapshotManager.java` |
+| 本地 HTTP API | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/http/LocalDataServer.java` |
+| 合成命令队列与调度 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/command/CommandManager.java` |
+| 合成命令持久化 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/CommandStore.java` |
+| 接入方块 GUI | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessMenu.java` |
 | 模组 id / 版本 / 依赖版本 | `mod/gradle.properties` |
 | 模组构建脚本 | `mod/build.gradle` |
 | 模组元数据（mods.toml） | `mod/src/main/templates/META-INF/neoforge.mods.toml` |

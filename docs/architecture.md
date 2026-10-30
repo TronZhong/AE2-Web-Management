@@ -64,9 +64,9 @@
 
 | 组件 | 状态 |
 | --- | --- |
-| 模组 | NeoForge 模板，已注册示例方块/物品，**尚未接入 AE2、无本地数据 API** |
+| 模组 | 已实现接入方块、控制器定位、Overworld 身份表、4 秒快照、只读查询 API 和合成命令队列；**未实现后端代理与用户授权** |
 | 后端 | 分层骨架已就绪（config/client 可用，controller/service/repository/domain/dto 为空），**未写业务、未加认证** |
-| 契约 | 占位，未定义任何 schema |
+| 契约 | 已记录初版本机 API 形状；完整 JSON Schema/OpenAPI 待定义 |
 | 前端 | 占位，未选技术栈 |
 
 ## 相关文档
