@@ -65,6 +65,7 @@ public class AccessBlockEntity extends BlockEntity
 
     // ===================== IInWorldGridNodeHost =====================
 
+    /** 返回本方块在任意方向上暴露的 AE2 网格节点。 */
     @Override
     public IGridNode getGridNode(Direction dir) {
         return this.mainNode.getNode();
@@ -72,11 +73,18 @@ public class AccessBlockEntity extends BlockEntity
 
     // ===================== IGridNodeListener =====================
 
+    /** AE2 修改节点持久化数据时，同步标记方块实体需要保存。 */
     @Override
     public void onSaveChanges(AccessBlockEntity owner, IGridNode node) {
         this.setChanged();
     }
 
+    /**
+     * 接入方块所属 AE2 网格发生变化时重新定位控制器。
+     *
+     * <p>成功定位则缓存控制器锚点并进入可注册状态；没有控制器或网格断开时，
+     * GUI 会显示不可注册状态。
+     */
     @Override
     public void onGridChanged(AccessBlockEntity owner, IGridNode node) {
         IGrid grid = node.getGrid();
@@ -108,11 +116,13 @@ public class AccessBlockEntity extends BlockEntity
 
     // ===================== MenuProvider → GUI =====================
 
+    /** 提供菜单标题；实际菜单由 {@link #createMenu} 创建。 */
     @Override
     public Component getDisplayName() {
         return Component.translatable("block.ae2webmanagement.access_block");
     }
 
+    /** 服务端打开 GUI 时创建持有方块实体引用的菜单。 */
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInv, Player player) {
         return new AccessMenu(containerId, playerInv, this);
@@ -159,6 +169,7 @@ public class AccessBlockEntity extends BlockEntity
 
     // ===================== BlockEntity 生命周期 =====================
 
+    /** 服务端方块实体加载后创建 AE2 托管节点，使其自动加入相邻网络。 */
     @Override
     public void onLoad() {
         super.onLoad();
@@ -167,24 +178,28 @@ public class AccessBlockEntity extends BlockEntity
         }
     }
 
+    /** 区块卸载时销毁 AE2 网格节点，避免访问未加载世界。 */
     @Override
     public void onChunkUnloaded() {
         super.onChunkUnloaded();
         this.mainNode.destroy();
     }
 
+    /** 方块实体被移除时也销毁 AE2 网格节点。 */
     @Override
     public void setRemoved() {
         super.setRemoved();
         this.mainNode.destroy();
     }
 
+    /** 在方块实体 NBT 中保存 AE2 节点数据。 */
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         this.mainNode.saveToNBT(tag);
     }
 
+    /** 从方块实体 NBT 恢复 AE2 节点数据。 */
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);

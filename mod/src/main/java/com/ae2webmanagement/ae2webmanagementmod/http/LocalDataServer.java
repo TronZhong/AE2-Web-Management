@@ -57,11 +57,18 @@ public final class LocalDataServer {
     private HttpServer server;
     private ExecutorService executor;
 
+    /** 注入线程安全的快照缓存与命令队列。 */
     public LocalDataServer(SnapshotManager snapshots, CommandManager commands) {
         this.snapshots = snapshots;
         this.commands = commands;
     }
 
+    /**
+     * 启动本机 HTTP API。
+     *
+     * <p>拒绝绑定非回环地址；启动失败时记录日志并清理已创建的资源，
+     * 不让数据 API 阻止游戏服务器继续启动。
+     */
     public void start() {
         stop();
 
@@ -101,6 +108,7 @@ public final class LocalDataServer {
         }
     }
 
+    /** 停止 HTTP 监听并关闭请求处理线程。 */
     public void stop() {
         if (this.server != null) {
             this.server.stop(0);
@@ -112,6 +120,7 @@ public final class LocalDataServer {
         }
     }
 
+    /** 统一入口：先校验共享密钥，再按 HTTP 方法分发。 */
     private void handle(HttpExchange exchange) throws IOException {
         try {
             if (!isAuthorized(exchange)) {
@@ -140,6 +149,7 @@ public final class LocalDataServer {
         }
     }
 
+    /** 分发只读接口：健康检查、网络列表、单个网络快照和命令历史。 */
     private void handleGet(HttpExchange exchange, String path) throws IOException {
         if ("/health".equals(path)) {
             sendJson(exchange, 200, Map.of("ok", true));
@@ -172,6 +182,12 @@ public final class LocalDataServer {
         sendError(exchange, 404, "not_found");
     }
 
+    /**
+     * 处理合成命令投递。
+     *
+     * <p>只校验路径、网络、JSON 结构和基本数值；解析 AEKey 和访问 AE2
+     * 交给主线程的 {@link CommandManager} 处理。
+     */
     private void handlePost(HttpExchange exchange, String path) throws IOException {
         String[] parts = path.split("/");
         if (parts.length != 4 || !"networks".equals(parts[1]) || !"craft".equals(parts[3])) {
@@ -242,6 +258,7 @@ public final class LocalDataServer {
         sendJson(exchange, 202, response);
     }
 
+    /** 读取并解析请求体；请求体必须是不超过 {@value #MAX_REQUEST_BYTES} 字节的 JSON object。 */
     private JsonObject readJsonObject(HttpExchange exchange) throws IOException {
         byte[] bytes = exchange.getRequestBody().readNBytes(MAX_REQUEST_BYTES + 1);
         if (bytes.length > MAX_REQUEST_BYTES) {
@@ -255,6 +272,7 @@ public final class LocalDataServer {
         return parsed.getAsJsonObject();
     }
 
+    /** 校验 X-Shared-Secret；共享密钥为空时允许本地开发模式。 */
     private boolean isAuthorized(HttpExchange exchange) {
         String expected = Config.SHARED_SECRET.get();
         if (expected.isEmpty()) {
@@ -269,6 +287,7 @@ public final class LocalDataServer {
                 actual.getBytes(StandardCharsets.UTF_8));
     }
 
+    /** 组装网络列表：身份信息来自缓存，在线态和摘要来自最近快照。 */
     private List<Map<String, Object>> listNetworks() {
         List<Map<String, Object>> networks = new ArrayList<>();
         for (NetworkIdentity identity : this.snapshots.getIdentities()) {
@@ -289,6 +308,7 @@ public final class LocalDataServer {
         return networks;
     }
 
+    /** 返回单个网络的库存与合成 CPU 快照。 */
     private void sendSnapshot(HttpExchange exchange, UUID accessId) throws IOException {
         Optional<Snapshot> snapshot = this.snapshots.get(accessId);
         if (snapshot.isEmpty()) {
@@ -302,12 +322,7 @@ public final class LocalDataServer {
         response.put("capturedAt", value.capturedAt());
         response.put("online", value.online());
 
-        List<Map<String, Object>> inventory = new ArrayList<>();
-        for (Snapshot.StackEntry stack : value.inventory()) {
-            inventory.add(Map.of(
-                    "key", toJson(stack.key()),
-                    "amount", stack.amount()));
-        }
+        List<Map<String, Object>> inventory = stacksToJson(value.inventory());
         response.put("inventory", inventory);
 
         List<Map<String, Object>> cpus = new ArrayList<>();
@@ -320,10 +335,49 @@ public final class LocalDataServer {
             cpus.add(cpuJson);
         }
         response.put("craftingCpus", cpus);
+        response.put("patterns", patternsToJson(value.patterns()));
 
         sendJson(exchange, 200, response);
     }
 
+    /** 将样板摘要转换成 HTTP JSON；primaryOutput/outputs/inputs 都复用 AEKey 的 JSON 表示。 */
+    private static List<Map<String, Object>> patternsToJson(List<Snapshot.PatternEntry> patterns) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Snapshot.PatternEntry pattern : patterns) {
+            List<Map<String, Object>> inputs = new ArrayList<>();
+            for (Snapshot.PatternEntry.PatternInputEntry input : pattern.inputs()) {
+                inputs.add(Map.of(
+                        "possibleInputs", stacksToJson(input.possibleInputs()),
+                        "multiplier", input.multiplier()));
+            }
+
+            result.add(Map.of(
+                    "primaryOutput", stackToJson(pattern.primaryOutput()),
+                    "outputs", stacksToJson(pattern.outputs()),
+                    "inputs", inputs));
+        }
+        return result;
+    }
+
+    /** 将一条库存/样板条目转换成 HTTP JSON。 */
+    private static Map<String, Object> stackToJson(Snapshot.StackEntry stack) {
+        return Map.of(
+                "key", toJson(stack.key()),
+                "amount", stack.amount());
+    }
+
+    /** 将一组库存/样板条目转换成 HTTP JSON。 */
+    private static List<Map<String, Object>> stacksToJson(List<Snapshot.StackEntry> stacks) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Snapshot.StackEntry stack : stacks) {
+            result.add(Map.of(
+                    "key", toJson(stack.key()),
+                    "amount", stack.amount()));
+        }
+        return result;
+    }
+
+    /** 返回单个网络的全部命令历史和当前状态。 */
     private void sendCommands(HttpExchange exchange, UUID accessId) throws IOException {
         if (!this.commands.hasNetwork(accessId)) {
             sendError(exchange, 404, "network_not_found");
@@ -345,6 +399,7 @@ public final class LocalDataServer {
         sendJson(exchange, 200, Map.of("commands", response));
     }
 
+    /** 将 AEKey 的通用 NBT 表示转换为 JSON；转换失败时退回 SNBT 字符串。 */
     private static JsonElement toJson(CompoundTag tag) {
         try {
             return NbtOps.INSTANCE.convertTo(JsonOps.INSTANCE, tag);
@@ -353,10 +408,12 @@ public final class LocalDataServer {
         }
     }
 
+    /** 发送统一格式的 JSON 错误响应。 */
     private static void sendError(HttpExchange exchange, int status, String error) throws IOException {
         sendJson(exchange, status, Map.of("error", error));
     }
 
+    /** 写入 JSON 响应头和 UTF-8 响应体，并禁止缓存。 */
     private static void sendJson(HttpExchange exchange, int status, Object body) throws IOException {
         byte[] bytes = GSON.toJson(body).getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");

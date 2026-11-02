@@ -82,23 +82,33 @@ public final class SnapshotManager {
         this.identityCache.putAll(latestIdentities);
     }
 
+    /** 服务端停止时清空内存缓存；持久化的最后快照保留在 SavedData 中。 */
     public void stop() {
         this.cache.clear();
         this.identityCache.clear();
     }
 
+    /** 按 accessId 获取最近一次快照；离线时可能是旧快照。 */
     public Optional<Snapshot> get(UUID accessId) {
         return Optional.ofNullable(this.cache.get(accessId));
     }
 
+    /** 获取全部网络最近快照的只读副本。 */
     public Collection<Snapshot> getAll() {
         return List.copyOf(this.cache.values());
     }
 
+    /** 获取全部网络身份的只读副本，供 HTTP 网络列表使用。 */
     public Collection<NetworkIdentity> getIdentities() {
         return List.copyOf(this.identityCache.values());
     }
 
+    /**
+     * 采集一个网络的当前状态。
+     *
+     * <p>先检查控制器所在区块和 AE2 网格是否在线；在线时读取网络库存缓存
+     * 和合成 CPU 状态，离线时保留上一次快照但把 {@code online} 置为 false。
+     */
     private Snapshot capture(MinecraftServer server, NetworkIdentity identity, Snapshot previous) {
         ServerLevel level = server.getLevel(identity.controllerLevel());
         if (level == null || !level.isLoaded(identity.controllerPos())) {
@@ -140,7 +150,7 @@ public final class SnapshotManager {
                     cpu.getCoProcessors()));
         }
 
-        return new Snapshot(identity.accessId(), System.currentTimeMillis(), true, inventory, cpus);
+        return new Snapshot(identity.accessId(), System.currentTimeMillis(), true, inventory, cpus, List.of());
     }
 
     /**
@@ -152,15 +162,22 @@ public final class SnapshotManager {
         return name == null ? "" : name.getString();
     }
 
+    /**
+     * 生成本次网络离线时的快照。
+     *
+     * <p>如果此前没有快照，则使用空数据和时间戳 0；否则保留旧数据，
+     * 只刷新在线标记，方便网页显示“数据截至”。
+     */
     private static Snapshot offline(UUID accessId, Snapshot previous) {
         if (previous == null) {
-            return new Snapshot(accessId, 0L, false, List.of(), List.of());
+            return new Snapshot(accessId, 0L, false, List.of(), List.of(), List.of());
         }
         return new Snapshot(
                 accessId,
                 previous.capturedAt(),
                 false,
                 previous.inventory(),
-                previous.craftingCpus());
+                previous.craftingCpus(),
+                previous.patterns());
     }
 }

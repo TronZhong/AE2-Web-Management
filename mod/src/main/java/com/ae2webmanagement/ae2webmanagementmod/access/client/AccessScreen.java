@@ -22,6 +22,7 @@ public final class AccessScreen extends AbstractContainerScreen<AccessMenu> {
         this.imageHeight = 96;
     }
 
+    /** 初始化 GUI 尺寸对应的坐标，并添加 Register 按钮。 */
     @Override
     protected void init() {
         super.init();
@@ -32,18 +33,21 @@ public final class AccessScreen extends AbstractContainerScreen<AccessMenu> {
                         .build());
     }
 
+    /** 绘制无纹理 GUI 的半透明底色。 */
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
         guiGraphics.fill(this.leftPos, this.topPos,
                 this.leftPos + this.imageWidth, this.topPos + this.imageHeight, 0xCC101010);
     }
 
+    /** 在面板顶部绘制居中标题；不渲染玩家物品栏标签。 */
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         int titleX = (this.imageWidth - this.font.width(this.title)) / 2;
         guiGraphics.drawString(this.font, this.title, titleX, 8, 0xFFFFFF, false);
     }
 
+    /** 先绘制普通容器内容，再在状态区域绘制居中的当前状态文本。 */
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         super.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -54,6 +58,7 @@ public final class AccessScreen extends AbstractContainerScreen<AccessMenu> {
 
     // ==================== 按钮 → 发包 ====================
 
+    /** 点击 Register 后向服务端发送容器按钮包；实际注册逻辑只在服务端执行。 */
     private void onRegisterPress(Button button) {
         if (this.minecraft != null && this.minecraft.getConnection() != null) {
             this.minecraft.getConnection()
@@ -63,6 +68,7 @@ public final class AccessScreen extends AbstractContainerScreen<AccessMenu> {
 
     // ==================== 状态文字 ====================
 
+    /** 把服务端同步的状态码转换成本地化提示文本。 */
     private Component getStatusMessage() {
         int status = this.menu.getStatusData().get(0);
         return switch (status) {

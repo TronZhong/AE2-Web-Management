@@ -3,7 +3,7 @@
 浏览器侧组件，与 Minecraft 模组分离。
 
 - `backend/` — Spring Boot 后端
-- `frontend/` — 前端（预留）
+- `frontend/` — Vue 3 + Vite 前端脚手架
 
 > 权威文档：后端见 [`docs/backend/index.md`](../docs/backend/index.md)，前端见 [`docs/frontend/index.md`](../docs/frontend/index.md)。本文只作指针，请勿在此维护重复内容。
 

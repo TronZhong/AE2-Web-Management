@@ -53,7 +53,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 | `controllerKey` | `ResourceKey<Level>` + `BlockPos` | 锚点：ME 控制器的维度 + 坐标 |
 | `token` | String | 网页访问令牌（生成时随机，后端持有） |
 | `displayName` | String | 显示名 |
-| `createdAt` / `lastSeenAt` | long（时间戳） | 建档时间 / 最近一次在线时间 |
+| `createdAt` / `lastSeenAt` | long（时间戳） | 建档时间 / 最近一次在线时间；`lastSeenAt` 当前尚未随快照回写 |
 
 ### 4.2 库存/合成快照（缓存）
 
@@ -64,6 +64,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 | `online` | boolean | 采样时控制器区块是否加载、`getGrid()` 是否非 null |
 | `inventory` | `AEKey → long` 列表 | 物品种类 → 数量（聚合值，无节点来源） |
 | `craftingCpus` | 列表 | 合成 CPU 数量与忙闲状态 |
+| `patterns` | 样板摘要列表 | 每条含 `primaryOutput`、`outputs`、`inputs`；输入槽保留候选物品和倍率。当前已声明并持久化，采样待实现 |
 
 ### 4.3 待办命令（队列，持久化）
 
@@ -71,10 +72,10 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 | --- | --- | --- |
 | `id` | UUID | 命令 ID（用于回传结果） |
 | `accessId` | UUID | 目标网络 |
-| `type` | 枚举 | 现阶段仅 `CRAFT` |
-| `payload` | `AEKey` + `long` | 要合成的物品种类 + 数量（存**意图**，非预计算计划） |
+| `target` | `AEKey` 通用 NBT | 要合成的物品种类（存**意图**，非预计算计划） |
+| `amount` | long | 要合成的数量 |
 | `state` | 枚举 | `PENDING` / `SUBMITTED` / `FAILED` |
-| `submittedAt` / `result` | long / 文本 | 提交时间与结果说明 |
+| `submittedAt` / `result` | long / 文本 | 受理或状态变更时间 / 结果说明 |
 
 > 命令存的是"要合成什么"，不是预计算好的计划。因为离线时算不了；即便算了，上线时库存已变，必须**重新模拟**（见 5.4）。
 
@@ -92,7 +93,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 ### 5.2 快照循环（每 4 秒）
 
 1. 主线程上，对每个 `accessId`：检查控制器所在区块是否加载、控制器方块的 `getGrid()` 是否非 null。
-2. 在线：读 `getCachedInventory()` + `ICraftingService.getCpus()` → 组快照，`online=true`。
+2. 在线：读 `getCachedInventory()` + `ICraftingService.getCpus()` → 组快照，`online=true`；样板摘要字段已声明，采集可在后续接入 Pattern Provider。
 3. 离线：保留上一份快照，置 `online=false`。
 4. 快照写入线程安全缓存（供 HTTP 口读）+ 落盘到 `SavedData`（供重启后离线展示）。
 
@@ -147,6 +148,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 | 判断在线 | `IManagedGridNode.getGrid()` 是否 null | 同上 |
 | 库存缓存（每 tick 至多更新一次，聚合值） | `IStorageService.getCachedInventory()` | `appeng/me/service/StorageService.java` |
 | 合成 CPU 列表 | `ICraftingService.getCpus()` | `appeng/me/service/CraftingService.java` |
+| 样板/可合成摘要 | `ICraftingProvider.getAvailablePatterns()` + `IPatternDetails` | `appeng/api/networking/crafting/ICraftingProvider.java`；`appeng/api/crafting/IPatternDetails.java` |
 | 合成模拟 | `ICraftingService.beginCraftingCalculation()` | `appeng/api/networking/crafting/ICraftingService.java` |
 | 合成提交 | `ICraftingService.submitJob()` | 同上 |
 | 存档内持久数据 | Minecraft `SavedData`（挂 Overworld） | `net.minecraft.world.level.saveddata.SavedData` |

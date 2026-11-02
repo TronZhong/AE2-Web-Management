@@ -8,7 +8,7 @@
 
 - **初版本机 API 已实现**：模组提供 `/health`、`/networks`、`/networks/{id}/snapshot`、`/networks/{id}/craft`、`/networks/{id}/commands`。
 - 完整 schema、JSON Schema/OpenAPI 仍待定义；字段变更前先更新本页。
-- 目录：`contracts/`（当前仅有 [`README.md`](../../contracts/README.md) 指针）。
+- 目录：`contracts/`（当前以文档形式维护初版 API 形状）。
 
 ## 通用约定
 
@@ -24,10 +24,23 @@
 | --- | --- |
 | `GET /health` | 健康检查，返回 `{"ok":true}` |
 | `GET /networks` | 网络列表，含 `accessId`、显示名、控制器维度/坐标、在线态和快照摘要 |
-| `GET /networks/{accessId}/snapshot` | 单网络快照，含 `inventory` 和 `craftingCpus` |
+| `GET /networks/{accessId}/snapshot` | 单网络快照，含 `inventory`、`craftingCpus` 和 `patterns` |
 
 快照中的 `inventory[].key` 是 AE2 `AEKey` 通用 NBT 转换后的 JSON；`amount` 为 long。
 `craftingCpus[].name` 为空字符串表示该合成 CPU 未命名。
+
+`patterns[]` 是样板摘要的声明框架，字段来自 AE2 `IPatternDetails`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `primaryOutput` | object | 主输出 `{key, amount}`，可直接作为 `POST /craft` 的 `key` |
+| `outputs` | array | 全部样板输出，均为 `{key, amount}` |
+| `inputs` | array | 样板输入槽列表 |
+| `inputs[].possibleInputs` | array | 该输入槽可用的候选物品，均为 `{key, amount}` |
+| `inputs[].multiplier` | number | 该输入槽的倍率 |
+
+> 当前模组已声明、持久化并透传 `patterns`，但尚未从 Pattern Provider 采集实际样板；
+> 因此现有快照里该字段通常为空数组。
 
 ## 合成命令 API
 

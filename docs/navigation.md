@@ -34,6 +34,7 @@
 | 网络身份表（SavedData） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/NetworkIdentityStore.java` |
 | 快照表（SavedData） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/SnapshotStore.java` |
 | 快照采集与缓存 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/SnapshotManager.java` |
+| 样板摘要 record | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/Snapshot.java` |
 | 本地 HTTP API | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/http/LocalDataServer.java` |
 | 合成命令队列与调度 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/command/CommandManager.java` |
 | 合成命令持久化 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/CommandStore.java` |

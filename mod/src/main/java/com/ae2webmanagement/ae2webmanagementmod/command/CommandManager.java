@@ -33,6 +33,7 @@ import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.networking.ControllerBlockEntity;
 
 import com.ae2webmanagement.ae2webmanagementmod.data.CommandStore;
@@ -106,6 +107,7 @@ public final class CommandManager {
         return this.identities.containsKey(accessId);
     }
 
+    /** 按提交时间升序返回某个网络的所有命令；数据来自运行时缓存，供 HTTP 查询使用。 */
     public List<CraftCommand> getCommands(UUID accessId) {
         return this.cache.values().stream()
                 .filter(command -> command.accessId().equals(accessId))
@@ -113,6 +115,12 @@ public final class CommandManager {
                 .toList();
     }
 
+    /**
+     * 服务端停止时清空运行时状态。
+     *
+     * <p>未完成的 AE2 异步计算会被取消；已持久化到 {@link CommandStore} 的
+     * 命令历史保留在存档中，下次启动时恢复。
+     */
     public void stop() {
         for (PlanningJob job : this.planning.values()) {
             job.future().cancel(false);
@@ -123,6 +131,12 @@ public final class CommandManager {
         this.identities.clear();
     }
 
+    /**
+     * 把 HTTP 线程入队的新命令写入持久化表。
+     *
+     * <p>每 tick 最多处理 {@value #MAX_INCOMING_PER_TICK} 条，防止突发请求
+     * 在一个 tick 内产生过多磁盘写入。
+     */
     private void persistIncoming(CommandStore store) {
         for (int i = 0; i < MAX_INCOMING_PER_TICK; i++) {
             CraftCommand command = this.incoming.poll();
@@ -134,6 +148,11 @@ public final class CommandManager {
         }
     }
 
+    /**
+     * 扫描所有待处理命令，并为在线网络的命令启动 AE2 重算。
+     *
+     * <p>离线网络的命令保持 {@code PENDING}，等网络恢复后自动继续。
+     */
     private void startPendingCalculations(MinecraftServer server, CommandStore store) {
         for (CraftCommand command : List.copyOf(store.getAll())) {
             if (command.state() != CommandState.PENDING || this.planning.containsKey(command.id())) {
@@ -148,6 +167,12 @@ public final class CommandManager {
         }
     }
 
+    /**
+     * 解析命令目标并启动 AE2 异步重算。
+     *
+     * <p>这里只发起计算，不等待结果；成功返回的 Future 交给
+     * {@link #completeCalculations} 在后续主线程 tick 中收割。
+     */
     private void beginCalculation(CommandStore store, CraftCommand command, CraftingContext ctx) {
         Optional<AEKey> target;
         try {
@@ -177,6 +202,12 @@ public final class CommandManager {
         }
     }
 
+    /**
+     * 收割已经完成的 AE2 重算结果。
+     *
+     * <p>可执行计划会交给 {@link #submitPlan} 提交；simulation plan、异常、
+     * 超时或空结果都会把命令标记为 {@code FAILED}。
+     */
     private void completeCalculations(MinecraftServer server, CommandStore store) {
         long now = System.currentTimeMillis();
         Iterator<Map.Entry<UUID, PlanningJob>> iterator = this.planning.entrySet().iterator();
@@ -221,7 +252,8 @@ public final class CommandManager {
                 continue;
             }
             if (plan.simulation()) {
-                fail(store, command.get(), "calculation returned a simulation plan");
+                fail(store, command.get(),
+                        "AE2 can only create a simulation plan; missing: " + describeMissingItems(plan));
                 iterator.remove();
                 continue;
             }
@@ -231,6 +263,28 @@ public final class CommandManager {
         }
     }
 
+    /** 把 AE2 计划中的缺失物品转换成便于写入日志和 HTTP result 的文本。 */
+    private static String describeMissingItems(ICraftingPlan plan) {
+        KeyCounter missing = plan.missingItems();
+        if (missing == null || missing.isEmpty()) {
+            return "AE2 did not report missing items (check patterns/providers/CPU selection)";
+        }
+
+        StringBuilder text = new StringBuilder();
+        for (var entry : missing) {
+            if (!text.isEmpty()) {
+                text.append(", ");
+            }
+            text.append(entry.getKey().getId()).append(" x").append(entry.getLongValue());
+        }
+        return text.toString();
+    }
+
+    /**
+     * 把 AE2 已生成的可执行计划提交给目标网络。
+     *
+     * <p>提交成功时记录 AE2 的 craftingId；拒绝或异常时把命令标记为失败。
+     */
     private void submitPlan(MinecraftServer server, CommandStore store, CraftCommand command, ICraftingPlan plan) {
         Optional<CraftingContext> context = findContext(server, command.accessId());
         if (context.isEmpty()) {
@@ -262,6 +316,11 @@ public final class CommandManager {
         }
     }
 
+    /**
+     * 根据网络身份定位当前可用的 AE2 合成服务。
+     *
+     * <p>要求控制器所在区块已加载、网格在线、节点可用，且 crafting service 存在。
+     */
     private Optional<CraftingContext> findContext(MinecraftServer server, UUID accessId) {
         NetworkIdentity identity = this.identities.get(accessId);
         if (identity == null) {
@@ -291,11 +350,13 @@ public final class CommandManager {
         return Optional.of(new CraftingContext(level, node, crafting));
     }
 
+    /** 同步写入持久化表和 HTTP 可读的运行时缓存。 */
     private void update(CommandStore store, CraftCommand command) {
         store.put(command);
         this.cache.put(command.id(), command);
     }
 
+    /** 将命令标记为失败，并把原因保存到 result 字段。 */
     private void fail(CommandStore store, CraftCommand command, String result) {
         update(store, command.withState(CommandState.FAILED, System.currentTimeMillis(), result));
     }
@@ -315,25 +376,28 @@ public final class CommandManager {
             this.node = node;
         }
 
+        /** 返回 AE2 用来做权限、安全和网格归属判断的节点。 */
         @Override
         public IGridNode getActionableNode() {
             return this.node;
         }
 
+        /** 当前请求者不保存待恢复链接；链接状态由 AE2 CraftingService 管理。 */
         @Override
         public ImmutableSet<ICraftingLink> getRequestedJobs() {
             return ImmutableSet.of();
         }
 
+        /** 顶层合成产物由 AE2 的 CPU 完成时直接存入网络；此请求者不接收节点投料。 */
         @Override
         public long insertCraftedItems(ICraftingLink link, AEKey what, long amount, Actionable mode) {
-            // 顶层合成产物由 AE2 的 CPU 完成时直接存入网络；此请求者不接收节点投料。
             return 0;
         }
 
+        /** 当前契约只记录到 SUBMITTED；后续可在此回写 COMPLETED/CANCELLED。 */
         @Override
         public void jobStateChange(ICraftingLink link) {
-            // 当前契约只记录到 SUBMITTED；后续可在此回写 COMPLETED/CANCELLED。
+            // 预留：后续同步 AE2 链接完成/取消状态。
         }
     }
 }

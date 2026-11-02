@@ -90,6 +90,7 @@ public final class NetworkIdentityStore extends SavedData {
         return store;
     }
 
+    /** 把全部身份记录序列化为 SavedData NBT。 */
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         ListTag list = new ListTag();
@@ -150,6 +151,7 @@ public final class NetworkIdentityStore extends SavedData {
 
     // ==================== 工具 ====================
 
+    /** 组合“维度|坐标”字符串，作为控制器锚点的内存索引键。 */
     private static String anchorKey(ResourceKey<Level> levelKey, BlockPos pos) {
         return levelKey.location() + "|" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
     }

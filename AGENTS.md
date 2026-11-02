@@ -18,8 +18,8 @@
 | --- | --- |
 | `mod/` | NeoForge 1.21.1 模组（Java 21）；负责读写 AE2 网络状态，仅暴露本机数据口。 |
 | `web/backend/` | Spring Boot 4.1 MVC 后端；负责 Web API、认证、授权、持久化与请求转发。 |
-| `web/frontend/` | 预留的浏览器 UI；只与后端通信。 |
-| `contracts/` | 预留的版本化模组↔后端契约。 |
+| `web/frontend/` | Vue 3 + Vite 前端脚手架；只与后端通信。 |
+| `contracts/` | 初版本机 API 契约说明；完整 schema 待定义。 |
 | `docs/` | 权威文档；项目结构、源码映射与设计决策均从这里查。 |
 
 后端按 `controller` / `service` / `repository` / `domain` / `dto` / `client` / `config` 分层。模组与后端不得共享实现类，只能通过契约对齐。
@@ -57,7 +57,7 @@ cd .\web\backend
 ## 提交与 PR
 
 - 沿用现有 Conventional Commits：`feat:`、`fix:`、`docs:`、`build:`、`test:`、`refactor:`，后接简短说明，例如 `feat: 支持网络库存查询`。
-- 版本号在 `mod/gradle.properties` 的 `mod_version` 中维护；当前为 `0.0.4`，以后每完成一次提交，下一版本号递增 1，例如 `0.0.5`、`0.0.6`。
+- 版本号在 `mod/gradle.properties` 的 `mod_version` 中维护；当前为 `0.0.5`，以后每完成一次提交，下一版本号递增 1，例如 `0.0.6`、`0.0.7`。
 - 一次提交只处理一个主题；PR 说明应包含变更范围、行为变化、验证命令和相关 Issue。
 - UI 变更附截图；API、契约、配置或依赖变更必须单独说明。
 - 合并前确保模组 CI 与受影响的本地测试通过。
@@ -65,7 +65,7 @@ cd .\web\backend
 ## 架构与安全
 
 ```
-前端（预留）:5173 → 后端:8080 → 模组 127.0.0.1:8090
+前端:5173 → 后端:8080 → 模组 127.0.0.1:8090
 ```
 
 后端通过 `X-Shared-Secret` 调用模组；模组数据口不得对外暴露。所有 Minecraft/AE2 状态访问必须经 `MinecraftServer#execute` 调度到主线程。部署前替换 `change-me` 和空共享密钥，禁止提交数据库、运行目录或凭证。

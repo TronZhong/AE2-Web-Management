@@ -39,6 +39,7 @@ public final class CommandStore extends SavedData {
 
     private final Map<UUID, CraftCommand> commands = new HashMap<>();
 
+    /** 创建空表；通常由 Minecraft 的 SavedData 工厂调用。 */
     public CommandStore() {
     }
 
@@ -50,6 +51,7 @@ public final class CommandStore extends SavedData {
                 SAVED_DATA_KEY);
     }
 
+    /** 从 SavedData NBT 恢复命令记录；未知状态按失败处理，避免启动崩溃。 */
     public static CommandStore load(CompoundTag tag, HolderLookup.Provider registries) {
         CommandStore store = new CommandStore();
         ListTag list = tag.getList(KEY_COMMANDS, Tag.TAG_COMPOUND);
@@ -75,6 +77,7 @@ public final class CommandStore extends SavedData {
         return store;
     }
 
+    /** 把全部命令序列化为 SavedData NBT。 */
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         ListTag list = new ListTag();
@@ -93,19 +96,23 @@ public final class CommandStore extends SavedData {
         return tag;
     }
 
+    /** 新增或更新命令，并标记 SavedData 为脏数据以便自动保存。 */
     public void put(CraftCommand command) {
         this.commands.put(command.id(), command);
         setDirty();
     }
 
+    /** 按 commandId 查找命令。 */
     public Optional<CraftCommand> get(UUID id) {
         return Optional.ofNullable(this.commands.get(id));
     }
 
+    /** 获取全部命令的只读视图；顺序不保证稳定。 */
     public Collection<CraftCommand> getAll() {
         return Collections.unmodifiableCollection(this.commands.values());
     }
 
+    /** 获取某个网络的命令，并按提交时间升序排列。 */
     public List<CraftCommand> getForNetwork(UUID accessId) {
         List<CraftCommand> result = new ArrayList<>();
         for (CraftCommand command : this.commands.values()) {

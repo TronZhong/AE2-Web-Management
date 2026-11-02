@@ -91,6 +91,7 @@ public final class AccessRegistration {
 
     // ------------------------------ AE2 网格 capability ------------------------------
 
+    /** 把接入方块实体暴露成 AE2 的世界内网格节点宿主。 */
     @SubscribeEvent
     public static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(

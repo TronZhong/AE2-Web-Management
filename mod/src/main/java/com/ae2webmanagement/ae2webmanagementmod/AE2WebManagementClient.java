@@ -17,10 +17,12 @@ import com.ae2webmanagement.ae2webmanagementmod.access.client.AccessScreen;
 @Mod(value = AE2WebManagement.MODID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid = AE2WebManagement.MODID, value = Dist.CLIENT)
 public class AE2WebManagementClient {
+    /** 仅客户端入口：注册模组配置界面的工厂。 */
     public AE2WebManagementClient(ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
     }
 
+    /** 客户端生命周期日志，便于确认客户端侧初始化已执行。 */
     @SubscribeEvent
     static void onClientSetup(FMLClientSetupEvent event) {
         AE2WebManagement.LOGGER.info("HELLO FROM CLIENT SETUP");

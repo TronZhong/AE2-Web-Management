@@ -15,7 +15,7 @@
 | Gradle 插件 | NeoGradle ModDev 2.0.148 |
 | 映射 | Parchment `2024.11.17`（MC 1.21.1） |
 | Java | 21 |
-| 版本 | `0.0.4` |
+| 版本 | `0.0.5` |
 | mod_id / 包名 | `ae2webmanagement` / `com.ae2webmanagement.ae2webmanagementmod` |
 
 ## 目录结构与源码映射
@@ -41,9 +41,9 @@
 | [`../../mod/src/main/java/.../network/NetworkIdentity.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/network/NetworkIdentity.java) | 网络接入身份（数据记录：`accessId` + 控制器锚点 + token） |
 | [`../../mod/src/main/java/.../data/NetworkIdentityStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/NetworkIdentityStore.java) | Overworld 网络身份表（`ae2web_identities.dat`） |
 | **`snapshot/`** — 快照 | |
-| [`../../mod/src/main/java/.../snapshot/Snapshot.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/Snapshot.java) | 库存、合成 CPU、采样时间和在线态 |
+| [`../../mod/src/main/java/.../snapshot/Snapshot.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/Snapshot.java) | 库存、合成 CPU、样板摘要、采样时间和在线态 |
 | [`../../mod/src/main/java/.../snapshot/SnapshotManager.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/SnapshotManager.java) | 主线程 4 秒采样、内存缓存、离线保留 |
-| [`../../mod/src/main/java/.../data/SnapshotStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/SnapshotStore.java) | Overworld 快照表（`ae2web_snapshots.dat`） |
+| [`../../mod/src/main/java/.../data/SnapshotStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/SnapshotStore.java) | Overworld 快照表（`ae2web_snapshots.dat`），含库存、CPU 和样板摘要 |
 | **`command/`** — 合成命令 | |
 | [`../../mod/src/main/java/.../command/CraftCommand.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/command/CraftCommand.java) | 合成意图记录：目标 `AEKey`、数量、状态、结果 |
 | [`../../mod/src/main/java/.../command/CommandState.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/command/CommandState.java) | 命令状态枚举（PENDING/SUBMITTED/FAILED） |
@@ -62,7 +62,7 @@
 | `minecraft_version` | `1.21.1` | 目标 MC 版本 |
 | `neo_version` | `21.1.265` | 必须与 MC 版本一致 |
 | `ae2_version` | `19.2.18` | AE2 依赖版本（`build.gradle` 引用） |
-| `mod_version` | `0.0.4` | 每次提交递增补丁号 |
+| `mod_version` | `0.0.5` | 每次提交递增补丁号 |
 | `mod_id` | `ae2webmanagement` | 必须与主类 `MODID` 一致 |
 | `mod_name` | `AE2 Web Management` | 展示名 |
 | `mod_group_id` | `com.ae2webmanagement.ae2webmanagementmod` | 应与源码基础包一致 |
@@ -84,6 +84,7 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 
 - [x] **AE2 接入与身份表**：接入方块作为网格节点定位控制器，身份表统一存 Overworld。
 - [x] **快照循环**：每 4 秒读取 `getCachedInventory()` 与 `getCpus()`，离线时保留最后数据。
+- [x] **样板列表声明框架**：`Snapshot.PatternEntry` 与快照/持久化/HTTP 字段已搭好；Pattern Provider 采样待实现。
 - [x] **方块与 GUI**：方块使用默认缺失纹理渲染；GUI 只包含标题、状态和注册按钮。
 - [x] **本机 API**：仅绑定回环地址，支持健康检查、网络列表、快照查询、命令投递和命令查询。
 - [x] **命令队列**：HTTP 只入队，主线程持久化并用 AE2 异步重算后提交。

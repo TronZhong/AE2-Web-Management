@@ -35,6 +35,12 @@ public final class SnapshotStore extends SavedData {
     private static final String KEY_STACK = "key";
     private static final String KEY_AMOUNT = "amount";
     private static final String KEY_CPUS = "craftingCpus";
+    private static final String KEY_PATTERNS = "patterns";
+    private static final String KEY_PRIMARY_OUTPUT = "primaryOutput";
+    private static final String KEY_OUTPUTS = "outputs";
+    private static final String KEY_INPUTS = "inputs";
+    private static final String KEY_POSSIBLE_INPUTS = "possibleInputs";
+    private static final String KEY_MULTIPLIER = "multiplier";
     private static final String KEY_CPU_NAME = "name";
     private static final String KEY_CPU_BUSY = "busy";
     private static final String KEY_CPU_STORAGE = "availableStorage";
@@ -42,6 +48,7 @@ public final class SnapshotStore extends SavedData {
 
     private final Map<UUID, Snapshot> snapshots = new HashMap<>();
 
+    /** 创建空表；通常由 Minecraft 的 SavedData 工厂调用。 */
     public SnapshotStore() {
     }
 
@@ -53,6 +60,7 @@ public final class SnapshotStore extends SavedData {
                 SAVED_DATA_KEY);
     }
 
+    /** 从 SavedData NBT 恢复每个网络的最后一次快照。 */
     public static SnapshotStore load(CompoundTag tag, HolderLookup.Provider registries) {
         SnapshotStore store = new SnapshotStore();
         ListTag list = tag.getList(KEY_SNAPSHOTS, Tag.TAG_COMPOUND);
@@ -82,11 +90,15 @@ public final class SnapshotStore extends SavedData {
                         cpu.getInt(KEY_CPU_COPROCESSORS)));
             }
 
-            store.snapshots.put(accessId, new Snapshot(accessId, capturedAt, online, inventory, cpus));
+            List<Snapshot.PatternEntry> patterns = loadPatterns(entry);
+
+            store.snapshots.put(accessId,
+                    new Snapshot(accessId, capturedAt, online, inventory, cpus, patterns));
         }
         return store;
     }
 
+    /** 把全部快照序列化为 SavedData NBT。 */
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         ListTag list = new ListTag();
@@ -115,6 +127,7 @@ public final class SnapshotStore extends SavedData {
                 cpuTag.add(cpuEntry);
             }
             entry.put(KEY_CPUS, cpuTag);
+            entry.put(KEY_PATTERNS, savePatterns(snapshot.patterns()));
 
             list.add(entry);
         }
@@ -122,15 +135,100 @@ public final class SnapshotStore extends SavedData {
         return tag;
     }
 
+    /** 从 NBT 恢复样板摘要；旧存档没有该字段时得到空列表。 */
+    private static List<Snapshot.PatternEntry> loadPatterns(CompoundTag entry) {
+        ListTag patternTag = entry.getList(KEY_PATTERNS, Tag.TAG_COMPOUND);
+        List<Snapshot.PatternEntry> patterns = new ArrayList<>(patternTag.size());
+        for (int i = 0; i < patternTag.size(); i++) {
+            CompoundTag pattern = patternTag.getCompound(i);
+            patterns.add(new Snapshot.PatternEntry(
+                    loadStack(pattern.getCompound(KEY_PRIMARY_OUTPUT)),
+                    loadStacks(pattern.getList(KEY_OUTPUTS, Tag.TAG_COMPOUND)),
+                    loadPatternInputs(pattern.getList(KEY_INPUTS, Tag.TAG_COMPOUND))));
+        }
+        return patterns;
+    }
+
+    /** 把样板摘要序列化为 SavedData NBT。 */
+    private static ListTag savePatterns(List<Snapshot.PatternEntry> patterns) {
+        ListTag patternTag = new ListTag();
+        for (Snapshot.PatternEntry pattern : patterns) {
+            CompoundTag entry = new CompoundTag();
+            entry.put(KEY_PRIMARY_OUTPUT, saveStack(pattern.primaryOutput()));
+            entry.put(KEY_OUTPUTS, saveStacks(pattern.outputs()));
+            entry.put(KEY_INPUTS, savePatternInputs(pattern.inputs()));
+            patternTag.add(entry);
+        }
+        return patternTag;
+    }
+
+    /** 从 NBT 恢复样板输入槽；每个输入槽包含候选物品列表和倍率。 */
+    private static List<Snapshot.PatternEntry.PatternInputEntry> loadPatternInputs(ListTag tag) {
+        List<Snapshot.PatternEntry.PatternInputEntry> inputs = new ArrayList<>(tag.size());
+        for (int i = 0; i < tag.size(); i++) {
+            CompoundTag input = tag.getCompound(i);
+            inputs.add(new Snapshot.PatternEntry.PatternInputEntry(
+                    loadStacks(input.getList(KEY_POSSIBLE_INPUTS, Tag.TAG_COMPOUND)),
+                    input.getLong(KEY_MULTIPLIER)));
+        }
+        return inputs;
+    }
+
+    /** 把样板输入槽序列化为 SavedData NBT。 */
+    private static ListTag savePatternInputs(List<Snapshot.PatternEntry.PatternInputEntry> inputs) {
+        ListTag tag = new ListTag();
+        for (Snapshot.PatternEntry.PatternInputEntry input : inputs) {
+            CompoundTag entry = new CompoundTag();
+            entry.put(KEY_POSSIBLE_INPUTS, saveStacks(input.possibleInputs()));
+            entry.putLong(KEY_MULTIPLIER, input.multiplier());
+            tag.add(entry);
+        }
+        return tag;
+    }
+
+    /** 从 NBT 恢复一条 AEKey + amount 记录。 */
+    private static Snapshot.StackEntry loadStack(CompoundTag tag) {
+        return new Snapshot.StackEntry(tag.getCompound(KEY_STACK).copy(), tag.getLong(KEY_AMOUNT));
+    }
+
+    /** 从 NBT 恢复一组 AEKey + amount 记录。 */
+    private static List<Snapshot.StackEntry> loadStacks(ListTag tag) {
+        List<Snapshot.StackEntry> stacks = new ArrayList<>(tag.size());
+        for (int i = 0; i < tag.size(); i++) {
+            stacks.add(loadStack(tag.getCompound(i)));
+        }
+        return stacks;
+    }
+
+    /** 把一条 AEKey + amount 记录序列化为 SavedData NBT。 */
+    private static CompoundTag saveStack(Snapshot.StackEntry stack) {
+        CompoundTag entry = new CompoundTag();
+        entry.put(KEY_STACK, stack.key().copy());
+        entry.putLong(KEY_AMOUNT, stack.amount());
+        return entry;
+    }
+
+    /** 把一组 AEKey + amount 记录序列化为 SavedData NBT。 */
+    private static ListTag saveStacks(List<Snapshot.StackEntry> stacks) {
+        ListTag tag = new ListTag();
+        for (Snapshot.StackEntry stack : stacks) {
+            tag.add(saveStack(stack));
+        }
+        return tag;
+    }
+
+    /** 新增或替换某网络的最后快照，并标记 SavedData 为脏数据。 */
     public void put(Snapshot snapshot) {
         this.snapshots.put(snapshot.accessId(), snapshot);
         setDirty();
     }
 
+    /** 按网络身份读取最后快照。 */
     public Optional<Snapshot> get(UUID accessId) {
         return Optional.ofNullable(this.snapshots.get(accessId));
     }
 
+    /** 获取全部最后快照的只读视图。 */
     public Collection<Snapshot> getAll() {
         return Collections.unmodifiableCollection(this.snapshots.values());
     }

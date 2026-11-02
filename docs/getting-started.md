@@ -11,6 +11,7 @@
 | 全部 | JDK 21（LTS） |
 | 模组 | NeoForge（Gradle 通过 wrapper 自动下载） |
 | 后端 | Maven Wrapper（`web/backend/mvnw.cmd`，无需手动装 Maven） |
+| 前端 | Node.js / npm（Vue 3 + Vite） |
 | IDE | 推荐 IntelliJ IDEA（社区版即可） |
 
 ### 本机已装环境（备忘）
@@ -48,9 +49,23 @@ cd .\web\backend
 - 在 `web/backend/data/` 生成 H2 文件数据库（已加入 `.gitignore`）。
 - 读取 `src/main/resources/application.yaml` 中的 `app.*` 配置。
 
+### 前端
+
+在 `web/frontend` 目录执行：
+
+```powershell
+cd .\web\frontend
+npm install   # 首次安装依赖
+npm run dev   # 本地开发，默认 5173
+npm run build # 生产构建
+```
+
+当前前端仍是脚手架，业务页面尚未接入后端。
+
 ## 相关文档
 
 - [架构总览](architecture.md)
 - [模组](mod/index.md)
 - [后端](backend/index.md)
+- [前端](frontend/index.md)
 - [定位指南与源码映射](navigation.md)

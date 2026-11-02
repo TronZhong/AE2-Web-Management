@@ -1,7 +1,5 @@
-# 前端
+# Vue 3 + Vite 前端
 
-浏览器 UI（预留，尚未选择框架与包结构）。
+业务 UI 尚未接入后端；当前是 Vue 3 + Vite 脚手架。
 
-> 权威文档见 [`docs/frontend/index.md`](../../docs/frontend/index.md)。本文只作指针。
-
-前端只与 `../backend` 的公开 API 通信。
+权威文档见 [`docs/frontend/index.md`](../../docs/frontend/index.md)。本文只作指针，请勿在此维护重复内容。

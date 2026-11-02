@@ -1,6 +1,6 @@
 # 数据契约
 
-模组与后端之间交换数据的版本化 schema（预留，尚未定义）。
+模组与后端之间交换数据的版本化 schema；当前已定义初版本机 API 形状，完整 schema 待补充。
 
 > 权威文档见 [`docs/contracts/index.md`](../docs/contracts/index.md)。本文只作指针。
 

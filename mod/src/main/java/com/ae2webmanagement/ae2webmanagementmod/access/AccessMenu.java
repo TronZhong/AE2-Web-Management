@@ -59,6 +59,7 @@ public class AccessMenu extends AbstractContainerMenu {
 
     // ==================== 按钮 → 业务逻辑 ====================
 
+    /** 处理 GUI 中的按钮点击；只有服务端菜单能调用方块实体的注册逻辑。 */
     @Override
     public boolean clickMenuButton(Player player, int buttonId) {
         if (buttonId == BUTTON_REGISTER && be != null) {
@@ -72,15 +73,18 @@ public class AccessMenu extends AbstractContainerMenu {
 
     // ==================== 快速访问状态 ====================
 
+    /** 提供客户端屏幕读取的状态同步槽。 */
     public ContainerData getStatusData() {
         return this.statusData;
     }
 
+    /** 该菜单没有物品槽，因此禁止 shift 点击移动物品。 */
     @Override
     public ItemStack quickMoveStack(Player player, int slot) {
-        return ItemStack.EMPTY; // 无物品移入移出逻辑
+        return ItemStack.EMPTY;
     }
 
+    /** 这个 GUI 是短生命周期菜单，始终允许保留打开状态。 */
     @Override
     public boolean stillValid(Player player) {
         return true;

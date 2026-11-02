@@ -22,21 +22,25 @@ public class AccessBlock extends BaseEntityBlock {
         super(properties);
     }
 
+    /** 声明方块保存/加载时使用哪个构造器重建。 */
     @Override
     protected MapCodec<? extends BaseEntityBlock> codec() {
         return simpleCodec(AccessBlock::new);
     }
 
+    /** 让方块本体按模型渲染；BaseEntityBlock 默认会返回 INVISIBLE。 */
     @Override
     protected RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
     }
 
+    /** 在指定坐标创建接入方块的方块实体。 */
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new AccessBlockEntity(pos, state);
     }
 
+    /** 玩家空手右击时打开注册 GUI；服务端负责打开菜单，客户端返回成功表示已处理。 */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
             Player player, BlockHitResult hitResult) {

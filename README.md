@@ -9,7 +9,7 @@
 - **前端**（浏览器）：只与后端通信，不直接接触 Minecraft/AE2。
 - **契约**（contracts）：模组与后端之间交换数据的版本化约定。
 
-> 当前状态：模组已实现接入方块、控制器身份表、4 秒快照、本机查询 API 和合成命令队列；后端已搭建分层框架；`contracts` 完整 schema 与 `frontend` 仍为占位。
+> 当前状态：模组已实现接入方块、控制器身份表、4 秒快照、本机查询 API 和合成命令队列，样板列表仅完成声明框架；后端已搭建分层框架；前端已初始化 Vue 3 + Vite，业务 UI 待接入；`contracts` 完整 schema 仍待定义。
 
 ## 文档在哪里
 
@@ -23,8 +23,8 @@
 | 如何快速定位某段代码 | [`docs/navigation.md`](docs/navigation.md) |
 | 模组 | [`docs/mod/`](docs/mod/index.md) |
 | 后端 | [`docs/backend/`](docs/backend/index.md) |
-| 前端（预留） | [`docs/frontend/`](docs/frontend/index.md) |
-| 数据契约（预留） | [`docs/contracts/`](docs/contracts/index.md) |
+| 前端 | [`docs/frontend/`](docs/frontend/index.md) |
+| 数据契约 | [`docs/contracts/`](docs/contracts/index.md) |
 
 ## 目录结构
 
@@ -34,8 +34,8 @@ ae2_web/
 ├── mod/                # NeoForge 模组工程
 ├── web/
 │   ├── backend/        # Spring Boot 后端
-│   └── frontend/       # 前端（预留）
-└── contracts/          # 数据契约（预留）
+│   └── frontend/       # Vue 3 + Vite 前端脚手架
+└── contracts/          # 数据契约（初版形状，完整 schema 待定义）
 ```
 
 ## 快速构建
