@@ -27,6 +27,7 @@
 | `GET /networks/{accessId}/snapshot` | 单网络快照，含 `inventory` 和 `craftingCpus` |
 
 快照中的 `inventory[].key` 是 AE2 `AEKey` 通用 NBT 转换后的 JSON；`amount` 为 long。
+`craftingCpus[].name` 为空字符串表示该合成 CPU 未命名。
 
 ## 合成命令 API
 

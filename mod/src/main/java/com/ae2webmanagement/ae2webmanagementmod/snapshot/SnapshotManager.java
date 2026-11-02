@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -133,13 +134,22 @@ public final class SnapshotManager {
         List<Snapshot.CpuEntry> cpus = new ArrayList<>();
         for (ICraftingCPU cpu : crafting.getCpus()) {
             cpus.add(new Snapshot.CpuEntry(
-                    cpu.getName().getString(),
+                    cpuName(cpu),
                     cpu.isBusy(),
                     cpu.getAvailableStorage(),
                     cpu.getCoProcessors()));
         }
 
         return new Snapshot(identity.accessId(), System.currentTimeMillis(), true, inventory, cpus);
+    }
+
+    /**
+     * AE2 的 {@link ICraftingCPU#getName()} 允许返回 {@code null}：
+     * 未命名 CPU 的名称不会自动生成。快照契约统一用空字符串表示未命名。
+     */
+    private static String cpuName(ICraftingCPU cpu) {
+        Component name = cpu.getName();
+        return name == null ? "" : name.getString();
     }
 
     private static Snapshot offline(UUID accessId, Snapshot previous) {
