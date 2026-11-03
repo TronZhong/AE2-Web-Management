@@ -2,10 +2,13 @@ package com.ae2webmanagement.ae2webmanagementmod.snapshot;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,10 +21,14 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingCPU;
+import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.GenericStack;
 import appeng.blockentity.networking.ControllerBlockEntity;
 
 import com.ae2webmanagement.ae2webmanagementmod.Config;
@@ -106,8 +113,8 @@ public final class SnapshotManager {
     /**
      * 采集一个网络的当前状态。
      *
-     * <p>先检查控制器所在区块和 AE2 网格是否在线；在线时读取网络库存缓存
-     * 和合成 CPU 状态，离线时保留上一次快照但把 {@code online} 置为 false。
+     * <p>先检查控制器所在区块和 AE2 网格是否在线；在线时读取网络库存缓存、
+     * 合成 CPU 状态和样板摘要，离线时保留上一次快照但把 {@code online} 置为 false。
      */
     private Snapshot capture(MinecraftServer server, NetworkIdentity identity, Snapshot previous) {
         ServerLevel level = server.getLevel(identity.controllerLevel());
@@ -150,7 +157,90 @@ public final class SnapshotManager {
                     cpu.getCoProcessors()));
         }
 
-        return new Snapshot(identity.accessId(), System.currentTimeMillis(), true, inventory, cpus, List.of());
+        return new Snapshot(
+                identity.accessId(),
+                System.currentTimeMillis(),
+                true,
+                inventory,
+                cpus,
+                capturePatterns(grid, level));
+    }
+
+    /**
+     * 采集一个网络的样板摘要，对应 docs/design.md §9 的
+     * {@code ICraftingProvider.getAvailablePatterns()} + {@code IPatternDetails}。
+     *
+     * <p>AE2 公开 API 没有“枚举全部样板”的入口，因此遍历网格节点逐一取
+     * {@code ICraftingProvider}；同一编码样板放进多个样板供应器会重复出现，
+     * 按 {@code IPatternDetails} 的 equals 契约用 {@link LinkedHashSet} 去重。
+     * 结果按主输出排序，保证两次快照之间顺序稳定、便于前端对比。
+     *
+     * <p>成本：{@code getAvailablePatterns()} 是供应器内部已解码列表的 O(1) getter，
+     * 全量重建（含 {@code AEKey#toTagGeneric}）每 4 秒一次，与库存采集同构。
+     */
+    private static List<Snapshot.PatternEntry> capturePatterns(IGrid grid, ServerLevel level) {
+        Set<IPatternDetails> uniquePatterns = new LinkedHashSet<>();
+        for (IGridNode node : grid.getNodes()) {
+            ICraftingProvider provider = node.getService(ICraftingProvider.class);
+            if (provider != null) {
+                uniquePatterns.addAll(provider.getAvailablePatterns());
+            }
+        }
+
+        List<Snapshot.PatternEntry> patterns = new ArrayList<>(uniquePatterns.size());
+        for (IPatternDetails details : uniquePatterns) {
+            if (details.getOutputs().isEmpty()) {
+                continue; // 防御：无输出的样板无法在网页上表达，跳过
+            }
+            patterns.add(toPatternEntry(details, level));
+        }
+        patterns.sort(Comparator.comparing(
+                (Snapshot.PatternEntry pattern) -> pattern.primaryOutput().key().toString()));
+        return patterns;
+    }
+
+    /**
+     * 把 AE2 的 {@link IPatternDetails} 映射为快照样板摘要，字段对应
+     * docs/contracts/index.md 的 patterns 形状；输入槽实际需求量 =
+     * {@code possibleInputs[i].amount × multiplier}。
+     */
+    private static Snapshot.PatternEntry toPatternEntry(IPatternDetails details, ServerLevel level) {
+        List<Snapshot.StackEntry> outputs = new ArrayList<>();
+        for (GenericStack output : details.getOutputs()) {
+            outputs.add(toStackEntry(output, level));
+        }
+
+        List<Snapshot.PatternEntry.PatternInputEntry> inputs = new ArrayList<>();
+        for (IPatternDetails.IInput input : details.getInputs()) {
+            GenericStack[] possibleInputs = input.getPossibleInputs();
+            if (possibleInputs.length == 0) {
+                continue; // 防御：空输入槽不进入摘要
+            }
+            inputs.add(new Snapshot.PatternEntry.PatternInputEntry(
+                    toStackEntries(possibleInputs, level),
+                    input.getMultiplier()));
+        }
+
+        return new Snapshot.PatternEntry(
+                toStackEntry(details.getPrimaryOutput(), level),
+                outputs,
+                inputs);
+    }
+
+    /** 把 AE2 {@link GenericStack} 转成快照条目：AEKey 存通用 NBT，数量为 long。 */
+    private static Snapshot.StackEntry toStackEntry(GenericStack stack, ServerLevel level) {
+        return new Snapshot.StackEntry(
+                stack.what().toTagGeneric(level.registryAccess()),
+                stack.amount());
+    }
+
+    /** 批量把 AE2 {@link GenericStack} 数组转成快照条目列表。 */
+    private static List<Snapshot.StackEntry> toStackEntries(GenericStack[] stacks, ServerLevel level) {
+        List<Snapshot.StackEntry> entries = new ArrayList<>(stacks.length);
+        for (GenericStack stack : stacks) {
+            entries.add(toStackEntry(stack, level));
+        }
+        return entries;
     }
 
     /**

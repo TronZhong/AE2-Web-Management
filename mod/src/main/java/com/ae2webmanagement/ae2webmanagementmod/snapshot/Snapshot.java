@@ -16,7 +16,7 @@ import net.minecraft.nbt.CompoundTag;
  * @param online       采样时控制器区块是否加载且网格可用
  * @param inventory    物品种类及其数量
  * @param craftingCpus 合成 CPU 状态
- * @param patterns     网络中可提供给 AE2 的样板摘要；当前仅声明与持久化，采样待实现
+ * @param patterns     网络中可提供给 AE2 的样板摘要，采集自 ICraftingProvider，与库存同循环全量重采
  */
 public record Snapshot(
         UUID accessId,

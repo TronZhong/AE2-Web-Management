@@ -39,8 +39,10 @@
 | `inputs[].possibleInputs` | array | 该输入槽可用的候选物品，均为 `{key, amount}` |
 | `inputs[].multiplier` | number | 该输入槽的倍率 |
 
-> 当前模组已声明、持久化并透传 `patterns`，但尚未从 Pattern Provider 采集实际样板；
-> 因此现有快照里该字段通常为空数组。
+> `patterns` 由模组每 4 秒全量采集自 AE2 `ICraftingProvider`（同一编码样板在多个
+> 样板供应器间按 `IPatternDetails` 去重，并按主输出排序）。输入槽的实际需求量 =
+> `possibleInputs[i].amount × multiplier`。网络离线时保留最近一次在线的样板值；
+> 从未在线（无任何快照）时为空数组。
 
 ## 合成命令 API
 

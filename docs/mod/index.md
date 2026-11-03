@@ -84,7 +84,7 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 
 - [x] **AE2 接入与身份表**：接入方块作为网格节点定位控制器，身份表统一存 Overworld。
 - [x] **快照循环**：每 4 秒读取 `getCachedInventory()` 与 `getCpus()`，离线时保留最后数据。
-- [x] **样板列表声明框架**：`Snapshot.PatternEntry` 与快照/持久化/HTTP 字段已搭好；Pattern Provider 采样待实现。
+- [x] **样板摘要采集**：`SnapshotManager.capturePatterns` 遍历 `ICraftingProvider` 采集、按 `IPatternDetails` 去重，随快照缓存/持久化/HTTP 透传。
 - [x] **方块与 GUI**：方块使用默认缺失纹理渲染；GUI 只包含标题、状态和注册按钮。
 - [x] **本机 API**：仅绑定回环地址，支持健康检查、网络列表、快照查询、命令投递和命令查询。
 - [x] **命令队列**：HTTP 只入队，主线程持久化并用 AE2 异步重算后提交。

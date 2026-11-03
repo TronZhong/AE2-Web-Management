@@ -64,7 +64,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 | `online` | boolean | 采样时控制器区块是否加载、`getGrid()` 是否非 null |
 | `inventory` | `AEKey → long` 列表 | 物品种类 → 数量（聚合值，无节点来源） |
 | `craftingCpus` | 列表 | 合成 CPU 数量与忙闲状态 |
-| `patterns` | 样板摘要列表 | 每条含 `primaryOutput`、`outputs`、`inputs`；输入槽保留候选物品和倍率。当前已声明并持久化，采样待实现 |
+| `patterns` | 样板摘要列表 | 每条含 `primaryOutput`、`outputs`、`inputs`；输入槽保留候选物品和倍率（实际需求量 = 候选数量 × 倍率）。已实现：每 4s 全量重采，随快照持久化 |
 
 ### 4.3 待办命令（队列，持久化）
 
@@ -93,7 +93,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 ### 5.2 快照循环（每 4 秒）
 
 1. 主线程上，对每个 `accessId`：检查控制器所在区块是否加载、控制器方块的 `getGrid()` 是否非 null。
-2. 在线：读 `getCachedInventory()` + `ICraftingService.getCpus()` → 组快照，`online=true`；样板摘要字段已声明，采集可在后续接入 Pattern Provider。
+2. 在线：读 `getCachedInventory()` + `ICraftingService.getCpus()` + 遍历 `IGrid.getNodes()` 收集 `ICraftingProvider.getAvailablePatterns()`（按 `IPatternDetails` 去重、按主输出排序）→ 组快照，`online=true`。
 3. 离线：保留上一份快照，置 `online=false`。
 4. 快照写入线程安全缓存（供 HTTP 口读）+ 落盘到 `SavedData`（供重启后离线展示）。
 
@@ -129,6 +129,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 ## 7. 明确不做（简化边界）
 
 - **不做节点级库存归属**（不拆"每个容器有多少"）。
+- **不做"可发射物品"摘要**（`ICraftingProvider.getEmitableItems()`）：样板摘要只覆盖 `IPatternDetails`；AE2 的"可合成"完整口径还含可发射物品，前端需要完整列表时再扩展。
 - **不自造网络身份 ID**（AE2 没有，就用控制器锚点）。
 - **不做跨服务器聚合**（单存档 = 单后端实例）。
 - **模组不内置完整 Web 服务器 / 认证**（只有本地数据口；登录授权全在后端）。
