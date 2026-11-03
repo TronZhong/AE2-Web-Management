@@ -1,0 +1,52 @@
+<script setup>
+/** 网格选择页：列出全部已注册网络卡片；10s 轮询 + 手动刷新。 */
+import { useRouter } from 'vue-router'
+
+import BaseButton from '../components/base/BaseButton.vue'
+import EmptyState from '../components/base/EmptyState.vue'
+import GridCard from '../components/grid/GridCard.vue'
+import { useNetworks } from '../composables/useNetworks.js'
+import { usePolling } from '../composables/usePolling.js'
+
+const router = useRouter()
+const { networks, loading, error, refresh } = useNetworks()
+
+// 网络列表变化频率低，用 10s 轮询；start() 会立即执行首次加载
+usePolling(refresh, 10_000).start()
+
+/** 进入所选网格的详情页。 */
+function enter(network) {
+  router.push({ name: 'grid-detail', params: { accessId: network.accessId } })
+}
+</script>
+
+<template>
+  <div>
+    <div class="mb-6 flex items-end justify-between gap-4">
+      <div>
+        <h1 class="text-lg font-medium text-ink">选择网格</h1>
+        <p class="mt-1 font-mono text-xs text-ink-faint">
+          来自游戏内接入方块注册 · 共 {{ networks.length }} 个网络
+        </p>
+      </div>
+      <BaseButton :disabled="loading" @click="refresh">{{ loading ? '刷新中…' : '刷新' }}</BaseButton>
+    </div>
+
+    <p
+      v-if="error"
+      class="mb-4 rounded-md border border-err/30 bg-err/10 px-3 py-2 font-mono text-xs text-err"
+    >
+      加载失败：{{ error }}
+    </p>
+
+    <div v-if="loading && !networks.length" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div v-for="i in 3" :key="i" class="h-56 animate-pulse rounded-card border border-line bg-panel"></div>
+    </div>
+
+    <EmptyState v-else-if="!networks.length" text="还没有已注册的网络：在游戏内放置接入方块并注册" />
+
+    <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <GridCard v-for="network in networks" :key="network.accessId" :network="network" @enter="enter(network)" />
+    </div>
+  </div>
+</template>

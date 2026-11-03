@@ -1,0 +1,75 @@
+<script setup>
+/**
+ * 网格详情页：状态 / 合成 CPU / 库存 / 样板四类卡片。
+ * 快照 5s 轮询；离线网络照常进入，展示最后快照并给出提示条。
+ */
+import { computed, onMounted } from 'vue'
+
+import { USE_MOCK } from '../api/index.js'
+import { useNetworks } from '../composables/useNetworks.js'
+import { usePolling } from '../composables/usePolling.js'
+import { useSnapshot } from '../composables/useSnapshot.js'
+import InventoryCard from '../components/snapshot/InventoryCard.vue'
+import PatternListCard from '../components/snapshot/PatternListCard.vue'
+import StatusCpuCard from '../components/snapshot/StatusCpuCard.vue'
+
+const props = defineProps({
+  /** 路由参数：目标网格 accessId。 */
+  accessId: { type: String, required: true },
+})
+
+const { snapshot, loading, error, refresh } = useSnapshot()
+const { networks, refresh: refreshNetworks } = useNetworks()
+
+// 快照 5s 轮询；网络列表仅在进入页面时拉一次，用于解析显示名与控制器位置
+usePolling(() => refresh(props.accessId), 5_000).start()
+onMounted(refreshNetworks)
+
+/** 命中的网络摘要（可能为 null：快照存在但列表未返回）。 */
+const network = computed(() => networks.value.find((item) => item.accessId === props.accessId) ?? null)
+
+/** 标题优先用显示名，退化用 accessId 前 8 位。 */
+const title = computed(
+  () => network.value?.displayName ?? (snapshot.value ? `网格 ${props.accessId.slice(0, 8)}` : '加载中…'),
+)
+</script>
+
+<template>
+  <div>
+    <RouterLink to="/" class="font-mono text-xs text-ink-faint transition-colors hover:text-ink">
+      ← 返回网格列表
+    </RouterLink>
+
+    <div class="mb-6 mt-3 flex items-end justify-between gap-4">
+      <h1 class="min-w-0 truncate text-lg font-medium text-ink">{{ title }}</h1>
+      <span class="shrink-0 font-mono text-[11px] text-ink-faint">{{ USE_MOCK ? 'MOCK 数据' : '实时数据' }}</span>
+    </div>
+
+    <p
+      v-if="error"
+      class="mb-4 rounded-md border border-err/30 bg-err/10 px-3 py-2 font-mono text-xs text-err"
+    >
+      加载失败：{{ error }}
+    </p>
+
+    <div v-if="loading && !snapshot" class="space-y-4">
+      <div class="h-44 animate-pulse rounded-card border border-line bg-panel"></div>
+      <div class="h-72 animate-pulse rounded-card border border-line bg-panel"></div>
+    </div>
+
+    <template v-else-if="snapshot">
+      <p
+        v-if="!snapshot.online"
+        class="mb-4 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 font-mono text-xs text-accent"
+      >
+        网络离线：显示最后一份快照
+      </p>
+
+      <div class="grid gap-4 lg:grid-cols-2">
+        <StatusCpuCard :snapshot="snapshot" :network="network" />
+        <PatternListCard :patterns="snapshot.patterns" />
+        <InventoryCard class="lg:col-span-2" :items="snapshot.inventory" />
+      </div>
+    </template>
+  </div>
+</template>
