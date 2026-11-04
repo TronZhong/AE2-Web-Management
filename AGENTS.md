@@ -82,7 +82,7 @@ cd .\web\backend
 前端:5173 → 后端:8080 → 模组 127.0.0.1:8090
 ```
 
-后端通过 `X-Shared-Secret` 调用模组；模组数据口不得对外暴露。所有 Minecraft/AE2 状态访问必须经 `MinecraftServer#execute` 调度到主线程。部署前替换 `change-me` 和空共享密钥，禁止提交数据库、运行目录或凭证。
+后端通过 `X-Shared-Secret` 调用模组；模组数据口不得对外暴露。所有 Minecraft/AE2 状态访问必须经 `MinecraftServer#execute` 调度到主线程。Web 端另有账号制用户认证（Sa-Token，`satoken` Cookie 会话）：初始账号由 `app.auth.admin-*` 引导创建，部署前替换 `change-me`（共享密钥与初始管理员密码）和空共享密钥，禁止提交数据库、运行目录或凭证。
 
 ## 相关文档
 

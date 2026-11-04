@@ -14,6 +14,17 @@ spring:
 server:
   port: 8080
 
+# Sa-Token 账号会话：Cookie 名固定 satoken，同源前端自动携带；超时 7 天
+sa-token:
+  token-name: satoken
+  timeout: 604800
+  active-timeout: -1
+  is-concurrent: true
+  is-read-cookie: true
+  is-read-head: true
+  token-style: uuid
+  is-log: false
+
 app:
   mod:
     # 模组本地 API 地址，只应绑定本机回环地址
@@ -24,3 +35,9 @@ app:
     # 前端开发服务器地址，前端框架确定后按需调整
     allowed-origins:
       - http://localhost:5173
+  auth:
+    # 是否在后端强制登录校验（/api/** 除登录端点）；仅测试切片需要关闭
+    enabled: true
+    # 首次启动且账户表为空时引导创建的初始管理员（密码只以 BCrypt 哈希入库）；部署前务必替换
+    admin-username: admin
+    admin-password: change-me

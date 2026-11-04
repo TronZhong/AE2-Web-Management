@@ -27,6 +27,9 @@ public class CorsConfig implements WebMvcConfigurer {
 		registry.addMapping("/api/**")
 			.allowedOrigins(properties.cors().allowedOrigins().toArray(String[]::new))
 			.allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-			.allowedHeaders("*");
+			.allowedHeaders("*")
+			// 账号会话依赖 satoken Cookie（v0.2 认证），跨域直连 8080 的部署需要携带凭据；
+			// dev 前端走 Vite 同源代理，不受此项影响
+			.allowCredentials(true);
 	}
 }

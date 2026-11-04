@@ -48,6 +48,11 @@ cd .\web\backend
 后端首次启动会：
 - 在 `web/backend/data/` 生成 H2 文件数据库（已加入 `.gitignore`）。
 - 读取 `src/main/resources/application.yaml` 中的 `app.*` 配置。
+- 账户表为空时引导创建初始管理员（`app.auth.admin-username` / `app.auth.admin-password`，默认 `admin` / `change-me`，密码只以 BCrypt 哈希入库；部署前务必替换配置）。
+
+### 登录
+
+打开前端任意页面会先跳转登录页；除 `POST /api/auth/login` 外所有 `/api/**` 端点均要求已登录（`satoken` Cookie 会话，契约 v0.2）。
 
 ### 前端
 
@@ -60,7 +65,7 @@ npm run dev   # 本地开发，默认 5173
 npm run build # 生产构建
 ```
 
-当前前端仍是脚手架，业务页面尚未接入后端。
+前端已接入选择页、详情页（只读 + 合成命令）与登录页；`VITE_USE_MOCK=false` 时走真实请求（dev 代理 `/api` → 8080）。
 
 ## 相关文档
 

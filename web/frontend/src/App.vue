@@ -1,12 +1,15 @@
 <script setup>
 /**
- * 应用外壳：顶栏（站点标识 + 数据源徽标）、路由出口与页脚。
+ * 应用外壳：顶栏（站点标识 + 数据源徽标 + 当前账号）、路由出口与页脚。
  * 数据源徽标按 USE_MOCK 显示 MOCK / 实时，避免误把演示数据当真实状态。
  */
 import { RouterLink, RouterView } from 'vue-router'
 
 import { USE_MOCK } from './api/index.js'
 import ItemTooltip from './components/base/ItemTooltip.vue'
+import { useAuth } from './composables/useAuth.js'
+
+const { username, logout } = useAuth()
 </script>
 
 <template>
@@ -16,12 +19,23 @@ import ItemTooltip from './components/base/ItemTooltip.vue'
         <RouterLink to="/" class="font-mono text-sm text-ink transition-colors hover:text-accent">
           <span class="mr-1.5 text-accent">◆</span>ae2web
         </RouterLink>
-        <span
-          class="rounded-full border px-2 py-0.5 font-mono text-[10px]"
-          :class="USE_MOCK ? 'border-accent/30 bg-accent/10 text-accent' : 'border-ok/30 bg-ok/10 text-ok'"
-        >
-          {{ USE_MOCK ? 'MOCK 数据' : '实时数据' }}
-        </span>
+        <div class="flex items-center gap-3">
+          <span
+            class="rounded-full border px-2 py-0.5 font-mono text-[10px]"
+            :class="USE_MOCK ? 'border-accent/30 bg-accent/10 text-accent' : 'border-ok/30 bg-ok/10 text-ok'"
+          >
+            {{ USE_MOCK ? 'MOCK 数据' : '实时数据' }}
+          </span>
+          <span v-if="username" class="font-mono text-[11px] text-ink-dim">{{ username }}</span>
+          <button
+            v-if="username"
+            type="button"
+            class="font-mono text-[11px] text-ink-faint transition-colors hover:text-ink"
+            @click="logout"
+          >
+            [登出]
+          </button>
+        </div>
       </div>
     </header>
 
