@@ -7,7 +7,7 @@
 ## 状态
 
 - **初版本机 API 已实现**：模组提供 `/health`、`/networks`、`/networks/{id}/snapshot`、`/networks/{id}/craft`、`/networks/{id}/commands`。
-- **Web API v0 草案已定义**：后端对前端的 `/api/networks`、`/api/networks/{id}/snapshot` 形状见 [web-api.md](web-api.md)；后端转发未实现，前端按该契约 mock。
+- **Web API v0.1 已实现**：后端对前端的 `/api/networks`、`/api/networks/{id}/snapshot`、`/api/networks/{id}/craft`、`/api/networks/{id}/commands` 均为对模组的透传转发，形状见 [web-api.md](web-api.md)；前端默认 mock，`VITE_USE_MOCK=false` 切真实请求。
 - 完整 schema、JSON Schema/OpenAPI 仍待定义；字段变更前先更新本页。
 - 目录：`contracts/`（当前以文档形式维护初版 API 形状）。
 

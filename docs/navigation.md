@@ -27,7 +27,10 @@
 | 后端启动类 | `web/backend/src/main/java/com/ae2webmanagement/backend/BackendApplication.java` |
 | 后端配置项（app.*）定义 | `web/backend/src/main/java/com/ae2webmanagement/backend/config/AppProperties.java` |
 | 后端 → 模组通信客户端 | `web/backend/src/main/java/com/ae2webmanagement/backend/client/ModApiClient.java` |
-| 后端 CORS、模组 RestClient | `web/backend/src/main/java/com/ae2webmanagement/backend/config/` |
+| 后端错误码翻译（mod_unreachable / mod_unavailable） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/NetworkService.java` |
+| 后端 Web 端点（/api/**） | `web/backend/src/main/java/com/ae2webmanagement/backend/controller/` |
+| 后端契约 DTO | `web/backend/src/main/java/com/ae2webmanagement/backend/dto/` |
+| 后端 CORS、模组 RestClient（2s/5s 超时） | `web/backend/src/main/java/com/ae2webmanagement/backend/config/` |
 | 后端运行配置（端口、数据源、app.*） | `web/backend/src/main/resources/application.yaml` |
 | 模组主类 / 方块物品注册 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/AE2WebManagement.java` |
 | 模组配置 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/Config.java` |

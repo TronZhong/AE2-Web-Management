@@ -2,7 +2,7 @@
 
 > 文档首页：[`index.md`](../index.md) › 组件 › 前端
 
-浏览器端 UI。负责登录、网络选择、库存、样板/可合成项展示、合成状态，以及下达合成命令。当前已实现**网格选择页 + 网格详情页（只读）**，数据来自按契约构造的 mock（后端转发未实现）。
+浏览器端 UI。负责登录、网络选择、库存、样板/可合成项展示、合成状态，以及下达合成命令。当前已实现**网格选择页 + 网格详情页（只读）**；默认使用按契约构造的 mock，后端转发已实现，可切换真实请求。
 
 ## 概览
 
@@ -11,14 +11,14 @@
 | 框架 | Vue 3 + Vite |
 | 路由 | vue-router 4（`/` 选择页，`/networks/:accessId` 详情页） |
 | 样式 | Tailwind CSS v4（设计令牌在 `src/style.css` 的 `@theme`，暗色终端风） |
-| 数据源 | 默认 mock；`VITE_USE_MOCK=false` 切换真实请求（后端上线后生效） |
+| 数据源 | 默认 mock；`VITE_USE_MOCK=false` 切换真实请求（后端转发已实现，dev 走 Vite `/api` 代理） |
 | 契约 | [`contracts/web-api.md`](../../contracts/web-api.md)（v0，指向 `docs/contracts/web-api.md`） |
 
 ## 目录结构与源码映射
 
 | 路径 | 说明 |
 | --- | --- |
-| [`../../web/frontend/vite.config.js`](../../web/frontend/vite.config.js) | Vite 配置：`@vitejs/plugin-vue` + `@tailwindcss/vite` |
+| [`../../web/frontend/vite.config.js`](../../web/frontend/vite.config.js) | Vite 配置：`@vitejs/plugin-vue` + `@tailwindcss/vite`；dev 下把 `/api` 代理到后端 `http://localhost:8080`（`VITE_USE_MOCK=false` 时必需） |
 | [`../../web/frontend/src/style.css`](../../web/frontend/src/style.css) | 全局样式与设计令牌（色板/字体/圆角），组件不写死颜色；`html` 按 `--app-zoom`（1.5）整体放缩 |
 | [`../../web/frontend/src/main.js`](../../web/frontend/src/main.js) | 入口：挂载根组件并接通路由 |
 | [`../../web/frontend/src/App.vue`](../../web/frontend/src/App.vue) | 应用外壳：顶栏（标识 + MOCK/实时徽标）、路由出口、页脚 |
@@ -61,8 +61,8 @@
 - [x] MC 风格物品格（`ItemSlot`）：悬浮名称提示（全局 tooltip 层）、紧凑数量角标、按 id 着色的方块占位，贴图 URL 预留。
 - [x] 全站默认 150% 放缩（`style.css` 的 `--app-zoom`）。
 - [x] mock 数据源与 `VITE_USE_MOCK` 切换；契约错误码直接透出为错误文案。
-- [ ] 后端按 `docs/contracts/web-api.md` 实现转发后切真实请求。
-- [ ] 计划合成弹窗的「开始合成」接 `POST /craft`（后端转发后于下一迭代启用）。
+- [x] 后端转发已实现，`VITE_USE_MOCK=false` + dev 代理（`vite.config.js` 的 `/api` → `http://localhost:8080`）即可走真实请求，响应形状与 mock 一致。
+- [ ] 计划合成弹窗的「开始合成」接 `POST /craft`（后端已通接口，下一迭代启用提交按钮）。
 - [ ] 认证接入（密码栏位语义：全局账号 or 每网络令牌，见 `docs/design.md` 4.1）。
 - [ ] 物品贴图接入 `ItemSlot` 的 `iconUrl`（当前为方块占位）。
 

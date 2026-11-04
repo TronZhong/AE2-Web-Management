@@ -65,9 +65,9 @@
 | 组件 | 状态 |
 | --- | --- |
 | 模组 | 已实现接入方块、控制器定位、Overworld 身份表、4 秒快照、只读查询 API 和合成命令队列；样板列表仅完成声明/持久化框架 |
-| 后端 | 分层骨架已就绪（config/client 可用，controller/service/repository/domain/dto 为空），**未写业务、未加认证** |
-| 契约 | 已记录初版本机 API 形状；完整 JSON Schema/OpenAPI 待定义 |
-| 前端 | 已初始化 Vue 3 + Vite 脚手架；业务 UI 尚未接入后端 |
+| 后端 | 分层骨架 + P1/P2 转发已实现（网络列表、快照、合成命令的透传与错误翻译，RestClient 带 2s/5s 超时）；未加认证、零表 |
+| 契约 | 初版本机 API 与 Web API v0.1 已记录并实现；完整 JSON Schema/OpenAPI 待定义 |
+| 前端 | 选择页 + 详情页完成；`VITE_USE_MOCK=false` 时走后端真实请求（dev 需 Vite `/api` 代理） |
 
 ## 相关文档
 
