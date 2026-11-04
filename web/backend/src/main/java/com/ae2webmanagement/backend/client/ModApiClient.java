@@ -16,8 +16,9 @@ import org.springframework.web.client.RestClientResponseException;
 import com.ae2webmanagement.backend.dto.CommandListResponse;
 import com.ae2webmanagement.backend.dto.CraftAcceptedResponse;
 import com.ae2webmanagement.backend.dto.CraftRequest;
-import com.ae2webmanagement.backend.dto.NetworkListResponse;
+import com.ae2webmanagement.backend.dto.ModNetworkListResponse;
 import com.ae2webmanagement.backend.dto.SnapshotResponse;
+import com.ae2webmanagement.backend.dto.VerifyPasswordRequest;
 
 /**
  * 后端与模组本地 API 之间的唯一通信入口。
@@ -55,13 +56,14 @@ public class ModApiClient {
 	/**
 	 * 查询网络列表。
 	 *
-	 * @return 模组 {@code GET /networks} 的响应
+	 * @return 模组 {@code GET /networks} 的响应（反序列化为模组侧 DTO，
+	 *         含可空 {@code hasPassword} 以兼容旧版模组）
 	 */
-	public NetworkListResponse listNetworks() {
+	public ModNetworkListResponse listNetworks() {
 		return call(() -> this.modRestClient.get()
 			.uri("/networks")
 			.retrieve()
-			.body(NetworkListResponse.class));
+			.body(ModNetworkListResponse.class));
 	}
 
 	/**
@@ -104,6 +106,24 @@ public class ModApiClient {
 			.uri("/networks/{accessId}/commands", accessId)
 			.retrieve()
 			.body(CommandListResponse.class));
+	}
+
+	/**
+	 * 校验网络访问密码（后端在账号「解锁网格」时转发调用）。
+	 *
+	 * <p>契约条目：docs/contracts/index.md「POST /networks/{accessId}/verify-password」；
+	 * 未设密码或密码匹配 → 204（无响应体），由调用方据此记录解锁。</p>
+	 *
+	 * @param accessId 网络接入 ID（已由 service 校验为合法 UUID）
+	 * @param password 用户输入的密码原文（仅本次请求体内出现，不落盘）
+	 */
+	public void verifyPassword(UUID accessId, String password) {
+		call(() -> this.modRestClient.post()
+			.uri("/networks/{accessId}/verify-password", accessId)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(new VerifyPasswordRequest(password))
+			.retrieve()
+			.toBodilessEntity());
 	}
 
 	/**

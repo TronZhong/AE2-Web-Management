@@ -1,16 +1,28 @@
 /**
  * 后端 Web API 客户端（前端唯一的网络出口，组件不得自行 fetch）。
- * 契约：docs/contracts/web-api.md（v0）。
- * 后端转发未实现期间默认使用 mock 数据源；设置 VITE_USE_MOCK=false 切换真实请求。
+ * 契约：docs/contracts/web-api.md（v0.2：认证端点 + 受保护的只读/命令端点）。
+ * 默认使用 mock 数据源；设置 VITE_USE_MOCK=false 切换真实请求。
  */
 import * as mock from './mock/index.js'
 
 /** 是否使用 mock 数据源（默认 true，直至后端 /api 转发上线）。 */
 export const USE_MOCK = (import.meta.env?.VITE_USE_MOCK ?? 'true') !== 'false'
 
+/** 401 统一处理回调（由 main.js 注册：清除会话并跳转登录页）。 */
+let unauthorizedHandler = null
+
+/**
+ * 注册 401（未登录 / 会话过期）的统一处理回调；契约错误码 unauthorized。
+ * @param handler 收到 401 时调用的回调
+ */
+export function onUnauthorized(handler) {
+  unauthorizedHandler = handler
+}
+
 /**
  * 统一响应处理：正常时返回 JSON；异常时把契约错误体 {"error": code}
  * 归一化为带机器可读码的 Error（如 network_not_found），供页面直接展示。
+ * 401 会额外触发 onUnauthorized 注册的回调。
  */
 async function unwrap(response) {
   if (response.ok) {
@@ -24,6 +36,9 @@ async function unwrap(response) {
     }
   } catch {
     // 响应体不是 JSON 时保留状态码错误
+  }
+  if (response.status === 401) {
+    unauthorizedHandler?.(code)
   }
   throw new Error(code)
 }
@@ -45,4 +60,96 @@ export async function fetchSnapshot(accessId) {
     return mock.fetchSnapshot(accessId)
   }
   return unwrap(await fetch(`/api/networks/${encodeURIComponent(accessId)}/snapshot`))
+}
+
+/**
+ * POST /api/networks/{accessId}/craft → 202 受理响应 {commandId, state, submittedAt}，
+ * 见契约「合成命令端点」。校验失败抛 missing_key_or_amount / invalid_amount / invalid_key。
+ * @param accessId 网络接入 ID
+ * @param key      目标 AEKey JSON（复用快照 key 形状，不重命名）
+ * @param amount   合成数量，必须为正整数
+ */
+export async function submitCraft(accessId, key, amount) {
+  if (USE_MOCK) {
+    return mock.submitCraft(accessId, key, amount)
+  }
+  return unwrap(
+    await fetch(`/api/networks/${encodeURIComponent(accessId)}/craft`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ key, amount }),
+    }),
+  )
+}
+
+/**
+ * GET /api/networks/{accessId}/commands → { commands: CommandEntry[] }，
+ * 见契约「合成命令端点」。模组返回该网络全量命令历史（按 submittedAt 升序）。
+ */
+export async function fetchCommands(accessId) {
+  if (USE_MOCK) {
+    return mock.fetchCommands(accessId)
+  }
+  return unwrap(await fetch(`/api/networks/${encodeURIComponent(accessId)}/commands`))
+}
+
+/**
+ * POST /api/networks/{accessId}/unlock → 204：解锁设有网格密码的网络（契约 v0.3）。
+ * 密码不匹配抛 invalid_password；网络不存在抛 network_not_found；
+ * 成功后解锁状态按账号持久记忆，访问 snapshot/craft/commands 不再需要密码。
+ * @param accessId 网络接入 ID
+ * @param password 网络密码（游戏内 GUI 设置的那个）
+ */
+export async function unlockNetwork(accessId, password) {
+  if (USE_MOCK) {
+    return mock.unlockNetwork(accessId, password)
+  }
+  const response = await fetch(`/api/networks/${encodeURIComponent(accessId)}/unlock`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({ password }),
+  })
+  // 204 无响应体，直接成功返回；其余走统一错误归一化
+  if (response.status === 204) {
+    return null
+  }
+  return unwrap(response)
+}
+
+/**
+ * POST /api/auth/login → {tokenName, tokenValue, username}，见契约「认证端点」。
+ * 凭证错误抛 unauthorized；satoken Cookie 由后端 Set-Cookie 下发，同源自动携带。
+ * @param username 用户名
+ * @param password 密码
+ */
+export async function login(username, password) {
+  if (USE_MOCK) {
+    return mock.login(username, password)
+  }
+  return unwrap(
+    await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ username, password }),
+    }),
+  )
+}
+
+/** POST /api/auth/logout → {}：使当前会话失效，幂等。 */
+export async function logout() {
+  if (USE_MOCK) {
+    return mock.logout()
+  }
+  return unwrap(await fetch('/api/auth/logout', { method: 'POST' }))
+}
+
+/**
+ * GET /api/auth/me → {username}：查询当前登录账号。
+ * 未登录 / 会话过期抛 unauthorized（应用启动时用于恢复会话）。
+ */
+export async function fetchMe() {
+  if (USE_MOCK) {
+    return mock.fetchMe()
+  }
+  return unwrap(await fetch('/api/auth/me'))
 }

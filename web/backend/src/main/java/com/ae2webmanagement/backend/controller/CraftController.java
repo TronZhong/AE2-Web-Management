@@ -12,6 +12,7 @@ import com.ae2webmanagement.backend.client.ModApiException;
 import com.ae2webmanagement.backend.dto.CommandListResponse;
 import com.ae2webmanagement.backend.dto.CraftAcceptedResponse;
 import com.ae2webmanagement.backend.dto.CraftRequest;
+import com.ae2webmanagement.backend.service.AuthService;
 import com.ae2webmanagement.backend.service.NetworkService;
 
 /**
@@ -27,7 +28,7 @@ import com.ae2webmanagement.backend.service.NetworkService;
  *
  * <p>Controller 只做协议适配：请求体形状校验与模组行为对齐
  * （{@code missing_key_or_amount} / {@code invalid_amount} / {@code invalid_key}），
- * 编排与错误翻译在 {@link NetworkService}。</p>
+ * 编排、网格访问控制（v0.3 network_locked）与错误翻译在 {@link NetworkService}。</p>
  */
 @RestController
 @RequestMapping("/api")
@@ -35,11 +36,15 @@ public class CraftController {
 
 	private final NetworkService networkService;
 
+	private final AuthService authService;
+
 	/**
 	 * @param networkService 网络查询/合成用例服务
+	 * @param authService    提供当前登录账号 ID（网格访问控制按账号判定）
 	 */
-	public CraftController(NetworkService networkService) {
+	public CraftController(NetworkService networkService, AuthService authService) {
 		this.networkService = networkService;
+		this.authService = authService;
 	}
 
 	/**
@@ -56,7 +61,8 @@ public class CraftController {
 	@PostMapping("/networks/{accessId}/craft")
 	public ResponseEntity<CraftAcceptedResponse> craft(@PathVariable String accessId, @RequestBody CraftRequest request) {
 		validateCraftRequest(request);
-		return ResponseEntity.accepted().body(this.networkService.submitCraft(accessId, request));
+		return ResponseEntity.accepted()
+			.body(this.networkService.submitCraft(accessId, request, this.authService.currentAccountId()));
 	}
 
 	/**
@@ -69,7 +75,7 @@ public class CraftController {
 	 */
 	@GetMapping("/networks/{accessId}/commands")
 	public CommandListResponse commands(@PathVariable String accessId) {
-		return this.networkService.getCommands(accessId);
+		return this.networkService.getCommands(accessId, this.authService.currentAccountId());
 	}
 
 	/**

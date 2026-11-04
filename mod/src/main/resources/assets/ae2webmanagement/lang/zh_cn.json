@@ -1,0 +1,24 @@
+{
+  "itemGroup.ae2webmanagement": "AE2 Web Management",
+  "block.ae2webmanagement.access_block": "接入方块",
+
+  "gui.ae2webmanagement.button.register": "注册网络",
+  "gui.ae2webmanagement.status.no_controller": "未找到 ME 控制器。",
+  "gui.ae2webmanagement.status.idle": "可以注册网络。",
+  "gui.ae2webmanagement.status.created": "网络注册成功。",
+  "gui.ae2webmanagement.status.already_exists": "该网络已注册。",
+
+  "gui.ae2webmanagement.password.label": "网格密码（网页访问）",
+  "gui.ae2webmanagement.button.password_set": "设置密码",
+  "gui.ae2webmanagement.button.password_clear": "清除密码",
+  "gui.ae2webmanagement.status.password_set": "已设密码：网页访问需输入密码。",
+  "gui.ae2webmanagement.status.password_none": "未设密码：已登录用户可直接访问。",
+
+  "ae2webmanagement.configuration.title": "AE2 Web Management 配置",
+  "ae2webmanagement.configuration.section.ae2webmanagement.common.toml": "AE2 Web Management 配置",
+  "ae2webmanagement.configuration.section.ae2webmanagement.common.toml.title": "AE2 Web Management 配置",
+  "ae2webmanagement.configuration.httpBindAddress": "HTTP 绑定地址",
+  "ae2webmanagement.configuration.httpPort": "HTTP 端口",
+  "ae2webmanagement.configuration.sharedSecret": "共享密钥",
+  "ae2webmanagement.configuration.snapshotIntervalSeconds": "快照间隔（秒）"
+}

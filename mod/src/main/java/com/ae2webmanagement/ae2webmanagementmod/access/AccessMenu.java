@@ -10,15 +10,15 @@ import net.minecraft.world.item.ItemStack;
 /**
  * 「接入」方块的容器菜单，持有服务端 ↔ 客户端共享的状态数据。
  *
- * <p>状态值由 {@code containerData[0]} 同步：
+ * <p>状态值由 {@code containerData} 同步：
  * <ul>
- *   <li>{@link #STATUS_NO_CONTROLLER} —— 尚未定位到 ME 控制器</li>
- *   <li>{@link #STATUS_IDLE} —— 已定位控制器，等待操作</li>
- *   <li>{@link #STATUS_CREATED} —— 网络身份刚创建成功</li>
- *   <li>{@link #STATUS_ALREADY_EXISTS} —— 该控制器锚点已有身份</li>
+ *   <li>{@code containerData[0]} —— 注册流程状态：
+ *       {@link #STATUS_NO_CONTROLLER} / {@link #STATUS_IDLE} /
+ *       {@link #STATUS_CREATED} / {@link #STATUS_ALREADY_EXISTS}</li>
+ *   <li>{@code containerData[1]} —— 网格密码标记：1 = 已设密码，0 = 未设（公开）</li>
  * </ul>
  *
- * <p>按钮 ID 0 —— 「注册网络」
+ * <p>按钮 ID 0 —— 「注册网络」。密码输入走 {@link GridPasswordPayload}（字符串无法进 containerData）。
  */
 public class AccessMenu extends AbstractContainerMenu {
 
@@ -27,13 +27,18 @@ public class AccessMenu extends AbstractContainerMenu {
     public static final int STATUS_CREATED = 2;
     public static final int STATUS_ALREADY_EXISTS = 3;
 
+    /** containerData 槽位索引：注册流程状态。 */
+    public static final int DATA_STATUS = 0;
+    /** containerData 槽位索引：网格密码标记（1 = 已设）。 */
+    public static final int DATA_PASSWORD_SET = 1;
+
     private static final int BUTTON_REGISTER = 0;
 
     /** 仅客户端构造：由 {@code MenuType} 调用。 */
     public AccessMenu(int containerId, Inventory playerInv) {
         super(AccessRegistration.ACCESS_MENU.get(), containerId);
         this.be = null;
-        this.statusData = new SimpleContainerData(1);
+        this.statusData = new SimpleContainerData(2);
         this.addDataSlots(this.statusData);
     }
 
@@ -41,14 +46,15 @@ public class AccessMenu extends AbstractContainerMenu {
     public AccessMenu(int containerId, Inventory playerInv, AccessBlockEntity be) {
         super(AccessRegistration.ACCESS_MENU.get(), containerId);
         this.be = be;
-        this.statusData = new SimpleContainerData(1);
+        this.statusData = new SimpleContainerData(2);
         this.addDataSlots(this.statusData);
 
         if (be.getControllerAnchor().isEmpty()) {
-            this.statusData.set(0, STATUS_NO_CONTROLLER);
+            this.statusData.set(DATA_STATUS, STATUS_NO_CONTROLLER);
         } else {
-            this.statusData.set(0, STATUS_IDLE);
+            this.statusData.set(DATA_STATUS, STATUS_IDLE);
         }
+        this.statusData.set(DATA_PASSWORD_SET, be.isPasswordSet() ? 1 : 0);
     }
 
     // ==================== 字段 ====================
@@ -65,10 +71,27 @@ public class AccessMenu extends AbstractContainerMenu {
         if (buttonId == BUTTON_REGISTER && be != null) {
             be.tryRegisterNetwork();
             // 更新状态同步回客户端
-            this.statusData.set(0, be.getLastRegistrationStatus());
+            this.statusData.set(DATA_STATUS, be.getLastRegistrationStatus());
             return true;
         }
         return false;
+    }
+
+    // ==================== 网格密码（C2S payload 入口） ====================
+
+    /**
+     * 处理 {@link GridPasswordPayload} 提交的密码（仅服务端菜单；主线程）。
+     *
+     * <p>空串 = 清除；非空交给方块实体校验并写哈希。处理后刷新密码标记同步回客户端。</p>
+     *
+     * @param password 密码原文；空串表示清除
+     */
+    public void handleSetPassword(String password) {
+        if (this.be == null) {
+            return;
+        }
+        this.be.setGridPassword(password);
+        this.statusData.set(DATA_PASSWORD_SET, this.be.isPasswordSet() ? 1 : 0);
     }
 
     // ==================== 快速访问状态 ====================

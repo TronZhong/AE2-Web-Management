@@ -8,6 +8,7 @@
 
 - **初版本机 API 已实现**：模组提供 `/health`、`/networks`、`/networks/{id}/snapshot`、`/networks/{id}/craft`、`/networks/{id}/commands`。
 - **Web API v0.1 已实现**：后端对前端的 `/api/networks`、`/api/networks/{id}/snapshot`、`/api/networks/{id}/craft`、`/api/networks/{id}/commands` 均为对模组的透传转发，形状见 [web-api.md](web-api.md)；前端默认 mock，`VITE_USE_MOCK=false` 切真实请求。
+- **网格密码已实现**（模组 0.0.6）：`GET /networks` 摘要新增 `hasPassword`；新增 `POST /networks/{id}/verify-password` 供后端校验解锁。密码在游戏内 GUI 设置，模组只存 PBKDF2 哈希，明文不出模组；旧版模组无这些字段时后端按「无密码=公开」处理，向后兼容。
 - 完整 schema、JSON Schema/OpenAPI 仍待定义；字段变更前先更新本页。
 - 目录：`contracts/`（当前以文档形式维护初版 API 形状）。
 
@@ -24,7 +25,7 @@
 | 端点 | 用途 |
 | --- | --- |
 | `GET /health` | 健康检查，返回 `{"ok":true}` |
-| `GET /networks` | 网络列表，含 `accessId`、显示名、控制器维度/坐标、在线态和快照摘要 |
+| `GET /networks` | 网络列表，含 `accessId`、显示名、控制器维度/坐标、在线态、快照摘要和 `hasPassword` |
 | `GET /networks/{accessId}/snapshot` | 单网络快照，含 `inventory`、`craftingCpus` 和 `patterns` |
 
 快照中的 `inventory[].key` 是 AE2 `AEKey` 通用 NBT 转换后的 JSON；`amount` 为 long。
@@ -78,6 +79,26 @@
 
 > `POST` 返回 `202` 表示已进入线程安全队列；主线程下一 tick 会持久化命令，
 > 网络在线后异步重算并提交给 AE2。
+
+## 网格密码 API
+
+### `POST /networks/{accessId}/verify-password`
+
+校验网络访问密码（后端在账号「解锁网格」时转发调用）。请求体：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `password` | string | 用户输入的网络密码 |
+
+响应：
+
+- `204`：网络**未设密码**（公开网络，无需校验）**或**密码匹配；
+- `401 {"error":"invalid_password"}`：密码不匹配；
+- `404 {"error":"network_not_found"}`：网络不存在。
+
+> 密码只能在游戏内接入方块 GUI 设置/清除（C2S 自定义 payload，主线程写入
+> 身份表）；模组身份表只存 PBKDF2 哈希（`pbkdf2:<迭代>:<盐B64>:<哈希B64>`），
+> 明文不出模组，HTTP 层无设置/清除端点。
 
 ## 原则
 

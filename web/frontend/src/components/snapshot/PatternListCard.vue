@@ -13,9 +13,13 @@ import CraftPlanModal from './CraftPlanModal.vue'
 import { friendlyName, keyId } from '../../lib/format.js'
 
 const props = defineProps({
+  /** 目标网格 accessId：透传给计划合成弹窗用于提交命令。 */
+  accessId: { type: String, required: true },
   /** 快照 patterns 数组。 */
   patterns: { type: Array, required: true },
 })
+
+const emit = defineEmits(['submitted'])
 
 const keyword = ref('')
 
@@ -74,6 +78,12 @@ const filtered = computed(() => {
       </p>
     </template>
 
-    <CraftPlanModal v-if="selected" :pattern="selected" @close="selected = null" />
+    <CraftPlanModal
+      v-if="selected"
+      :access-id="accessId"
+      :pattern="selected"
+      @close="selected = null"
+      @submitted="emit('submitted')"
+    />
   </BaseCard>
 </template>

@@ -2,7 +2,7 @@
 
 > 文档首页：[`index.md`](../index.md) › 组件 › 后端
 
-对网页暴露 API，负责登录/认证、授权、持久化，并把对游戏数据的请求转发给模组本地 API。当前为**分层骨架 + 已实现的转发层**（只读查询与合成命令均透传模组），认证未接入。
+对网页暴露 API，负责登录/认证、授权、持久化，并把对游戏数据的请求转发给模组本地 API。当前为**分层骨架 + 转发层 + 账号认证 + 网格密码访问控制**（只读查询与合成命令均透传模组，全部要求登录；设有网格密码的网络另需按账号解锁）。
 
 ## 概览
 
@@ -18,21 +18,26 @@
 
 | 路径 | 说明 |
 | --- | --- |
-| [`../../web/backend/pom.xml`](../../web/backend/pom.xml) | 依赖清单（data-jpa / validation / webmvc / h2） |
-| [`../../web/backend/src/main/resources/application.yaml`](../../web/backend/src/main/resources/application.yaml) | 运行配置：数据源、端口、`app.*` |
+| [`../../web/backend/pom.xml`](../../web/backend/pom.xml) | 依赖清单（data-jpa / validation / webmvc / h2 / sa-token-spring-boot4-starter / spring-security-crypto） |
+| [`../../web/backend/src/main/resources/application.yaml`](../../web/backend/src/main/resources/application.yaml) | 运行配置：数据源、端口、`app.*`、`sa-token.*` |
 | [`../../web/backend/src/main/java/com/ae2webmanagement/backend/BackendApplication.java`](../../web/backend/src/main/java/com/ae2webmanagement/backend/BackendApplication.java) | 启动类（含 `@ConfigurationPropertiesScan`） |
-| `.../backend/config/AppProperties.java` | 绑定 `app.*` 配置（模组端点、共享密钥、CORS） |
+| `.../backend/config/AppProperties.java` | 绑定 `app.*` 配置（模组端点、共享密钥、CORS、认证门控与初始管理员） |
 | `.../backend/config/ModClientConfig.java` | 组装访问模组的 `RestClient` bean（带 `X-Shared-Secret` 头；连接 2s / 读取 5s 超时） |
-| `.../backend/config/CorsConfig.java` | 全局 CORS |
-| `.../backend/client/ModApiClient.java` | 访问模组的唯一入口：`listNetworks` / `getSnapshot` / `submitCraft` / `getCommands`；非 2xx 抛 `ModApiException` |
+| `.../backend/config/CorsConfig.java` | 全局 CORS（`allowCredentials(true)` 以便跨域携带 satoken Cookie） |
+| `.../backend/config/SaTokenConfig.java` | Sa-Token 登录拦截器：拦截 `/api/**`、放行 `/api/auth/login`；`app.auth.enabled=false` 关闭（仅测试切片） |
+| `.../backend/client/ModApiClient.java` | 访问模组的唯一入口：`listNetworks` / `getSnapshot` / `submitCraft` / `getCommands` / `verifyPassword`（v0.3 密码校验）；非 2xx 抛 `ModApiException` |
 | `.../backend/client/ModApiException.java` | 模组调用链路的统一业务异常（HTTP 状态码 + 机器可读错误码） |
-| `.../backend/service/NetworkService.java` | 用例编排与错误翻译（accessId 校验、`mod_unreachable` / `mod_unavailable`、其余错误码透传） |
-| `.../backend/controller/NetworkController.java` | `GET /api/networks`、`GET /api/networks/{accessId}/snapshot` |
+| `.../backend/service/NetworkService.java` | 用例编排与错误翻译（accessId 校验、`mod_unreachable` / `mod_unavailable`、其余错误码透传）；网格访问控制：`listNetworks` 计算 `unlocked`、`ensureAccessible` 锁定检查（`403 network_locked`）、`unlock` 编排（模组校验通过后写解锁记录） |
+| `.../backend/service/AuthService.java` | 账号认证用例：登录（BCrypt 校验 + Sa-Token 会话）、注销、`/me`、`currentAccountId`（访问控制取账号 ID）；`ApplicationRunner` 首次启动引导建号 |
+| `.../backend/controller/NetworkController.java` | `GET /api/networks`（含 `hasPassword`/`unlocked`）、`GET /api/networks/{accessId}/snapshot`、`POST /api/networks/{accessId}/unlock`（v0.3） |
 | `.../backend/controller/CraftController.java` | `POST /api/networks/{accessId}/craft`（校验请求体）、`GET /api/networks/{accessId}/commands` |
-| `.../backend/controller/GlobalExceptionHandler.java` | 全局异常兜底：统一输出 `{"error":"code"}`，兜底 `500 internal_error` |
-| `.../backend/dto/` | 契约 DTO（record，模组响应与前端响应共用一套；AEKey `key` 以 `JsonNode` 透传） |
-| `.../backend/repository/` | 持久化层（占位，本轮零表） |
-| `.../backend/domain/` | JPA 实体（占位，留给认证阶段） |
+| `.../backend/controller/AuthController.java` | `POST /api/auth/login`（唯一免认证端点）、`POST /api/auth/logout`、`GET /api/auth/me` |
+| `.../backend/controller/GlobalExceptionHandler.java` | 全局异常兜底：统一输出 `{"error":"code"}`；`NotLoginException` → 401 `unauthorized` |
+| `.../backend/dto/` | 契约 DTO（record，AEKey `key` 以 `JsonNode` 透传；认证 DTO 为 `LoginRequest` / `LoginResponse` / `MeResponse`）。模组侧与 web 侧网络摘要分离：`ModNetworkListResponse` / `ModNetworkSummaryResponse`（可空 `Boolean hasPassword` 承接旧版模组）→ `NetworkService` 映射为 `NetworkListResponse` / `NetworkSummaryResponse`（primitive `hasPassword` + 计算的 `unlocked`）；解锁请求 `UnlockRequest`、模组校验请求 `VerifyPasswordRequest` |
+| `.../backend/domain/Account.java` | JPA 实体：后端账号（用户名唯一 + BCrypt 哈希，表 `accounts`） |
+| `.../backend/domain/GridAccess.java` | JPA 实体：账号已解锁网格记录（表 `account_grid_access`，`unique(account_id, access_id)`） |
+| `.../backend/repository/AccountRepository.java` | 账号表访问（按用户名查找、是否已有账号） |
+| `.../backend/repository/GridAccessRepository.java` | 已解锁网格表访问（按账号+网络判定、清除密码时整网撤销） |
 
 > 说明：`config/` 与 `client/` 下省略的完整路径为
 > `web/backend/src/main/java/com/ae2webmanagement/backend/`，各层职责见各自 `package-info.java`。
@@ -49,9 +54,12 @@
 | --- | --- | --- |
 | `spring.datasource.url` | `jdbc:h2:file:./data/ae2web` | H2 文件库，重启不丢数据 |
 | `server.port` | `8080` | 后端对外端口 |
+| `sa-token.*` | token-name `satoken`、timeout 7 天等 | 账号会话：Cookie / 请求头 `satoken` |
 | `app.mod.base-url` | `http://127.0.0.1:8090` | 模组本地 API 地址（占位） |
 | `app.mod.shared-secret` | `change-me` | 后端↔模组机器级认证密钥，**部署前必须替换** |
 | `app.cors.allowed-origins` | `http://localhost:5173` | 允许的前端来源（占位） |
+| `app.auth.enabled` | `true` | 是否强制登录（`/api/**` 除登录端点）；仅测试切片关闭 |
+| `app.auth.admin-username` / `admin-password` | `admin` / `change-me` | **账户表为空的首次启动**引导创建的初始管理员（密码只以 BCrypt 哈希入库）；部署前务必替换 |
 
 ## 构建与运行
 
@@ -65,9 +73,10 @@ cd .\web\backend
 
 - [x] 分层骨架、CORS、模组 `RestClient`（含 2s/5s 超时）、H2 文件库、配置绑定已就绪。
 - [x] **P1 只读转发 + P2 合成命令转发已实现**：`/api/networks`、`/api/networks/{id}/snapshot`、`/api/networks/{id}/craft`、`/api/networks/{id}/commands` 均透传模组响应；错误翻译见 `NetworkService`，兜底见 `GlobalExceptionHandler`。
-- [x] 测试：`ModApiClientTests`（MockRestServiceServer）、`ModClientConfigTests`（超时）、`NetworkServiceTests`（错误翻译）、`NetworkControllerTests` / `CraftControllerTests`（MockMvc 字段对齐）。
-- [ ] **未加认证**：语义已拍板**账号制先行**（Sa-Token + H2 账户表，登录后可见全部网络；每网络配对令牌为后续增强），决策与模组侧配套见 [`../roadmap.md`](../roadmap.md) §2。接入时需实测 `sa-token-spring-boot4-starter` 与 Spring Boot 4.1 的兼容性。
-- [ ] `repository/domain` 仍为空（本轮零表），留给认证阶段。
+- [x] **P3 账号认证已实现**（Sa-Token `1.46.0` spring-boot4-starter，兼容 Spring Boot 4.1 已实测）：登录/注销/`/me` 端点 + 拦截器保护 `/api/**`；H2 账户表（`domain` / `repository`）；首次启动引导建号；`satoken` Cookie 会话。
+- [x] **网格密码访问控制已实现**（契约 v0.3）：网络摘要计算 `unlocked`；snapshot/craft/commands 转发前锁定检查（`403 network_locked`）；`POST /api/networks/{id}/unlock`（模组 `verify-password` 204 后按账号写 `account_grid_access`，密码不匹配透传 `401 invalid_password`）；密码清除时撤销该网络解锁记录；旧版模组（无 `hasPassword` 字段）按公开网络处理。
+- [x] 测试：`ModApiClientTests`（MockRestServiceServer，含 verify-password 与旧模组兼容）、`ModClientConfigTests`（超时）、`NetworkServiceTests`（错误翻译 + 访问控制）、`NetworkControllerTests` / `CraftControllerTests`（MockMvc 字段对齐，切片关闭拦截器）、`AuthFlowTests`（全上下文认证闭环）、`GridAccessFlowTests`（全上下文解锁闭环：403 → 401 → 204 → unlocked → snapshot 放行）。
+- [ ] 暂无改密 / 注册 / 多账号管理端点（个人自用场景，见 [`../roadmap.md`](../roadmap.md) §2）。
 
 ## 相关文档
 

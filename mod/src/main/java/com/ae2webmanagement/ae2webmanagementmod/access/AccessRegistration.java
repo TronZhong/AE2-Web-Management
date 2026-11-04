@@ -13,6 +13,8 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -98,5 +100,20 @@ public final class AccessRegistration {
                 AECapabilities.IN_WORLD_GRID_NODE_HOST,
                 ACCESS_BLOCK_ENTITY.get(),
                 (blockEntity, context) -> (IInWorldGridNodeHost) blockEntity);
+    }
+
+    // ------------------------------ 网络协议（C2S payload） ------------------------------
+
+    /**
+     * 注册自定义网络包：GUI 提交网格密码。NeoForge 默认把处理器调度到主线程，
+     * 满足 {@code SavedData} 写入的线程要求。
+     */
+    @SubscribeEvent
+    public static void registerPayloads(RegisterPayloadHandlersEvent event) {
+        PayloadRegistrar registrar = event.registrar("1");
+        registrar.playToServer(
+                GridPasswordPayload.TYPE,
+                GridPasswordPayload.STREAM_CODEC,
+                GridPasswordPayload::handleOnServer);
     }
 }

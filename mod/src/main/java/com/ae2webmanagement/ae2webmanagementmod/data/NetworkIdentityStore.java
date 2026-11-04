@@ -30,7 +30,7 @@ import com.ae2webmanagement.ae2webmanagementmod.network.NetworkIdentity;
  *
  * <h3>存储格式（NBT）</h3>
  * <pre>{@code
- * identities: [ {accessId, level, pos, token, displayName, createdAt, lastSeenAt}, … ]
+ * identities: [ {accessId, level, pos, token, displayName, createdAt, lastSeenAt, passwordHash}, … ]
  * }</pre>
  */
 public final class NetworkIdentityStore extends SavedData {
@@ -46,6 +46,7 @@ public final class NetworkIdentityStore extends SavedData {
     private static final String KEY_DISPLAY_NAME = "displayName";
     private static final String KEY_CREATED_AT = "createdAt";
     private static final String KEY_LAST_SEEN_AT = "lastSeenAt";
+    private static final String KEY_PASSWORD_HASH = "passwordHash";
 
     private final Map<UUID, NetworkIdentity> identities = new HashMap<>();
     private final Map<String, UUID> anchorToId = new HashMap<>();
@@ -81,9 +82,11 @@ public final class NetworkIdentityStore extends SavedData {
             String displayName = entry.getString(KEY_DISPLAY_NAME);
             long createdAt = entry.getLong(KEY_CREATED_AT);
             long lastSeenAt = entry.getLong(KEY_LAST_SEEN_AT);
+            // 旧版本存档无 passwordHash 字段：getString 对缺失键返回空串 = 未设密码
+            String passwordHash = entry.getString(KEY_PASSWORD_HASH);
 
             NetworkIdentity identity = new NetworkIdentity(
-                    accessId, levelKey, pos, token, displayName, createdAt, lastSeenAt);
+                    accessId, levelKey, pos, token, displayName, createdAt, lastSeenAt, passwordHash);
             store.identities.put(accessId, identity);
             store.anchorToId.put(anchorKey(levelKey, pos), accessId);
         }
@@ -105,6 +108,7 @@ public final class NetworkIdentityStore extends SavedData {
             entry.putString(KEY_DISPLAY_NAME, id.displayName());
             entry.putLong(KEY_CREATED_AT, id.createdAt());
             entry.putLong(KEY_LAST_SEEN_AT, id.lastSeenAt());
+            entry.putString(KEY_PASSWORD_HASH, id.passwordHash() == null ? "" : id.passwordHash());
             list.add(entry);
         }
         tag.put(KEY_IDENTITIES, list);
@@ -132,7 +136,7 @@ public final class NetworkIdentityStore extends SavedData {
         String displayName = "Network @ " + anchor.pos().toShortString();
 
         NetworkIdentity identity = new NetworkIdentity(
-                accessId, anchor.levelKey(), anchor.pos(), token, displayName, now, now);
+                accessId, anchor.levelKey(), anchor.pos(), token, displayName, now, now, "");
         identities.put(accessId, identity);
         anchorToId.put(key, accessId);
         setDirty();
@@ -142,6 +146,32 @@ public final class NetworkIdentityStore extends SavedData {
     /** 按 accessId 查找。 */
     public Optional<NetworkIdentity> get(UUID accessId) {
         return Optional.ofNullable(identities.get(accessId));
+    }
+
+    /** 按控制器锚点查找已注册网络的 accessId（不创建新记录）。 */
+    public Optional<UUID> findAccessId(ControllerAnchor anchor) {
+        return Optional.ofNullable(anchorToId.get(anchorKey(anchor.levelKey(), anchor.pos())));
+    }
+
+    /**
+     * 设置或清除网格密码（主线程调用）。
+     *
+     * @param accessId 网络接入 ID（须已注册）
+     * @param password 密码原文；{@code null} 表示清除密码（恢复公开）
+     * @return 更新后的身份记录；网络不存在时为空
+     */
+    public Optional<NetworkIdentity> setPassword(UUID accessId, String password) {
+        NetworkIdentity identity = identities.get(accessId);
+        if (identity == null) {
+            return Optional.empty();
+        }
+        String hash = password == null ? "" : GridPasswords.hash(password);
+        NetworkIdentity updated = new NetworkIdentity(
+                identity.accessId(), identity.controllerLevel(), identity.controllerPos(),
+                identity.token(), identity.displayName(), identity.createdAt(), identity.lastSeenAt(), hash);
+        identities.put(accessId, updated);
+        setDirty();
+        return Optional.of(updated);
     }
 
     /** 全部身份（只读）。 */

@@ -8,6 +8,12 @@
   "gui.ae2webmanagement.status.created": "Network registered.",
   "gui.ae2webmanagement.status.already_exists": "Already registered.",
 
+  "gui.ae2webmanagement.password.label": "Grid password (web access)",
+  "gui.ae2webmanagement.button.password_set": "Set password",
+  "gui.ae2webmanagement.button.password_clear": "Clear password",
+  "gui.ae2webmanagement.status.password_set": "Password set: web access requires it.",
+  "gui.ae2webmanagement.status.password_none": "No password: web access is open to logged-in users.",
+
   "ae2webmanagement.configuration.title": "AE2 Web Management Configs",
   "ae2webmanagement.configuration.section.ae2webmanagement.common.toml": "AE2 Web Management Configs",
   "ae2webmanagement.configuration.section.ae2webmanagement.common.toml.title": "AE2 Web Management Configs",

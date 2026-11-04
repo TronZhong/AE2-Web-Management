@@ -1,14 +1,20 @@
 <script setup>
 /**
- * 网格详情页：状态 / 合成 CPU / 库存 / 样板四类卡片。
- * 快照 5s 轮询；离线网络照常进入，展示最后快照并给出提示条。
+ * 网格详情页：状态 / 合成 CPU / 库存 / 样板 / 合成命令五类卡片。
+ * 快照与命令列表各 5s 轮询；离线网络照常进入，展示最后快照并给出提示条。
+ * 样板卡内提交合成后通过 submitted 事件立即刷新命令列表。
+ * 锁定网络（契约 v0.3：快照返回 network_locked）以解锁门面板替代内容，
+ * 解锁成功后刷新快照与网络列表（unlocked 徽标随之更新）。
  */
 import { computed, onMounted } from 'vue'
 
 import { USE_MOCK } from '../api/index.js'
+import { useCommands } from '../composables/useCommands.js'
 import { useNetworks } from '../composables/useNetworks.js'
 import { usePolling } from '../composables/usePolling.js'
 import { useSnapshot } from '../composables/useSnapshot.js'
+import UnlockGate from '../components/grid/UnlockGate.vue'
+import CommandsCard from '../components/snapshot/CommandsCard.vue'
 import InventoryCard from '../components/snapshot/InventoryCard.vue'
 import PatternListCard from '../components/snapshot/PatternListCard.vue'
 import StatusCpuCard from '../components/snapshot/StatusCpuCard.vue'
@@ -19,10 +25,12 @@ const props = defineProps({
 })
 
 const { snapshot, loading, error, refresh } = useSnapshot()
+const { commands, error: commandsError, refresh: refreshCommands } = useCommands()
 const { networks, refresh: refreshNetworks } = useNetworks()
 
-// 快照 5s 轮询；网络列表仅在进入页面时拉一次，用于解析显示名与控制器位置
+// 快照与命令列表各 5s 轮询；网络列表仅在进入页面时拉一次，用于解析显示名与控制器位置
 usePolling(() => refresh(props.accessId), 5_000).start()
+usePolling(() => refreshCommands(props.accessId), 5_000).start()
 onMounted(refreshNetworks)
 
 /** 命中的网络摘要（可能为 null：快照存在但列表未返回）。 */
@@ -32,6 +40,15 @@ const network = computed(() => networks.value.find((item) => item.accessId === p
 const title = computed(
   () => network.value?.displayName ?? (snapshot.value ? `网格 ${props.accessId.slice(0, 8)}` : '加载中…'),
 )
+
+/** 网格锁定态：快照端点返回 network_locked（设有密码且当前账号未解锁）。 */
+const locked = computed(() => error.value === 'network_locked')
+
+/** 解锁成功：刷新快照（恢复内容）与网络列表（同步 unlocked 徽标）。 */
+function onUnlocked() {
+  refresh(props.accessId)
+  refreshNetworks()
+}
 </script>
 
 <template>
@@ -45,31 +62,41 @@ const title = computed(
       <span class="shrink-0 font-mono text-[11px] text-ink-faint">{{ USE_MOCK ? 'MOCK 数据' : '实时数据' }}</span>
     </div>
 
-    <p
-      v-if="error"
-      class="mb-4 rounded-md border border-err/30 bg-err/10 px-3 py-2 font-mono text-xs text-err"
-    >
-      加载失败：{{ error }}
-    </p>
+    <UnlockGate
+      v-if="locked"
+      :access-id="accessId"
+      :display-name="network?.displayName ?? ''"
+      @unlocked="onUnlocked"
+    />
 
-    <div v-if="loading && !snapshot" class="space-y-4">
-      <div class="h-44 animate-pulse rounded-card border border-line bg-panel"></div>
-      <div class="h-72 animate-pulse rounded-card border border-line bg-panel"></div>
-    </div>
-
-    <template v-else-if="snapshot">
+    <template v-else>
       <p
-        v-if="!snapshot.online"
-        class="mb-4 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 font-mono text-xs text-accent"
+        v-if="error"
+        class="mb-4 rounded-md border border-err/30 bg-err/10 px-3 py-2 font-mono text-xs text-err"
       >
-        网络离线：显示最后一份快照
+        加载失败：{{ error }}
       </p>
 
-      <div class="grid gap-4 lg:grid-cols-2">
-        <StatusCpuCard :snapshot="snapshot" :network="network" />
-        <PatternListCard :patterns="snapshot.patterns" />
-        <InventoryCard class="lg:col-span-2" :items="snapshot.inventory" />
+      <div v-if="loading && !snapshot" class="space-y-4">
+        <div class="h-44 animate-pulse rounded-card border border-line bg-panel"></div>
+        <div class="h-72 animate-pulse rounded-card border border-line bg-panel"></div>
       </div>
+
+      <template v-else-if="snapshot">
+        <p
+          v-if="!snapshot.online"
+          class="mb-4 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 font-mono text-xs text-accent"
+        >
+          网络离线：显示最后一份快照
+        </p>
+
+        <div class="grid gap-4 lg:grid-cols-2">
+          <StatusCpuCard :snapshot="snapshot" :network="network" />
+          <PatternListCard :access-id="accessId" :patterns="snapshot.patterns" @submitted="refreshCommands(accessId)" />
+          <CommandsCard :commands="commands" :error="commandsError" />
+          <InventoryCard class="lg:col-span-2" :items="snapshot.inventory" />
+        </div>
+      </template>
     </template>
   </div>
 </template>

@@ -2,6 +2,7 @@ package com.ae2webmanagement.ae2webmanagementmod.access;
 
 import java.util.EnumSet;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 
@@ -28,6 +29,8 @@ import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.networking.IManagedGridNode;
 
+import com.ae2webmanagement.ae2webmanagementmod.AE2WebManagement;
+import com.ae2webmanagement.ae2webmanagementmod.data.GridPasswords;
 import com.ae2webmanagement.ae2webmanagementmod.data.NetworkIdentityStore;
 import com.ae2webmanagement.ae2webmanagementmod.grid.ControllerAnchor;
 import com.ae2webmanagement.ae2webmanagementmod.grid.ControllerLocator;
@@ -165,6 +168,69 @@ public class AccessBlockEntity extends BlockEntity
     /** 最近一次注册操作的结果状态码，供 {@link AccessMenu} 同步到客户端。 */
     public int getLastRegistrationStatus() {
         return this.registrationStatus;
+    }
+
+    // ===================== 网格密码 =====================
+
+    /**
+     * 当前网络是否已设置网格密码（主线程调用）。
+     *
+     * @return 已设置且未清除为 {@code true}；未注册网络 / 无控制器锚点为 {@code false}
+     */
+    public boolean isPasswordSet() {
+        NetworkIdentityStore store = identityStoreOrNull();
+        if (store == null) {
+            return false;
+        }
+        return store.findAccessId(this.controllerAnchor)
+                .flatMap(store::get)
+                .map((identity) -> identity.passwordHash() != null && !identity.passwordHash().isEmpty())
+                .orElse(false);
+    }
+
+    /**
+     * 设置或清除网格密码（{@link AccessMenu#handleSetPassword} 转发，主线程）。
+     *
+     * <p>写入身份表 SavedData（只存 PBKDF2 哈希）并立即刷新 SnapshotManager 的
+     * 密码镜像，让 HTTP 校验端点无需等待下一个采样周期。</p>
+     *
+     * @param password 密码原文；空串 = 清除密码（恢复公开）；非法输入静默忽略
+     */
+    public void setGridPassword(String password) {
+        NetworkIdentityStore store = identityStoreOrNull();
+        if (store == null) {
+            return;
+        }
+        UUID accessId = store.findAccessId(this.controllerAnchor).orElse(null);
+        if (accessId == null) {
+            LOGGER.warn("[AE2Web] Ignored password change: network not registered at {}",
+                    this.worldPosition);
+            return;
+        }
+
+        boolean clear = password == null || password.isEmpty();
+        if (!clear && !GridPasswords.isValidPassword(password)) {
+            LOGGER.warn("[AE2Web] Ignored invalid grid password (length out of 1..{}): {}",
+                    GridPasswords.MAX_PASSWORD_LENGTH, this.worldPosition);
+            return;
+        }
+
+        var updated = store.setPassword(accessId, clear ? null : password);
+        updated.ifPresent((identity) -> {
+            AE2WebManagement.snapshotManager().updatePasswordHash(accessId, identity.passwordHash());
+            LOGGER.info("[AE2Web] Grid password {} for network {}",
+                    clear ? "cleared" : "updated", accessId);
+        });
+    }
+
+    /**
+     * @return Overworld 身份表（仅服务端主线程且已有控制器锚点时）；否则 {@code null}
+     */
+    private NetworkIdentityStore identityStoreOrNull() {
+        if (!(this.level instanceof ServerLevel serverLevel) || this.controllerAnchor == null) {
+            return null;
+        }
+        return NetworkIdentityStore.get(serverLevel);
     }
 
     // ===================== BlockEntity 生命周期 =====================

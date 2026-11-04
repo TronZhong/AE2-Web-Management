@@ -2,14 +2,15 @@
 
 > 文档首页：[`index.md`](index.md) › 设计
 
-本页收录**已拍板、待实施**的迭代项与决策理由。与交接会话记录冲突时，以本页 + 实际代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.5`）。
+本页收录**已拍板、待实施**的迭代项与决策理由。与交接会话记录冲突时，以本页 + 实际代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.6`）。
 
 ## 1. 迭代顺序总览
 
 | # | 主题 | 改动面 | 状态 |
 | --- | --- | --- | --- |
-| 1 | 前端接线：`/craft` 提交 + 命令状态列表 | 仅前端 | 已拍板 |
-| 2 | 用户认证：**账号制先行** | 后端 + 前端，模组零改动 | 已拍板 |
+| 1 | 前端接线：`/craft` 提交 + 命令状态列表 | 仅前端 | 已完成（2026-11） |
+| 2 | 用户认证：**账号制先行** | 后端 + 前端，模组零改动 | 已完成（2026-11） |
+| 2.5 | 网格密码：账号 + 每网格可选密码双层 | 模组 + 契约 + 后端 + 前端 | 已完成（2026-11，模组 0.0.6） |
 | 3 | 模组 GUI 迭代 + `nameKey` 字段 | 模组 + 契约 + 后端 DTO + 前端 | 已拍板 |
 | 4 | 物品图标：模组客户端渲染导出 | 模组 + 契约 + 后端 + 前端 | 已拍板 |
 | 5 | 模组其他遗留（命令取消、`lastSeenAt`） | 模组 + 契约 | 已拍板 |
@@ -30,13 +31,19 @@
 - 模组端不动，`token` 字段继续闲置（语义仍是 design.md §4.1 的"后端持有"）。
 - 前端 `PasswordField`（选择页预留栏位）语义回填为登录凭证，具体 UI 形态（登录页 vs 内嵌栏位）实施时定。
 
-### 后续增强：每网络配对令牌（暂缓，实施前与用户再确认场景）
+### 网格密码增强（已完成，2026-11，路线 B）
 
-- 适用场景：多玩家 / 对外部署，需要按网络隔离授权；个人自用账号制已够。
-- 模组端必须做的改动：
-  1. `AccessScreen` 展示已注册网络的 `accessId` + token（一键复制）。注意 `AccessMenu` 目前用 `SimpleContainerData(1)` 同步，**只能传 int**，token 字符串需要新的同步通道（自定义 `CustomPacketPayload` 或扩展 menu）；
-  2. 若要玩家**自定义密码**（而非随机 token）：GUI 加 `EditBox` 输入框，且 `clickMenuButton` 只传 buttonId，需要新增 C2S 自定义 payload 包携带输入内容；
-  3. 可选「重置 token」按钮 + 后端侧同步失效。
+在账号登录之上叠加**每网格可选密码**（第二层访问控制），用户确认的最终形态：
+
+- **设置**：游戏内接入方块 GUI（`EditBox` 掩码输入 + 设置/清除按钮），可选——不设密码即公开（已登录即可进）；密码明文不出模组，身份表只存 PBKDF2 哈希（`GridPasswords`，`pbkdf2:<迭代>:<盐B64>:<哈希B64>`）。
+- **模组 0.0.6 改动**：`NetworkIdentity` 增加 `passwordHash` 组件；GUI 密码提交走 C2S 自定义 payload `GridPasswordPayload`（字符串无法走 containerData 的 int 通道，NeoForge 处理器默认主线程执行，满足 SavedData 写入要求）；`SnapshotManager` 维护密码哈希镜像缓存供 HTTP 线程读取；`LocalDataServer` 列表输出 `hasPassword` 并新增 `POST /networks/{id}/verify-password`。
+- **后端**：网络摘要计算 `unlocked`（未设密码恒 true；设了密码按账号查 `account_grid_access` 表）；snapshot/craft/commands 转发前做 `ensureAccessible` 检查（锁定 → `403 network_locked`）；新增 `POST /api/networks/{id}/unlock`（转发模组 verify-password，204 后按账号记录解锁，跨会话生效）；后端观察到密码被清除（hasPassword=false）时撤销该网络全部解锁记录。旧版模组无 hasPassword 字段按公开处理（`ModNetworkSummaryResponse` 可空 `Boolean` 承接）。
+- **前端**：`GridCard` 锁定徽标；详情页对 `network_locked` 渲染 `UnlockGate` 解锁门（替代错误横幅），解锁成功刷新快照与列表；mock 层主基地网络预置演示密码 `1234`。
+
+### 每网络配对令牌（暂缓，实施前与用户再确认场景）
+
+- 适用场景：多玩家 / 对外部署，需要按网络隔离授权；网格密码已覆盖个人自用与小型多人场景，随机 token 语义暂无需求。
+- 若实施：`AccessScreen` 展示已注册网络的 `accessId` + token（一键复制），token 字符串同步需要新的通道（`AccessMenu` 已扩为 `SimpleContainerData(2)`，仍只能传 int，token 需自定义 payload，可复用 `GridPasswordPayload` 的模式）；「重置 token」按钮 + 后端侧同步失效。
 - token 流向约定：模组 `/networks` 可把 token 输出给后端（模组口仅 127.0.0.1 + 共享密钥可达，泄漏面可控），由**后端持有并校验，不下发给前端**。
 - 改名（`displayName`）与 token 展示属同一批 GUI 改动，实施时一起做。
 

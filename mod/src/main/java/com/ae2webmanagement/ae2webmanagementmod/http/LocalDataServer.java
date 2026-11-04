@@ -36,6 +36,7 @@ import net.minecraft.nbt.Tag;
 import com.ae2webmanagement.ae2webmanagementmod.Config;
 import com.ae2webmanagement.ae2webmanagementmod.command.CommandManager;
 import com.ae2webmanagement.ae2webmanagementmod.command.CraftCommand;
+import com.ae2webmanagement.ae2webmanagementmod.data.GridPasswords;
 import com.ae2webmanagement.ae2webmanagementmod.network.NetworkIdentity;
 import com.ae2webmanagement.ae2webmanagementmod.snapshot.Snapshot;
 import com.ae2webmanagement.ae2webmanagementmod.snapshot.SnapshotManager;
@@ -183,14 +184,11 @@ public final class LocalDataServer {
     }
 
     /**
-     * 处理合成命令投递。
-     *
-     * <p>只校验路径、网络、JSON 结构和基本数值；解析 AEKey 和访问 AE2
-     * 交给主线程的 {@link CommandManager} 处理。
+     * 处理 POST 分发：合成命令投递与网格密码校验。
      */
     private void handlePost(HttpExchange exchange, String path) throws IOException {
         String[] parts = path.split("/");
-        if (parts.length != 4 || !"networks".equals(parts[1]) || !"craft".equals(parts[3])) {
+        if (parts.length != 4 || !"networks".equals(parts[1])) {
             sendError(exchange, 404, "not_found");
             return;
         }
@@ -202,6 +200,26 @@ public final class LocalDataServer {
             sendError(exchange, 400, "invalid_access_id");
             return;
         }
+
+        if ("craft".equals(parts[3])) {
+            handleCraft(exchange, accessId);
+            return;
+        }
+        if ("verify-password".equals(parts[3])) {
+            handleVerifyPassword(exchange, accessId);
+            return;
+        }
+
+        sendError(exchange, 404, "not_found");
+    }
+
+    /**
+     * 处理合成命令投递。
+     *
+     * <p>只校验路径、网络、JSON 结构和基本数值；解析 AEKey 和访问 AE2
+     * 交给主线程的 {@link CommandManager} 处理。
+     */
+    private void handleCraft(HttpExchange exchange, UUID accessId) throws IOException {
         if (!this.commands.hasNetwork(accessId)) {
             sendError(exchange, 404, "network_not_found");
             return;
@@ -258,6 +276,45 @@ public final class LocalDataServer {
         sendJson(exchange, 202, response);
     }
 
+    /**
+     * 处理网格密码校验（后端在账号「解锁网格」时转发调用）。
+     *
+     * <p>未设密码的网络直接 204（公开）；密码哈希取自 SnapshotManager 的
+     * 镜像缓存（GUI 设密后主线程立即刷新）。网络未知 → 404。</p>
+     */
+    private void handleVerifyPassword(HttpExchange exchange, UUID accessId) throws IOException {
+        if (!this.snapshots.hasIdentity(accessId)) {
+            sendError(exchange, 404, "network_not_found");
+            return;
+        }
+
+        JsonObject body;
+        try {
+            body = readJsonObject(exchange);
+        } catch (IOException exception) {
+            sendError(exchange, 400, "invalid_json");
+            return;
+        }
+        String password;
+        try {
+            if (!body.has("password") || !body.get("password").isJsonPrimitive()) {
+                sendError(exchange, 400, "invalid_json");
+                return;
+            }
+            password = body.get("password").getAsString();
+        } catch (RuntimeException exception) {
+            sendError(exchange, 400, "invalid_json");
+            return;
+        }
+
+        String hash = this.snapshots.getPasswordHash(accessId);
+        if (hash.isEmpty() || GridPasswords.verify(password, hash)) {
+            sendEmpty(exchange, 204);
+            return;
+        }
+        sendError(exchange, 401, "invalid_password");
+    }
+
     /** 读取并解析请求体；请求体必须是不超过 {@value #MAX_REQUEST_BYTES} 字节的 JSON object。 */
     private JsonObject readJsonObject(HttpExchange exchange) throws IOException {
         byte[] bytes = exchange.getRequestBody().readNBytes(MAX_REQUEST_BYTES + 1);
@@ -303,6 +360,7 @@ public final class LocalDataServer {
             network.put("capturedAt", snapshot.map(Snapshot::capturedAt).orElse(0L));
             network.put("inventoryEntries", snapshot.map(value -> value.inventory().size()).orElse(0));
             network.put("cpuCount", snapshot.map(value -> value.craftingCpus().size()).orElse(0));
+            network.put("hasPassword", !this.snapshots.getPasswordHash(identity.accessId()).isEmpty());
             networks.add(network);
         }
         return networks;
@@ -411,6 +469,11 @@ public final class LocalDataServer {
     /** 发送统一格式的 JSON 错误响应。 */
     private static void sendError(HttpExchange exchange, int status, String error) throws IOException {
         sendJson(exchange, status, Map.of("error", error));
+    }
+
+    /** 发送无响应体的状态码（如 204）。 */
+    private static void sendEmpty(HttpExchange exchange, int status) throws IOException {
+        exchange.sendResponseHeaders(status, -1);
     }
 
     /** 写入 JSON 响应头和 UTF-8 响应体，并禁止缓存。 */

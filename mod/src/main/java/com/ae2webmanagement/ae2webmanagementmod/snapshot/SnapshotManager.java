@@ -45,15 +45,21 @@ public final class SnapshotManager {
 
     private final Map<UUID, Snapshot> cache = new ConcurrentHashMap<>();
     private final Map<UUID, NetworkIdentity> identityCache = new ConcurrentHashMap<>();
+    /** 密码哈希镜像（主线程写 / HTTP 线程读）：GUI 设置密码后立即更新，不等到下一采样周期。 */
+    private final Map<UUID, String> passwordHashCache = new ConcurrentHashMap<>();
     private long nextSnapshotAtMillis;
 
     /** 服务端启动时从 Overworld 的 SavedData 恢复最后快照。 */
     public void start(MinecraftServer server) {
         this.cache.clear();
         this.identityCache.clear();
+        this.passwordHashCache.clear();
         ServerLevel overworld = server.overworld();
         NetworkIdentityStore.get(overworld).getAll()
-                .forEach(identity -> this.identityCache.put(identity.accessId(), identity));
+                .forEach(identity -> {
+                    this.identityCache.put(identity.accessId(), identity);
+                    this.passwordHashCache.put(identity.accessId(), hashOf(identity));
+                });
         SnapshotStore.get(overworld).getAll()
                 .forEach(snapshot -> this.cache.put(snapshot.accessId(), snapshot));
         this.nextSnapshotAtMillis = 0L;
@@ -87,12 +93,15 @@ public final class SnapshotManager {
         }
         this.identityCache.keySet().retainAll(latestIdentities.keySet());
         this.identityCache.putAll(latestIdentities);
+        latestIdentities.forEach((accessId, identity) -> this.passwordHashCache.put(accessId, hashOf(identity)));
+        this.passwordHashCache.keySet().retainAll(latestIdentities.keySet());
     }
 
     /** 服务端停止时清空内存缓存；持久化的最后快照保留在 SavedData 中。 */
     public void stop() {
         this.cache.clear();
         this.identityCache.clear();
+        this.passwordHashCache.clear();
     }
 
     /** 按 accessId 获取最近一次快照；离线时可能是旧快照。 */
@@ -108,6 +117,37 @@ public final class SnapshotManager {
     /** 获取全部网络身份的只读副本，供 HTTP 网络列表使用。 */
     public Collection<NetworkIdentity> getIdentities() {
         return List.copyOf(this.identityCache.values());
+    }
+
+    /**
+     * @param accessId 网络接入 ID
+     * @return 该网络的密码哈希；未设密码或网络未知为空字符串（HTTP 线程可调用）
+     */
+    public String getPasswordHash(UUID accessId) {
+        return this.passwordHashCache.getOrDefault(accessId, "");
+    }
+
+    /**
+     * GUI 设置/清除密码后由主线程立即同步，避免等待下一个采样周期。
+     *
+     * @param accessId 网络接入 ID
+     * @param hash     新的密码哈希；清除密码传空字符串
+     */
+    public void updatePasswordHash(UUID accessId, String hash) {
+        this.passwordHashCache.put(accessId, hash == null ? "" : hash);
+    }
+
+    /**
+     * @param accessId 网络接入 ID
+     * @return 身份表是否存在该网络（HTTP 线程可调用）
+     */
+    public boolean hasIdentity(UUID accessId) {
+        return this.identityCache.containsKey(accessId);
+    }
+
+    /** 取身份的密码哈希（null 归一为空串）。 */
+    private static String hashOf(NetworkIdentity identity) {
+        return identity.passwordHash() == null ? "" : identity.passwordHash();
     }
 
     /**

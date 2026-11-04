@@ -1,20 +1,25 @@
 <script setup>
 /**
  * 网格卡片：选择页的单个网络条目。
- * 展示显示名、在线徽标、控制器位置、快照摘要与「数据截至」时间；
- * 密码为预留栏位；点击「进入网格」向父级发 enter 事件。
+ * 展示显示名、在线徽标、锁定徽标（v0.3：设有网格密码且未解锁）、
+ * 控制器位置、快照摘要与「数据截至」时间；点击「进入网格」向父级发 enter 事件。
+ * 账号登录承担服务器级访问控制，网格密码在详情页解锁门校验。
  */
+import { computed } from 'vue'
+
 import BaseButton from '../base/BaseButton.vue'
 import StatusBadge from '../base/StatusBadge.vue'
-import PasswordField from './PasswordField.vue'
 import { formatTime } from '../../lib/format.js'
 
-defineProps({
-  /** 网络摘要对象，形状见 contracts/web-api.md 的 GET /api/networks。 */
+const props = defineProps({
+  /** 网络摘要对象，形状见 contracts/web-api.md 的 GET /api/networks（v0.3 含 hasPassword/unlocked）。 */
   network: { type: Object, required: true },
 })
 
 defineEmits(['enter'])
+
+/** 是否处于锁定态：设有网格密码且当前账号未解锁。 */
+const locked = computed(() => Boolean(props.network.hasPassword) && !props.network.unlocked)
 </script>
 
 <template>
@@ -25,7 +30,10 @@ defineEmits(['enter'])
       <h3 class="min-w-0 truncate text-sm font-medium text-ink" :title="network.displayName">
         {{ network.displayName }}
       </h3>
-      <StatusBadge :label="network.online ? '在线' : '离线'" :variant="network.online ? 'ok' : 'neutral'" />
+      <span class="flex shrink-0 items-center gap-1.5">
+        <StatusBadge v-if="locked" label="🔒 锁定" variant="accent" />
+        <StatusBadge :label="network.online ? '在线' : '离线'" :variant="network.online ? 'ok' : 'neutral'" />
+      </span>
     </header>
 
     <dl class="space-y-1 font-mono text-[11px] leading-5 text-ink-dim">
@@ -49,11 +57,9 @@ defineEmits(['enter'])
       </div>
     </dl>
 
-    <PasswordField />
-
     <footer>
       <BaseButton variant="primary" class="w-full justify-center" @click="$emit('enter')">
-        进入网格 →
+        {{ locked ? '输入密码解锁 →' : '进入网格 →' }}
       </BaseButton>
     </footer>
   </article>

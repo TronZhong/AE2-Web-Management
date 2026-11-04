@@ -15,10 +15,12 @@ import net.minecraft.world.level.Level;
  * @param accessId        存档内专属 ID（由模组生成）
  * @param controllerLevel 锚点：ME 控制器所在维度
  * @param controllerPos   锚点：ME 控制器方块坐标
- * @param token           网页访问令牌（后端持有）
+ * @param token           网页访问令牌（后端持有；当前未启用，字段闲置）
  * @param displayName     显示名
  * @param createdAt       建档时间（epoch 毫秒）
  * @param lastSeenAt      最近一次在线时间（epoch 毫秒）
+ * @param passwordHash    网格密码的 PBKDF2 哈希（{@code GridPasswords#hash} 格式）；
+ *                        空字符串表示未设密码（公开网络）
  */
 public record NetworkIdentity(
         UUID accessId,
@@ -27,5 +29,6 @@ public record NetworkIdentity(
         String token,
         String displayName,
         long createdAt,
-        long lastSeenAt) {
+        long lastSeenAt,
+        String passwordHash) {
 }

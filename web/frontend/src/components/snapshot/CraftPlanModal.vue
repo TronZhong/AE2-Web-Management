@@ -2,24 +2,36 @@
 /**
  * 计划合成弹窗：点击样板格子后弹出（z 轴更高 + 背景模糊）。
  * 展示目标产物、可修改的数量，并按「批次 = ⌈数量 / 单批产量⌉」换算各输入槽需求。
- * 「开始合成」在本期禁用——提交接口 POST /craft 由后端转发后于下一迭代接通。
- * ESC 或点击遮罩关闭。
+ * 「开始合成」提交 POST /craft：受理后展示命令回执（commandId），并通知父级刷新命令列表。
+ * 提交失败的契约错误码（invalid_amount 等）直接作为文案展示。ESC 或点击遮罩关闭。
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import BaseButton from '../base/BaseButton.vue'
 import ItemSlot from '../base/ItemSlot.vue'
-import { formatAmount, friendlyName, keyId } from '../../lib/format.js'
+import { submitCraft } from '../../api/index.js'
+import { formatAmount, formatTime, friendlyName, keyId } from '../../lib/format.js'
 
 const props = defineProps({
+  /** 目标网格 accessId：提交合成命令的路径参数。 */
+  accessId: { type: String, required: true },
   /** 选中的样板对象（patterns[] 条目）。 */
   pattern: { type: Object, required: true },
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'submitted'])
 
 /** 期望合成数量：默认单批产量。 */
 const amount = ref(props.pattern.primaryOutput.amount || 1)
+
+/** 提交中标记：防止重复点击。 */
+const submitting = ref(false)
+
+/** 提交失败的契约错误码（如 invalid_amount / mod_unreachable）。 */
+const submitError = ref('')
+
+/** 受理成功后的 202 响应 {commandId, state, submittedAt}；非空表示已受理。 */
+const accepted = ref(null)
 
 /** 批次数 = ⌈数量 / 单批产量⌉，至少 1。 */
 const times = computed(() => {
@@ -38,6 +50,30 @@ const inputLines = computed(() =>
     })),
   })),
 )
+
+/**
+ * 提交合成命令：先做与后端/模组对齐的前端校验（正整数数量），
+ * 通过后 POST /craft 并记录受理响应；契约错误码直接透出为文案。
+ */
+async function submit() {
+  if (submitting.value || accepted.value) {
+    return
+  }
+  if (!Number.isInteger(amount.value) || amount.value <= 0) {
+    submitError.value = 'invalid_amount'
+    return
+  }
+  submitting.value = true
+  submitError.value = ''
+  try {
+    accepted.value = await submitCraft(props.accessId, props.pattern.primaryOutput.key, amount.value)
+    emit('submitted')
+  } catch (cause) {
+    submitError.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    submitting.value = false
+  }
+}
 
 /** ESC 关闭；打开期间锁定页面滚动。 */
 function onKeyDown(event) {
@@ -95,7 +131,8 @@ onBeforeUnmount(() => {
               v-model.number="amount"
               type="number"
               min="1"
-              class="w-40 rounded-md border border-line bg-panel-2 px-2.5 py-1.5 font-mono text-xs tabular-nums text-ink focus:border-accent/60 focus:outline-none"
+              :disabled="submitting || !!accepted"
+              class="w-40 rounded-md border border-line bg-panel-2 px-2.5 py-1.5 font-mono text-xs tabular-nums text-ink focus:border-accent/60 focus:outline-none disabled:opacity-50"
             />
             <p class="mt-1 font-mono text-[11px] text-ink-faint">共 {{ times }} 批</p>
           </div>
@@ -123,10 +160,25 @@ onBeforeUnmount(() => {
         </div>
 
         <footer class="flex items-center justify-between gap-3 border-t border-line px-4 py-3">
-          <p class="font-mono text-[10px] text-ink-faint">提交接口待后端 /craft 接通后开放</p>
-          <div class="flex gap-2">
-            <BaseButton @click="emit('close')">取消</BaseButton>
-            <BaseButton variant="primary" disabled>开始合成</BaseButton>
+          <p
+            v-if="accepted"
+            class="min-w-0 truncate font-mono text-[10px] text-ok"
+            :title="accepted.commandId"
+          >
+            已受理 · 命令 {{ accepted.commandId.slice(0, 8) }}… · {{ formatTime(accepted.submittedAt) }}
+          </p>
+          <p v-else-if="submitError" class="min-w-0 truncate font-mono text-[10px] text-err">
+            提交失败：{{ submitError }}
+          </p>
+          <p v-else class="font-mono text-[10px] text-ink-faint">数量为正整数 · 受理后由模组队列调度</p>
+          <div class="flex shrink-0 gap-2">
+            <BaseButton v-if="accepted" variant="primary" @click="emit('close')">完成</BaseButton>
+            <template v-else>
+              <BaseButton @click="emit('close')">取消</BaseButton>
+              <BaseButton variant="primary" :disabled="submitting" @click="submit">
+                {{ submitting ? '提交中…' : '开始合成' }}
+              </BaseButton>
+            </template>
           </div>
         </footer>
       </div>

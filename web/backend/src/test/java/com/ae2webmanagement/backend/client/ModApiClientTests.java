@@ -15,7 +15,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import com.ae2webmanagement.backend.dto.CraftRequest;
-import com.ae2webmanagement.backend.dto.NetworkListResponse;
+import com.ae2webmanagement.backend.dto.ModNetworkListResponse;
 import com.ae2webmanagement.backend.dto.SnapshotResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,7 +51,7 @@ class ModApiClientTests {
 		this.client = new ModApiClient(builder.build(), new ObjectMapper());
 	}
 
-	/** 正常响应：GET /networks 解析为 NetworkListResponse，字段一一对应。 */
+	/** 正常响应：GET /networks 解析为 NetworkListResponse，字段一一对应（含 v0.3 hasPassword）。 */
 	@Test
 	void listNetworksParsesNetworksArray() {
 		this.server.expect(requestTo(BASE_URL + "/networks"))
@@ -66,11 +66,12 @@ class ModApiClientTests {
 						"online":true,
 						"capturedAt":1760000000000,
 						"inventoryEntries":17,
-						"cpuCount":2
+						"cpuCount":2,
+						"hasPassword":true
 					}]}
 				""", MediaType.APPLICATION_JSON));
 
-		NetworkListResponse response = this.client.listNetworks();
+		ModNetworkListResponse response = this.client.listNetworks();
 
 		assertThat(response.networks()).hasSize(1);
 		assertThat(response.networks().get(0).accessId()).isEqualTo("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
@@ -83,6 +84,33 @@ class ModApiClientTests {
 		assertThat(response.networks().get(0).capturedAt()).isEqualTo(1760000000000L);
 		assertThat(response.networks().get(0).inventoryEntries()).isEqualTo(17);
 		assertThat(response.networks().get(0).cpuCount()).isEqualTo(2);
+		assertThat(response.networks().get(0).hasPassword()).isTrue();
+		this.server.verify();
+	}
+
+	/**
+	 * 向后兼容：旧版模组（&lt;0.0.6）列表无 hasPassword 字段 → 反序列化为
+	 * {@code null}（service 按「无密码 = 公开」归一，无需特判）。
+	 */
+	@Test
+	void legacyNetworkListWithoutHasPasswordDefaultsToNull() {
+		this.server.expect(requestTo(BASE_URL + "/networks"))
+			.andRespond(withSuccess("""
+					{"networks":[{
+						"accessId":"0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001",
+						"displayName":"旧版模组网络",
+						"dimension":"minecraft:overworld",
+						"controllerX":1,"controllerY":2,"controllerZ":3,
+						"online":false,
+						"capturedAt":0,
+						"inventoryEntries":0,
+						"cpuCount":0
+					}]}
+				""", MediaType.APPLICATION_JSON));
+
+		ModNetworkListResponse response = this.client.listNetworks();
+
+		assertThat(response.networks().get(0).hasPassword()).isNull();
 		this.server.verify();
 	}
 
@@ -168,6 +196,36 @@ class ModApiClientTests {
 		assertThat(response.commands().get(0).result()).isEqualTo("crafting-1");
 		assertThat(response.commands().get(0).amount()).isEqualTo(64);
 		assertThat(response.commands().get(0).target().get("id").asText()).isEqualTo("minecraft:stone");
+		this.server.verify();
+	}
+
+	/** 正常响应：POST /verify-password 密码正确 → 204 无响应体（v0.3）。 */
+	@Test
+	void verifyPasswordSendsPasswordAndAccepts204() {
+		UUID accessId = UUID.fromString("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
+		this.server.expect(requestTo(BASE_URL + "/networks/" + accessId + "/verify-password"))
+			.andExpect(method(HttpMethod.POST))
+			.andExpect(jsonPath("$.password").value("secret"))
+			.andRespond(withStatus(HttpStatus.NO_CONTENT));
+
+		this.client.verifyPassword(accessId, "secret");
+
+		this.server.verify();
+	}
+
+	/** 错误透传：POST /verify-password 密码不匹配 → ModApiException(401, invalid_password)（v0.3）。 */
+	@Test
+	void verifyPasswordWrongPasswordPassesThrough401() {
+		UUID accessId = UUID.fromString("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
+		this.server.expect(requestTo(BASE_URL + "/networks/" + accessId + "/verify-password"))
+			.andRespond(withStatus(HttpStatus.UNAUTHORIZED).contentType(MediaType.APPLICATION_JSON)
+				.body("{\"error\":\"invalid_password\"}"));
+
+		assertThatThrownBy(() -> this.client.verifyPassword(accessId, "wrong"))
+			.isInstanceOfSatisfying(ModApiException.class, e -> {
+				assertThat(e.status()).isEqualTo(401);
+				assertThat(e.code()).isEqualTo("invalid_password");
+			});
 		this.server.verify();
 	}
 
