@@ -44,7 +44,7 @@
 | [`../../web/frontend/src/components/base/ItemTooltip.vue`](../../web/frontend/src/components/base/ItemTooltip.vue) | 跟随鼠标的 MC 风格 tooltip（teleport 到 body，按缩放系数换算坐标） |
 | **`components/grid/`** — 选择页组件 | |
 | [`../../web/frontend/src/components/grid/GridCard.vue`](../../web/frontend/src/components/grid/GridCard.vue) | 网格卡片：名称、在线徽标、控制器位置、快照摘要、进入按钮 |
-| [`../../web/frontend/src/components/grid/PasswordField.vue`](../../web/frontend/src/components/grid/PasswordField.vue) | 密码输入（**预留栏位**，不校验；语义待认证方案定稿后回填） |
+| [`../../web/frontend/src/components/grid/PasswordField.vue`](../../web/frontend/src/components/grid/PasswordField.vue) | 密码输入（**预留栏位**，不校验；语义已定为登录凭证——账号制认证，见 [`../roadmap.md`](../roadmap.md) §2） |
 | **`components/snapshot/`** — 详情页组件 | |
 | [`../../web/frontend/src/components/snapshot/StatusCpuCard.vue`](../../web/frontend/src/components/snapshot/StatusCpuCard.vue) | 状态 + 合成 CPU 合并卡：在线态、数据截至、控制器、CPU 忙闲/存储/协处理器 |
 | [`../../web/frontend/src/components/snapshot/InventoryCard.vue`](../../web/frontend/src/components/snapshot/InventoryCard.vue) | 库存卡：MC 格子布局（ItemSlot 网格），关键字过滤 + 按行窗口化虚拟滚动，列数自适应宽度 |
@@ -62,9 +62,10 @@
 - [x] 全站默认 150% 放缩（`style.css` 的 `--app-zoom`）。
 - [x] mock 数据源与 `VITE_USE_MOCK` 切换；契约错误码直接透出为错误文案。
 - [x] 后端转发已实现，`VITE_USE_MOCK=false` + dev 代理（`vite.config.js` 的 `/api` → `http://localhost:8080`）即可走真实请求，响应形状与 mock 一致。
-- [ ] 计划合成弹窗的「开始合成」接 `POST /craft`（后端已通接口，下一迭代启用提交按钮）。
-- [ ] 认证接入（密码栏位语义：全局账号 or 每网络令牌，见 `docs/design.md` 4.1）。
-- [ ] 物品贴图接入 `ItemSlot` 的 `iconUrl`（当前为方块占位）。
+- [ ] 计划合成弹窗的「开始合成」接 `POST /craft`（后端已通接口，下一迭代启用提交按钮，见 [`roadmap.md`](../roadmap.md) §1）。
+- [ ] 认证接入：语义已拍板**账号制先行**（全局账号，模组零改动），每网络配对令牌为后续增强，见 [`roadmap.md`](../roadmap.md) §2；`PasswordField` 语义届时回填。
+- [ ] 物品中文名：按模组 `nameKey` + 前端中文语言表实现（含过渡启发式方案），见 [`roadmap.md`](../roadmap.md) §3。
+- [ ] 物品贴图接入 `ItemSlot` 的 `iconUrl`（当前为方块占位；来源定为模组客户端渲染导出，见 [`roadmap.md`](../roadmap.md) §4）。
 
 ## 约定
 
@@ -87,5 +88,6 @@ npm run build  # 生产构建
 
 - [架构总览](../architecture.md)
 - [Web API 契约](../contracts/web-api.md)
+- [后续迭代路线](../roadmap.md)（craft 接线、认证、中文名、图标等待实施项）
 - [后端](../backend/index.md)
 - [数据契约](../contracts/index.md)

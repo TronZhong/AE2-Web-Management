@@ -66,12 +66,13 @@ cd .\web\backend
 - [x] 分层骨架、CORS、模组 `RestClient`（含 2s/5s 超时）、H2 文件库、配置绑定已就绪。
 - [x] **P1 只读转发 + P2 合成命令转发已实现**：`/api/networks`、`/api/networks/{id}/snapshot`、`/api/networks/{id}/craft`、`/api/networks/{id}/commands` 均透传模组响应；错误翻译见 `NetworkService`，兜底见 `GlobalExceptionHandler`。
 - [x] 测试：`ModApiClientTests`（MockRestServiceServer）、`ModClientConfigTests`（超时）、`NetworkServiceTests`（错误翻译）、`NetworkControllerTests` / `CraftControllerTests`（MockMvc 字段对齐）。
-- [ ] **未加认证**：计划引入 `Sa-Token`（`sa-token-spring-boot4-starter`，接入时需实测 Spring Boot 4.1 兼容性）。
+- [ ] **未加认证**：语义已拍板**账号制先行**（Sa-Token + H2 账户表，登录后可见全部网络；每网络配对令牌为后续增强），决策与模组侧配套见 [`../roadmap.md`](../roadmap.md) §2。接入时需实测 `sa-token-spring-boot4-starter` 与 Spring Boot 4.1 的兼容性。
 - [ ] `repository/domain` 仍为空（本轮零表），留给认证阶段。
 
 ## 相关文档
 
 - [架构总览](../architecture.md)
+- [后续迭代路线](../roadmap.md)（认证语义已拍板：账号制先行）
 - [数据契约](../contracts/index.md)
 - [模组](../mod/index.md)
 - [快速开始](../getting-started.md)

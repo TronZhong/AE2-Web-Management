@@ -90,11 +90,17 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 - [x] **命令队列**：HTTP 只入队，主线程持久化并用 AE2 异步重算后提交。
 - [x] **后端代理**：Spring Boot 已把本机 API 的网络列表 / 快照 / 合成命令转发给网页（`web/backend/`，见 [后端](../backend/index.md)）；用户授权待认证迭代。
 
+- [ ] **GUI 迭代（`roadmap.md` §2/§3，动模组代码则 `mod_version` 0.0.5 → 0.0.6）**：展示 `NetworkIdentity.token` / `displayName`（现无展示出口、注册时写死 `"Network @ x,y,z"`；token 同步需新增通道，`ContainerData` 只能传 int）。
+- [ ] **`nameKey` 字段（`roadmap.md` §3）**：快照 stack 条目附带物品翻译键（服务端无多语言，不能直接出中文名，由前端按翻译键查中文语言表）。
+- [ ] **物品图标导出（`roadmap.md` §4）**：客户端离屏渲染已见物品为 16×16 PNG 并经本地 API 提供给后端。
+- [ ] **命令取消 API 与 `lastSeenAt` 回写（`roadmap.md` §5）**：PENDING 命令目前无法撤销；`lastSeenAt` 尚未随快照回写。
+
 > 实现顺序与完整方案见 [技术设计](../design.md)：锚点身份（控制器 + `SavedData`）→ 注册器方块 → 4 秒快照循环 → 命令队列 → 本地 127.0.0.1 数据口。
 
 ## 相关文档
 
 - [技术设计](../design.md)（定稿方案）
+- [后续迭代路线](../roadmap.md)（GUI 迭代、`nameKey`、图标导出等待实施项）
 - [架构总览](../architecture.md)（线程安全、缓存、存档 ID 等设计约束）
 - [数据契约](../contracts/index.md)
 - [后端](../backend/index.md)
