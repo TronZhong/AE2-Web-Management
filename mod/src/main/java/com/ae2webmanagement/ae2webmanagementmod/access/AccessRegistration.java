@@ -102,10 +102,11 @@ public final class AccessRegistration {
                 (blockEntity, context) -> (IInWorldGridNodeHost) blockEntity);
     }
 
-    // ------------------------------ 网络协议（C2S payload） ------------------------------
+    // ------------------------------ 网络协议（C2S/S2C payload） ------------------------------
 
     /**
-     * 注册自定义网络包：GUI 提交网格密码。NeoForge 默认把处理器调度到主线程，
+     * 注册自定义网络包：GUI 提交网格密码（C2S）、提交新显示名（C2S）、
+     * 服务端推送身份信息（S2C）。NeoForge 默认把处理器调度到主线程，
      * 满足 {@code SavedData} 写入的线程要求。
      */
     @SubscribeEvent
@@ -115,5 +116,13 @@ public final class AccessRegistration {
                 GridPasswordPayload.TYPE,
                 GridPasswordPayload.STREAM_CODEC,
                 GridPasswordPayload::handleOnServer);
+        registrar.playToServer(
+                GridRenamePayload.TYPE,
+                GridRenamePayload.STREAM_CODEC,
+                GridRenamePayload::handleOnServer);
+        registrar.playToClient(
+                GridIdentityPayload.TYPE,
+                GridIdentityPayload.STREAM_CODEC,
+                GridIdentityPayload::handleOnClient);
     }
 }

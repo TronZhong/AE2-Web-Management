@@ -8,6 +8,10 @@
   "gui.ae2webmanagement.status.created": "网络注册成功。",
   "gui.ae2webmanagement.status.already_exists": "该网络已注册。",
 
+  "gui.ae2webmanagement.rename.label": "显示名（网页展示）",
+  "gui.ae2webmanagement.button.rename": "改名",
+  "gui.ae2webmanagement.identity.unregistered": "未注册",
+
   "gui.ae2webmanagement.password.label": "网格密码（网页访问）",
   "gui.ae2webmanagement.button.password_set": "设置密码",
   "gui.ae2webmanagement.button.password_clear": "清除密码",

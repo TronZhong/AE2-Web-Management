@@ -14,6 +14,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -34,6 +35,7 @@ import com.ae2webmanagement.ae2webmanagementmod.data.GridPasswords;
 import com.ae2webmanagement.ae2webmanagementmod.data.NetworkIdentityStore;
 import com.ae2webmanagement.ae2webmanagementmod.grid.ControllerAnchor;
 import com.ae2webmanagement.ae2webmanagementmod.grid.ControllerLocator;
+import com.ae2webmanagement.ae2webmanagementmod.network.NetworkIdentity;
 
 /**
  * 「接入」方块的方块实体：一个 AE2 托管网格节点 + GUI 交互。
@@ -117,6 +119,20 @@ public class AccessBlockEntity extends BlockEntity
         return Optional.ofNullable(this.controllerAnchor);
     }
 
+    /**
+     * 按控制器锚点查身份表，返回该网络的身份记录（未注册时为空）。
+     *
+     * @param anchor 控制器锚点
+     * @return 对应的 {@link NetworkIdentity}；未注册 / 无法访问身份表时为空
+     */
+    public Optional<NetworkIdentity> getIdentity(ControllerAnchor anchor) {
+        NetworkIdentityStore store = identityStoreOrNull(anchor);
+        if (store == null) {
+            return Optional.empty();
+        }
+        return store.findAccessId(anchor).flatMap(store::get);
+    }
+
     // ===================== MenuProvider → GUI =====================
 
     /** 提供菜单标题；实际菜单由 {@link #createMenu} 创建。 */
@@ -128,7 +144,10 @@ public class AccessBlockEntity extends BlockEntity
     /** 服务端打开 GUI 时创建持有方块实体引用的菜单。 */
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInv, Player player) {
-        return new AccessMenu(containerId, playerInv, this);
+        if (!(player instanceof ServerPlayer serverPlayer)) {
+            return null;
+        }
+        return new AccessMenu(containerId, playerInv, this, serverPlayer);
     }
 
     /**
@@ -224,10 +243,62 @@ public class AccessBlockEntity extends BlockEntity
     }
 
     /**
+     * 修改当前网络的显示名（{@link AccessMenu#handleRename} 转发，主线程）。
+     *
+     * <p>校验：须已注册、新名非空白、长度不超过 {@link AccessMenu#MAX_DISPLAY_NAME_LENGTH}。
+     * 写入身份表 SavedData 后立即刷新 SnapshotManager 的身份镜像缓存，
+     * 让网页网络列表无需等待下一个采样周期即可看到新名。</p>
+     *
+     * @param newName 新显示名原文
+     * @return 是否成功改名（网络未注册 / 非法输入时为 {@code false}）
+     */
+    public boolean renameGrid(String newName) {
+        NetworkIdentityStore store = identityStoreOrNull();
+        if (store == null || this.controllerAnchor == null) {
+            return false;
+        }
+        UUID accessId = store.findAccessId(this.controllerAnchor).orElse(null);
+        if (accessId == null) {
+            LOGGER.warn("[AE2Web] Ignored rename: network not registered at {}", this.worldPosition);
+            return false;
+        }
+        if (newName == null || newName.isBlank()) {
+            LOGGER.warn("[AE2Web] Ignored rename: empty display name at {}", this.worldPosition);
+            return false;
+        }
+        String trimmed = newName.trim();
+        if (trimmed.length() > AccessMenu.MAX_DISPLAY_NAME_LENGTH) {
+            LOGGER.warn("[AE2Web] Ignored rename: display name too long (max {}): {}",
+                    AccessMenu.MAX_DISPLAY_NAME_LENGTH, this.worldPosition);
+            return false;
+        }
+
+        var updated = store.rename(accessId, trimmed);
+        updated.ifPresent((identity) -> {
+            AE2WebManagement.snapshotManager().updateIdentity(identity);
+            LOGGER.info("[AE2Web] Renamed network {} to \"{}\"", accessId, identity.displayName());
+        });
+        return updated.isPresent();
+    }
+
+    /**
      * @return Overworld 身份表（仅服务端主线程且已有控制器锚点时）；否则 {@code null}
      */
     private NetworkIdentityStore identityStoreOrNull() {
         if (!(this.level instanceof ServerLevel serverLevel) || this.controllerAnchor == null) {
+            return null;
+        }
+        return NetworkIdentityStore.get(serverLevel);
+    }
+
+    /**
+     * 按显式锚点取 Overworld 身份表（仅服务端主线程且锚点非空时）；否则 {@code null}。
+     *
+     * @param anchor 控制器锚点
+     * @return 身份表；无法访问时为 {@code null}
+     */
+    private NetworkIdentityStore identityStoreOrNull(ControllerAnchor anchor) {
+        if (!(this.level instanceof ServerLevel serverLevel) || anchor == null) {
             return null;
         }
         return NetworkIdentityStore.get(serverLevel);

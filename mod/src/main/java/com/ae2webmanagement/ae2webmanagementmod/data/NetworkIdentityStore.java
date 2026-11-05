@@ -174,6 +174,31 @@ public final class NetworkIdentityStore extends SavedData {
         return Optional.of(updated);
     }
 
+    /**
+     * 修改网络显示名（接入方块 GUI 改名，主线程调用）。
+     *
+     * <p>只改 {@code displayName}，其余字段（accessId / 锚点 / token / 密码哈希等）
+     * 保持不变；写后标记 SavedData 脏以便存档。网页展示名来自本字段，
+     * 改名后 {@link com.ae2webmanagement.ae2webmanagementmod.snapshot.SnapshotManager#updateIdentity}
+     * 同步镜像缓存，让 HTTP 列表无需等待下一个采样周期即可看到新名。</p>
+     *
+     * @param accessId    网络接入 ID（须已注册）
+     * @param newName     新显示名（非空；长度校验由调用方 {@code AccessBlockEntity} 负责）
+     * @return 更新后的身份记录；网络不存在时为空
+     */
+    public Optional<NetworkIdentity> rename(UUID accessId, String newName) {
+        NetworkIdentity identity = identities.get(accessId);
+        if (identity == null) {
+            return Optional.empty();
+        }
+        NetworkIdentity updated = new NetworkIdentity(
+                identity.accessId(), identity.controllerLevel(), identity.controllerPos(),
+                identity.token(), newName, identity.createdAt(), identity.lastSeenAt(), identity.passwordHash());
+        identities.put(accessId, updated);
+        setDirty();
+        return Optional.of(updated);
+    }
+
     /** 全部身份（只读）。 */
     public Collection<NetworkIdentity> getAll() {
         return Collections.unmodifiableCollection(identities.values());
