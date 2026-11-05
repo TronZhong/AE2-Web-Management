@@ -1,10 +1,12 @@
 <script setup>
-/** 网格选择页：列出全部已注册网络卡片；10s 轮询 + 手动刷新。 */
+/** 网格选择页：列出全部已注册网络卡片；10s 轮询 + SSE 事件即时刷新 + 手动刷新。 */
+import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 import BaseButton from '../components/base/BaseButton.vue'
 import EmptyState from '../components/base/EmptyState.vue'
 import GridCard from '../components/grid/GridCard.vue'
+import { subscribeGridEvents } from '../api/events.js'
 import { useNetworks } from '../composables/useNetworks.js'
 import { usePolling } from '../composables/usePolling.js'
 
@@ -13,6 +15,13 @@ const { networks, loading, error, refresh } = useNetworks()
 
 // 网络列表变化频率低，用 10s 轮询；start() 会立即执行首次加载
 usePolling(refresh, 10_000).start()
+
+// 后端推送「列表级变化」时立即刷新，不必干等下一次轮询（roadmap §3 实时推送）
+let unsubscribeEvents = null
+onMounted(() => {
+  unsubscribeEvents = subscribeGridEvents({ onGridsUpdated: () => refresh() })
+})
+onUnmounted(() => unsubscribeEvents?.())
 
 /** 进入所选网格的详情页。 */
 function enter(network) {

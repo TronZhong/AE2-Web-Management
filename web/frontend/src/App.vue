@@ -2,14 +2,22 @@
 /**
  * 应用外壳：顶栏（站点标识 + 数据源徽标 + 当前账号）、路由出口与页脚。
  * 数据源徽标按 USE_MOCK 显示 MOCK / 实时，避免误把演示数据当真实状态。
+ * 登出：清会话后立即跳回登录页（不带 redirect，主动登出不回跳），见 docs/roadmap.md §4。
  */
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterLink, RouterView, useRouter } from 'vue-router'
 
 import { USE_MOCK } from './api/index.js'
 import ItemTooltip from './components/base/ItemTooltip.vue'
 import { useAuth } from './composables/useAuth.js'
 
+const router = useRouter()
 const { username, logout } = useAuth()
+
+/** 登出：先调用 useAuth.logout()（清会话），再立即跳回登录页（不带 redirect）。 */
+async function onLogout() {
+  await logout()
+  router.push({ name: 'login' })
+}
 </script>
 
 <template>
@@ -31,7 +39,7 @@ const { username, logout } = useAuth()
             v-if="username"
             type="button"
             class="font-mono text-[11px] text-ink-faint transition-colors hover:text-ink"
-            @click="logout"
+            @click="onLogout"
           >
             [登出]
           </button>

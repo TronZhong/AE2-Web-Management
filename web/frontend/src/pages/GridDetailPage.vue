@@ -6,9 +6,10 @@
  * 锁定网络（契约 v0.3：快照返回 network_locked）以解锁门面板替代内容，
  * 解锁成功后刷新快照与网络列表（unlocked 徽标随之更新）。
  */
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 
 import { USE_MOCK } from '../api/index.js'
+import { subscribeGridEvents } from '../api/events.js'
 import { useCommands } from '../composables/useCommands.js'
 import { useNetworks } from '../composables/useNetworks.js'
 import { usePolling } from '../composables/usePolling.js'
@@ -32,6 +33,21 @@ const { networks, refresh: refreshNetworks } = useNetworks()
 usePolling(() => refresh(props.accessId), 5_000).start()
 usePolling(() => refreshCommands(props.accessId), 5_000).start()
 onMounted(refreshNetworks)
+
+// 后端推送：列表级变化 → 刷新网络列表（显示名/锁定徽标同步）；本网络快照刷新 → 立即拉快照与命令
+let unsubscribeEvents = null
+onMounted(() => {
+  unsubscribeEvents = subscribeGridEvents({
+    onGridsUpdated: () => refreshNetworks(),
+    onGridSnapshotUpdated: (accessId) => {
+      if (accessId === props.accessId) {
+        refresh(props.accessId)
+        refreshCommands(props.accessId)
+      }
+    },
+  })
+})
+onUnmounted(() => unsubscribeEvents?.())
 
 /** 命中的网络摘要（可能为 null：快照存在但列表未返回）。 */
 const network = computed(() => networks.value.find((item) => item.accessId === props.accessId) ?? null)
