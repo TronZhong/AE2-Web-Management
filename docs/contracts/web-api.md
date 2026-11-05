@@ -10,6 +10,7 @@
 - **v0.1（2026-11）**：后端转发已实现——只读端点 + 合成命令端点均透传模组响应（字段不重命名）；前端设置 `VITE_USE_MOCK=false` 切换真实请求，响应形状与 mock 一致。
 - **v0.2（2026-11）**：引入**账号制用户认证**（Sa-Token + H2 账户表）：新增认证端点三则；除登录端点外所有 `/api/**` 端点要求已登录，未登录返回 `401 {"error":"unauthorized"}`。模组端零改动，模组契约不变。
 - **v0.3（2026-11）**：引入**网格密码**（第二层访问控制，密码在游戏内 GUI 设置）：网络摘要新增 `hasPassword` / `unlocked`；新增 `POST /networks/{id}/unlock`；有密码且未解锁的网络，其 snapshot / craft / commands 端点返回 `403 {"error":"network_locked"}`。
+- **v0.4（2026-11）**：新增**实时事件端点** `GET /api/events`（SSE 推送，与 v0.3 完全向后兼容）：只推变更提示，前端收到后 refetch；轮询保留作兜底。
 
 ## 通用约定
 
@@ -179,6 +180,28 @@
 - `GET /snapshot`、`POST /craft`、`GET /commands` 对 `hasPassword && !unlocked` 的网络
   返回 `403 {"error":"network_locked"}`；解锁后正常。
 - 访问控制在后端执行（转发模组前检查），模组数据口继续只信任共享密钥。
+
+## 实时事件端点（v0.4，SSE）
+
+### `GET /api/events`
+
+订阅实时事件流。响应为 `text/event-stream`（SSE），连接建立后服务端主动推送**变更提示**，
+前端收到后再 refetch 对应数据；长超时 + 心跳保活，浏览器 EventSource 自带重连。
+
+认证：需已登录（Sa-Token Cookie / 请求头 `satoken` 均可），未登录返回
+`401 {"error":"unauthorized"}`。
+
+事件形状（每行 `data:` 为一个 JSON）：
+
+| 事件 | 含义 | 前端动作 |
+| --- | --- | --- |
+| `{"type":"grids-updated"}` | 网络列表级变化（新增/移除/改名/改密） | 刷新网络列表 |
+| `{"type":"grid-snapshot-updated","accessId":"..."}` | 某网络快照被刷新（在线态/采样时间变化） | 刷新该网络快照与命令 |
+
+> 说明：
+> - SSE 为全局广播，事件不含账号相关的 `unlocked`（解锁状态由业务端点响应驱动）。
+> - 事件只做「变更提示」，不做数据透传；前端现有 5s/10s 轮询保留作兜底
+>   （SSE 断线 / 未登录时自动降级，不影响可用性）。
 
 ## 原则
 

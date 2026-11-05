@@ -2,7 +2,7 @@
 
 > 文档首页：[`index.md`](../index.md) › 组件 › 后端
 
-对网页暴露 API，负责登录/认证、授权、持久化，并把对游戏数据的请求转发给模组本地 API。当前为**分层骨架 + 转发层 + 账号认证 + 网格密码访问控制**（只读查询与合成命令均透传模组，全部要求登录；设有网格密码的网络另需按账号解锁）。
+对网页暴露 API，负责登录/认证、授权、持久化，并把对游戏数据的请求转发给模组本地 API。当前为**分层骨架 + 转发层 + 账号认证 + 网格密码访问控制 + 实时推送（SSE）**（只读查询与合成命令均透传模组，全部要求登录；设有网格密码的网络另需按账号解锁；状态变化经 SSE 主动推给前端）。
 
 ## 概览
 
@@ -20,7 +20,7 @@
 | --- | --- |
 | [`../../web/backend/pom.xml`](../../web/backend/pom.xml) | 依赖清单（data-jpa / validation / webmvc / h2 / sa-token-spring-boot4-starter / spring-security-crypto） |
 | [`../../web/backend/src/main/resources/application.yaml`](../../web/backend/src/main/resources/application.yaml) | 运行配置：数据源、端口、`app.*`、`sa-token.*` |
-| [`../../web/backend/src/main/java/com/ae2webmanagement/backend/BackendApplication.java`](../../web/backend/src/main/java/com/ae2webmanagement/backend/BackendApplication.java) | 启动类（含 `@ConfigurationPropertiesScan`） |
+| [`../../web/backend/src/main/java/com/ae2webmanagement/backend/BackendApplication.java`](../../web/backend/src/main/java/com/ae2webmanagement/backend/BackendApplication.java) | 启动类（含 `@ConfigurationPropertiesScan` + `@EnableScheduling`） |
 | `.../backend/config/AppProperties.java` | 绑定 `app.*` 配置（模组端点、共享密钥、CORS、认证门控与初始管理员） |
 | `.../backend/config/ModClientConfig.java` | 组装访问模组的 `RestClient` bean（带 `X-Shared-Secret` 头；连接 2s / 读取 5s 超时） |
 | `.../backend/config/CorsConfig.java` | 全局 CORS（`allowCredentials(true)` 以便跨域携带 satoken Cookie） |
@@ -33,6 +33,9 @@
 | `.../backend/controller/CraftController.java` | `POST /api/networks/{accessId}/craft`（校验请求体）、`GET /api/networks/{accessId}/commands` |
 | `.../backend/controller/AuthController.java` | `POST /api/auth/login`（唯一免认证端点）、`POST /api/auth/logout`、`GET /api/auth/me` |
 | `.../backend/controller/GlobalExceptionHandler.java` | 全局异常兜底：统一输出 `{"error":"code"}`；`NotLoginException` → 401 `unauthorized` |
+| `.../backend/controller/RealtimeController.java` | `GET /api/events`（SSE 实时事件，Sa-Token Cookie 认证；长超时 + 心跳；事件形状见 docs/contracts/web-api.md「实时事件」） |
+| `.../backend/service/RealtimeEventHub.java` | SSE emitter 集合管理：注册 / 移除 / 广播 / 定时心跳 |
+| `.../backend/service/GridStateSyncService.java` | 每 2s 拉模组网络列表与内存指纹比对，变化即经 `RealtimeEventHub` 广播（指纹只含模组侧状态，不含账号 `unlocked`） |
 | `.../backend/dto/` | 契约 DTO（record，AEKey `key` 以 `JsonNode` 透传；认证 DTO 为 `LoginRequest` / `LoginResponse` / `MeResponse`）。模组侧与 web 侧网络摘要分离：`ModNetworkListResponse` / `ModNetworkSummaryResponse`（可空 `Boolean hasPassword` 承接旧版模组）→ `NetworkService` 映射为 `NetworkListResponse` / `NetworkSummaryResponse`（primitive `hasPassword` + 计算的 `unlocked`）；解锁请求 `UnlockRequest`、模组校验请求 `VerifyPasswordRequest` |
 | `.../backend/domain/Account.java` | JPA 实体：后端账号（用户名唯一 + BCrypt 哈希，表 `accounts`） |
 | `.../backend/domain/GridAccess.java` | JPA 实体：账号已解锁网格记录（表 `account_grid_access`，`unique(account_id, access_id)`） |
@@ -75,8 +78,9 @@ cd .\web\backend
 - [x] **P1 只读转发 + P2 合成命令转发已实现**：`/api/networks`、`/api/networks/{id}/snapshot`、`/api/networks/{id}/craft`、`/api/networks/{id}/commands` 均透传模组响应；错误翻译见 `NetworkService`，兜底见 `GlobalExceptionHandler`。
 - [x] **P3 账号认证已实现**（Sa-Token `1.46.0` spring-boot4-starter，兼容 Spring Boot 4.1 已实测）：登录/注销/`/me` 端点 + 拦截器保护 `/api/**`；H2 账户表（`domain` / `repository`）；首次启动引导建号；`satoken` Cookie 会话。
 - [x] **网格密码访问控制已实现**（契约 v0.3）：网络摘要计算 `unlocked`；snapshot/craft/commands 转发前锁定检查（`403 network_locked`）；`POST /api/networks/{id}/unlock`（模组 `verify-password` 204 后按账号写 `account_grid_access`，密码不匹配透传 `401 invalid_password`）；密码清除时撤销该网络解锁记录；旧版模组（无 `hasPassword` 字段）按公开网络处理。
-- [x] 测试：`ModApiClientTests`（MockRestServiceServer，含 verify-password 与旧模组兼容）、`ModClientConfigTests`（超时）、`NetworkServiceTests`（错误翻译 + 访问控制）、`NetworkControllerTests` / `CraftControllerTests`（MockMvc 字段对齐，切片关闭拦截器）、`AuthFlowTests`（全上下文认证闭环）、`GridAccessFlowTests`（全上下文解锁闭环：403 → 401 → 204 → unlocked → snapshot 放行）。
-- [ ] 暂无改密 / 注册 / 多账号管理端点（个人自用场景，见 [`../roadmap.md`](../roadmap.md) §2）。
+- [x] 测试：`ModApiClientTests`（MockRestServiceServer，含 verify-password 与旧模组兼容）、`ModClientConfigTests`（超时）、`NetworkServiceTests`（错误翻译 + 访问控制）、`NetworkControllerTests` / `CraftControllerTests` / `RealtimeControllerTests`（MockMvc 字段对齐，切片关闭拦截器）、`AuthFlowTests`（全上下文认证闭环）、`GridAccessFlowTests`（全上下文解锁闭环：403 → 401 → 204 → unlocked → snapshot 放行）、`GridStateSyncServiceTests`（指纹比对与事件广播）。
+- [x] **实时推送（SSE）已实现**（`roadmap.md` 原 §3）：`GET /api/events` 订阅实时事件；`GridStateSyncService` 每 2s 拉模组列表比对指纹，变化即广播 `grids-updated` / `grid-snapshot-updated`（只含模组侧状态，不含账号 `unlocked`）；前端收到后 refetch，轮询保留作兜底。
+- [ ] 暂无改密 / 注册 / 多账号管理端点（个人自用场景，见 [`../roadmap.md`](../roadmap.md) §1）。
 
 ## 相关文档
 

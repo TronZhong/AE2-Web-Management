@@ -52,7 +52,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 | `accessId` | UUID | 存档内专属标识（由模组生成） |
 | `controllerKey` | `ResourceKey<Level>` + `BlockPos` | 锚点：ME 控制器的维度 + 坐标 |
 | `token` | String | 网页访问令牌（生成时随机，后端持有；当前闲置，语义保留给 roadmap §2 的配对令牌方案） |
-| `displayName` | String | 显示名 |
+| `displayName` | String | 显示名（注册时默认 `"Network @ x,y,z"`，0.0.7 起可在接入方块 GUI 改名） |
 | `createdAt` / `lastSeenAt` | long（时间戳） | 建档时间 / 最近一次在线时间；`lastSeenAt` 当前尚未随快照回写 |
 | `passwordHash` | String | 网格密码的 PBKDF2 哈希（`pbkdf2:<迭代>:<盐B64>:<哈希B64>`，0.0.6 新增）；空串 = 未设密码（公开网络）。明文只在游戏内 GUI 与 HTTP 校验请求体出现，不出模组 |
 
@@ -88,6 +88,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 2. 注册器**临时**接入相邻网络（或扫描邻居获取网格引用），定位到 ME 控制器，取其坐标。
 3. 生成 `accessId` + `token`，写一条「网络接入记录」进 `SavedData`。
 4. 注册完成；注册器方块随后可被拆除，身份不受影响。
+5. **改名（0.0.7）**：接入方块 GUI 可修改 `displayName`（C2S payload 写身份表 + 身份镜像缓存即时刷新），网页列表立即看到新名。
 
 > 待定细节：注册器如何从邻居拿到网格并定位控制器——做成"临时网格节点"最稳（复用 AE2 连通关系）；具体用哪个公开 API 定位控制器节点，实现时以源码为准确认。
 

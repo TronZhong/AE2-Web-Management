@@ -9,6 +9,8 @@
 - **初版本机 API 已实现**：模组提供 `/health`、`/networks`、`/networks/{id}/snapshot`、`/networks/{id}/craft`、`/networks/{id}/commands`。
 - **Web API v0.1 已实现**：后端对前端的 `/api/networks`、`/api/networks/{id}/snapshot`、`/api/networks/{id}/craft`、`/api/networks/{id}/commands` 均为对模组的透传转发，形状见 [web-api.md](web-api.md)；前端默认 mock，`VITE_USE_MOCK=false` 切真实请求。
 - **网格密码已实现**（模组 0.0.6）：`GET /networks` 摘要新增 `hasPassword`；新增 `POST /networks/{id}/verify-password` 供后端校验解锁。密码在游戏内 GUI 设置，模组只存 PBKDF2 哈希，明文不出模组；旧版模组无这些字段时后端按「无密码=公开」处理，向后兼容。
+- **displayName 可改名**（模组 0.0.7）：接入方块 GUI 支持修改显示名（C2S payload 写身份表 + 身份镜像缓存即时刷新）；HTTP `GET /networks` 的 `displayName` 字段随之变化，schema 不变。
+- **实时推送（SSE）已实现**（后端 v0.4，模组零改动）：`GET /api/events` 推送变更提示，见 [web-api.md](web-api.md)「实时事件端点」；本页（模组↔后端契约）无新增端点。
 - 完整 schema、JSON Schema/OpenAPI 仍待定义；字段变更前先更新本页。
 - 目录：`contracts/`（当前以文档形式维护初版 API 形状）。
 

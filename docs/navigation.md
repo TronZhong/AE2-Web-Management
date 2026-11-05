@@ -28,6 +28,9 @@
 | 后端启动类 | `web/backend/src/main/java/com/ae2webmanagement/backend/BackendApplication.java` |
 | 后端配置项（app.*）定义 | `web/backend/src/main/java/com/ae2webmanagement/backend/config/AppProperties.java` |
 | 后端 → 模组通信客户端 | `web/backend/src/main/java/com/ae2webmanagement/backend/client/ModApiClient.java` |
+| 后端实时推送（SSE 事件枢纽） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/RealtimeEventHub.java` |
+| 后端实时推送（指纹轮询与广播） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/GridStateSyncService.java` |
+| 后端实时事件端点 | `web/backend/src/main/java/com/ae2webmanagement/backend/controller/RealtimeController.java` |
 | 后端错误码翻译（mod_unreachable / mod_unavailable） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/NetworkService.java` |
 | 后端 Web 端点（/api/**） | `web/backend/src/main/java/com/ae2webmanagement/backend/controller/` |
 | 后端契约 DTO | `web/backend/src/main/java/com/ae2webmanagement/backend/dto/` |
