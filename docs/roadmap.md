@@ -2,52 +2,68 @@
 
 > 文档首页：[`index.md`](index.md) › 设计
 
-本页收录**已拍板、待实施**的迭代项与决策理由。与交接会话记录冲突时，以本页 + 实际代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.6`）。
+本页收录**已拍板、待实施**的迭代项与决策理由；已完成项已移除，完成情况见各组件文档与 git 历史。与交接会话记录冲突时，以本页 + 实际代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.6`）。
 
 ## 1. 迭代顺序总览
 
 | # | 主题 | 改动面 | 状态 |
 | --- | --- | --- | --- |
-| 1 | 前端接线：`/craft` 提交 + 命令状态列表 | 仅前端 | 已完成（2026-11） |
-| 2 | 用户认证：**账号制先行** | 后端 + 前端，模组零改动 | 已完成（2026-11） |
-| 2.5 | 网格密码：账号 + 每网格可选密码双层 | 模组 + 契约 + 后端 + 前端 | 已完成（2026-11，模组 0.0.6） |
-| 3 | 模组 GUI 迭代 + `nameKey` 字段 | 模组 + 契约 + 后端 DTO + 前端 | 已拍板 |
-| 4 | 物品图标：模组客户端渲染导出 | 模组 + 契约 + 后端 + 前端 | 已拍板 |
-| 5 | 模组其他遗留（命令取消、`lastSeenAt`） | 模组 + 契约 | 已拍板 |
+| 1 | 术语统一为 grid（契约 v0.4） | 模组 + 契约 + 后端 + 前端 | 已拍板（2026-11） |
+| 2 | 实时推送：后端 SSE + 前端订阅 | 后端 + 前端，模组零改动 | 已拍板（2026-11） |
+| 3 | 登出后跳回登录页 | 仅前端 | 已拍板（2026-11） |
+| 4 | 接入方块 GUI 迭代（状态实时 + displayName 展示/改名） | 模组 + 契约 | 已拍板，范围待定（暂缓） |
+| 5 | 物品中文名称（`nameKey`） | 模组 + 契约 + 后端 DTO + 前端 | 已拍板 |
+| 6 | 物品图标（客户端渲染导出） | 模组 + 契约 + 后端 + 前端 | 已拍板 |
+| 7 | 模组其他遗留（命令取消、`lastSeenAt`） | 模组 + 契约 | 已拍板 |
+| 8 | 每网络配对令牌 | 模组 + 契约 + 后端 | 暂缓（实施前再确认场景） |
 
-> #3、#4、#5 都动模组代码，可按批次合并提交，每批一个主题、`mod_version` 递增 1。
+> #1、#4–#7 都动模组代码，可按批次合并提交，每批一个主题、`mod_version` 递增 1。
 
-## 2. 用户认证与网络访问密码
+## 2. 术语统一为 grid
 
 ### 背景
 
-- 机器级认证（模组↔后端 `X-Shared-Secret`）已实现；用户级认证未实现。
-- `NetworkIdentity.token` 注册时已生成（`NetworkIdentityStore.createIdentity`，随机 UUID hex）并存入 `ae2web_identities.dat`，但模组 GUI 无任何展示出口（`AccessScreen` 只有标题、状态文字、Register 按钮），后端也从未校验它。
-- `displayName` 注册时写死为 `"Network @ x,y,z"`，GUI 无法改名。
+AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。此前工程术语分裂：对外契约层（后端 `Network*` 类、`/api/networks`、模组 `/networks` 端点）用 network，而前端页面/组件、后端访问控制领域表（`GridAccess`）与模组 `grid/` 包用 grid。
 
-### 决策：账号制先行（模组端零改动）
+### 决策：全站统一到 grid
 
-- 语义：密码是**后端账号密码**。后端引入 Sa-Token（`sa-token-spring-boot4-starter`，接入时实测 Spring Boot 4.1 兼容性）+ H2 账户表（`domain` / `repository` 占位已预留），登录后可见全部已注册网络。
-- 模组端不动，`token` 字段继续闲置（语义仍是 design.md §4.1 的"后端持有"）。
-- 前端 `PasswordField`（选择页预留栏位）语义回填为登录凭证，具体 UI 形态（登录页 vs 内嵌栏位）实施时定。
+| 端 | 改动 |
+| --- | --- |
+| 模组（0.0.7） | `LocalDataServer` 端点 `/networks`→`/grids`、JSON key `networks`→`grids`；`network/` 包改名 `grid/`（`GridIdentity` / `GridIdentityStore`）；错误码 `network_not_found`→`grid_not_found` |
+| 后端（契约 v0.4） | `NetworkController`→`GridController`、`NetworkService`→`GridService`、`Network*Response`→`Grid*Response`、`ModApiClient.listNetworks`→`listGrids`；URL `/api/networks`→`/api/grids`；错误码 `network_locked`→`grid_locked` |
+| 前端 | `fetchNetworks`→`fetchGrids`、`useNetworks` 读 `data.grids`、mock 常量/返回 key 同步、`network_locked`→`grid_locked` |
+| 契约/文档 | `docs/contracts/index.md`、`web-api.md`（v0.3→v0.4）、`design.md` §6、各组件 `index.md`、`navigation.md`、`architecture.md` 同步 |
 
-### 网格密码增强（已完成，2026-11，路线 B）
+**兼容注意**：只改 Java 类名与 HTTP/JSON 术语；`SavedData` 文件名（`ae2web_identities.dat`）与 NBT 结构不变，不丢存档数据。`accessId` 保留（接入 ID，与 grid/network 之争无关）。
 
-在账号登录之上叠加**每网格可选密码**（第二层访问控制），用户确认的最终形态：
+## 3. 实时推送：后端 SSE + 前端订阅
 
-- **设置**：游戏内接入方块 GUI（`EditBox` 掩码输入 + 设置/清除按钮），可选——不设密码即公开（已登录即可进）；密码明文不出模组，身份表只存 PBKDF2 哈希（`GridPasswords`，`pbkdf2:<迭代>:<盐B64>:<哈希B64>`）。
-- **模组 0.0.6 改动**：`NetworkIdentity` 增加 `passwordHash` 组件；GUI 密码提交走 C2S 自定义 payload `GridPasswordPayload`（字符串无法走 containerData 的 int 通道，NeoForge 处理器默认主线程执行，满足 SavedData 写入要求）；`SnapshotManager` 维护密码哈希镜像缓存供 HTTP 线程读取；`LocalDataServer` 列表输出 `hasPassword` 并新增 `POST /networks/{id}/verify-password`。
-- **后端**：网络摘要计算 `unlocked`（未设密码恒 true；设了密码按账号查 `account_grid_access` 表）；snapshot/craft/commands 转发前做 `ensureAccessible` 检查（锁定 → `403 network_locked`）；新增 `POST /api/networks/{id}/unlock`（转发模组 verify-password，204 后按账号记录解锁，跨会话生效）；后端观察到密码被清除（hasPassword=false）时撤销该网络全部解锁记录。旧版模组无 hasPassword 字段按公开处理（`ModNetworkSummaryResponse` 可空 `Boolean` 承接）。
-- **前端**：`GridCard` 锁定徽标；详情页对 `network_locked` 渲染 `UnlockGate` 解锁门（替代错误横幅），解锁成功刷新快照与列表；mock 层主基地网络预置演示密码 `1234`。
+### 背景
 
-### 每网络配对令牌（暂缓，实施前与用户再确认场景）
+前端选择页 10s、详情页 5s 轮询（`usePolling`）近似更新；后端无缓存，每次请求直连模组。需求是"后端状态一变前端立即跟随"。
 
-- 适用场景：多玩家 / 对外部署，需要按网络隔离授权；网格密码已覆盖个人自用与小型多人场景，随机 token 语义暂无需求。
-- 若实施：`AccessScreen` 展示已注册网络的 `accessId` + token（一键复制），token 字符串同步需要新的通道（`AccessMenu` 已扩为 `SimpleContainerData(2)`，仍只能传 int，token 需自定义 payload，可复用 `GridPasswordPayload` 的模式）；「重置 token」按钮 + 后端侧同步失效。
-- token 流向约定：模组 `/networks` 可把 token 输出给后端（模组口仅 127.0.0.1 + 共享密钥可达，泄漏面可控），由**后端持有并校验，不下发给前端**。
-- 改名（`displayName`）与 token 展示属同一批 GUI 改动，实施时一起做。
+### 决策：SSE 推送 + 轮询兜底
 
-## 3. 物品中文名称
+| 端 | 改动 |
+| --- | --- |
+| 后端 | 新增 `RealtimeEventHub`（管理 `SseEmitter` 集合）、`GridStateSyncService`（`@Scheduled(fixedDelay=2000)` 拉 `listGrids()` 与内存指纹比对，变化即广播）、`RealtimeController`（`GET /api/events`，Sa-Token Cookie 认证，长超时 + 心跳）；启动类加 `@EnableScheduling` |
+| 事件形状 | 只推变更提示：`{"type":"grids-updated"}` / `{"type":"grid-snapshot-updated","accessId":"..."}`；前端收到再 refetch，契约保持简单 |
+| 前端 | 新增 `src/api/events.js` 封装 `EventSource`（`USE_MOCK` 时 no-op）；选页/详情页订阅事件立即刷新；**现有 5s/10s 轮询保留作兜底**（SSE 断线/未登录自动降级，EventSource 浏览器自带重连） |
+
+注意：SSE 全局广播，指纹只含模组侧状态（数量、`online`/`capturedAt`/`hasPassword`/`displayName`），**不含账号相关的 `unlocked`**。
+
+## 4. 登出后跳回登录页
+
+- 现状：`App.vue` 登出只清本地登录态，不主动跳转；下一次导航才被路由守卫弹回登录页。
+- 决策：登出后立即 `router.push({ name: 'login' })`，不带 `redirect`（主动登出不回跳）；`useAuth` 保持不依赖 router。
+
+## 5. 接入方块 GUI 迭代（暂缓，范围待定）
+
+- 背景：`AccessScreen` 状态只在开菜单/点 Register 时同步一次，网格变化不实时刷新；不展示网络信息；`displayName` 写死 `"Network @ x,y,z"`。
+- 拟议范围（实施前与用户再确认）：状态实时刷新（`containerData` 服务端随 `onGridChanged` 更新）、展示 accessId/displayName/控制器位置、displayName 可改名（C2S payload 复用 `GridPasswordPayload` 模式）；`token` 展示/复制是否一并做待定（重置 token 暂缓）。
+- 版本：`mod_version` 递增。
+
+## 6. 物品中文名称
 
 ### 背景
 
@@ -67,7 +83,7 @@
 
 前端按 id 启发式拼翻译键（`block.<ns>.<path>` / `item.<ns>.<path>` 双尝试）+ 语言表查询。vanilla 几乎全对、模组物品大多遵循约定，但存在反例；仅作过渡，最终以模组 `nameKey` 为准。
 
-## 4. 物品图标
+## 7. 物品图标
 
 ### 背景
 
@@ -85,14 +101,21 @@
 - 前端静态贴图包（构建期从 jar 抽 PNG）：vanilla 方块只有平面贴图、观感打折，modded 需手工维护；
 - 第三方贴图 CDN：只覆盖 vanilla、依赖外网，不可控。
 
-## 5. 模组其他遗留
+## 8. 模组其他遗留
 
-- **命令删除/取消 API**：`DELETE /networks/{accessId}/commands/{commandId}`。当前 PENDING 命令无法撤销、会一直等网络上线后自动提交；有了它前端命令列表才敢提供取消按钮。实现前更新契约文档。
+- **命令删除/取消 API**：`DELETE /grids/{accessId}/commands/{commandId}`。当前 PENDING 命令无法撤销、会一直等网络上线后自动提交；有了它前端命令列表才敢提供取消按钮。实现前更新契约文档。
 - **`lastSeenAt` 随快照回写**：design.md §4.1 已标注，快照循环 `tick` 时更新身份表。
+
+## 9. 每网络配对令牌（暂缓，实施前与用户再确认场景）
+
+- 适用场景：多玩家 / 对外部署，需要按网络隔离授权；网格密码已覆盖个人自用与小型多人场景，随机 token 语义暂无需求。
+- 若实施：`AccessScreen` 展示已注册网络的 `accessId` + token（一键复制），token 字符串同步需要新的通道（`AccessMenu` 已扩为 `SimpleContainerData(2)`，仍只能传 int，token 需自定义 payload，可复用 `GridPasswordPayload` 的模式）；「重置 token」按钮 + 后端侧同步失效。
+- token 流向约定：模组 `/grids` 可把 token 输出给后端（模组口仅 127.0.0.1 + 共享密钥可达，泄漏面可控），由**后端持有并校验，不下发给前端**。
+- 改名（`displayName`）与 token 展示属同一批 GUI 改动（见 §5）。
 
 ## 相关文档
 
 - [技术设计](design.md)（已收敛的权威设计）
 - [架构总览](architecture.md)
-- [数据契约](contracts/index.md)
+- [数据契约](../contracts/index.md)
 - [模组](mod/index.md) · [后端](backend/index.md) · [前端](frontend/index.md)
