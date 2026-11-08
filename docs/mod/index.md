@@ -15,7 +15,7 @@
 | Gradle 插件 | NeoGradle ModDev 2.0.148 |
 | 映射 | Parchment `2024.11.17`（MC 1.21.1） |
 | Java | 21 |
-| 版本 | `0.0.8` |
+| 版本 | `0.0.9` |
 | mod_id / 包名 | `ae2webmanagement` / `com.ae2webmanagement.ae2webmanagementmod` |
 
 ## 目录结构与源码映射
@@ -67,7 +67,7 @@
 | `minecraft_version` | `1.21.1` | 目标 MC 版本 |
 | `neo_version` | `21.1.265` | 必须与 MC 版本一致 |
 | `ae2_version` | `19.2.18` | AE2 依赖版本（`build.gradle` 引用） |
-| `mod_version` | `0.0.8` | 每次提交递增补丁号 |
+| `mod_version` | `0.0.9` | 每次提交递增补丁号 |
 | `mod_id` | `ae2webmanagement` | 必须与主类 `MODID` 一致 |
 | `mod_name` | `AE2 Web Management` | 展示名 |
 | `mod_group_id` | `com.ae2webmanagement.ae2webmanagementmod` | 应与源码基础包一致 |
@@ -98,7 +98,7 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 - [x] **GUI 迭代（0.0.7）**：接入方块 GUI 状态实时刷新（`containerData` 随 `broadcastChanges` 每 tick 同步，网格变化无需重开菜单）、展示 accessId/displayName/控制器位置（S2C `GridIdentityPayload`）、displayName 可改名（C2S `GridRenamePayload` + `GridIdentityStore.rename` + 身份镜像缓存即时刷新）；`token` 展示/复制未做（配对令牌方案暂缓，见 [`roadmap.md`](../roadmap.md) §7）。
 - [x] **术语统一为 grid（0.0.8）**：`network/` 包改名 `grid/`（`GridIdentity` / `GridIdentityStore`）、本地数据口端点 `/networks`→`/grids`、JSON key `networks`→`grids`、错误码 `network_not_found`→`grid_not_found`；默认显示名由 `"Network @ ..."` 改为 `"Grid @ ..."`。`SavedData` 文件名（`ae2web_identities.dat`）与 NBT、`accessId` 均不变。
 
-- [ ] **`nameKey` 字段（`roadmap.md` §4）**：快照 stack 条目附带物品翻译键（服务端无多语言，不能直接出中文名，由前端按翻译键查中文语言表）。
+- [x] **`nameKey` 字段（`roadmap.md` §4，0.0.9）**：快照 stack 条目附带物品翻译键（物品取 `Item#getDescriptionId()`、流体取 `FluidType#getDescriptionId()`，其余 AEKey 类型从显示名组件提取）；`SnapshotStore` NBT 与 HTTP JSON 透传，旧存档/旧快照无该字段时按「可选」处理。服务端无多语言，不能直接出中文名，由前端按翻译键查中文语言表。
 - [ ] **物品图标导出（`roadmap.md` §5）**：客户端离屏渲染已见物品为 16×16 PNG 并经本地 API 提供给后端。
 - [ ] **命令取消 API 与 `lastSeenAt` 回写（`roadmap.md` §6）**：PENDING 命令目前无法撤销；`lastSeenAt` 尚未随快照回写。
 

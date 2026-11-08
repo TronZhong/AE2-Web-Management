@@ -9,11 +9,12 @@
  */
 import { computed, onBeforeUnmount } from 'vue'
 
-import { formatCompact, friendlyName, keyId } from '../../lib/format.js'
+import { formatCompact, keyId } from '../../lib/format.js'
+import { displayName } from '../../lib/itemName.js'
 import { hideTooltip, moveTooltip, showTooltip, useItemTooltip } from '../../composables/useItemTooltip.js'
 
 const props = defineProps({
-  /** 条目对象：{ key, amount }，key 为 AEKey JSON；amount 也可以传"需求量"等派生值。 */
+  /** 条目对象：{ key, amount, nameKey? }，key 为 AEKey JSON；amount 也可以传"需求量"等派生值。 */
   item: { type: Object, required: true },
   /** 物品贴图 URL；为空时使用方块占位。 */
   iconUrl: { type: String, default: '' },
@@ -39,7 +40,7 @@ const blockStyle = computed(() => {
 
 /** 提示内容（响应式）：props 更新时随之变化，传给全局提示层跟随渲染。 */
 const info = computed(() => ({
-  name: friendlyName(props.item.key),
+  name: displayName(props.item),
   sub: keyId(props.item.key),
   amount: props.item.amount,
 }))
@@ -74,7 +75,7 @@ const tooltipState = useItemTooltip()
       <img
         v-if="iconUrl"
         :src="iconUrl"
-        :alt="friendlyName(item.key)"
+        :alt="displayName(item)"
         class="size-8 rounded-[3px] [image-rendering:pixelated]"
       />
       <div v-else class="size-8 rounded-[3px]" :style="blockStyle"></div>

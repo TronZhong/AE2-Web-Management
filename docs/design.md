@@ -63,7 +63,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 | `accessId` | UUID | 归属哪个网格 |
 | `capturedAt` | long | 采样时间（网页据此显示"数据截至 xx"） |
 | `online` | boolean | 采样时控制器区块是否加载、`getGrid()` 是否非 null |
-| `inventory` | `AEKey → long` 列表 | 物品种类 → 数量（聚合值，无节点来源） |
+| `inventory` | `AEKey → long` 列表 | 物品种类 → 数量（聚合值，无节点来源）。每条还可附**可选**翻译键 `nameKey`（`Item#getDescriptionId()` / `FluidType#getDescriptionId()`，0.0.9 起，见 roadmap.md §4）供前端查中文语言表 |
 | `craftingCpus` | 列表 | 合成 CPU 数量与忙闲状态 |
 | `patterns` | 样板摘要列表 | 每条含 `primaryOutput`、`outputs`、`inputs`；输入槽保留候选物品和倍率（实际需求量 = 候选数量 × 倍率）。已实现：每 4s 全量重采，随快照持久化 |
 

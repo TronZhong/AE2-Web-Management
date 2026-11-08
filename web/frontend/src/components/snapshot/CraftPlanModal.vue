@@ -10,7 +10,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import BaseButton from '../base/BaseButton.vue'
 import ItemSlot from '../base/ItemSlot.vue'
 import { submitCraft } from '../../api/index.js'
-import { formatAmount, formatTime, friendlyName, keyId } from '../../lib/format.js'
+import { formatAmount, formatTime, keyId } from '../../lib/format.js'
+import { displayName } from '../../lib/itemName.js'
 
 const props = defineProps({
   /** 目标网格 accessId：提交合成命令的路径参数。 */
@@ -116,7 +117,7 @@ onBeforeUnmount(() => {
               <ItemSlot :item="pattern.primaryOutput" />
             </div>
             <div class="min-w-0">
-              <p class="truncate text-sm text-ink">{{ friendlyName(pattern.primaryOutput.key) }}</p>
+              <p class="truncate text-sm text-ink">{{ displayName(pattern.primaryOutput) }}</p>
               <p class="truncate font-mono text-[11px] text-ink-faint">{{ keyId(pattern.primaryOutput.key) }}</p>
               <p class="mt-0.5 font-mono text-[11px] text-ink-dim">单批产量 ×{{ formatAmount(pattern.primaryOutput.amount) }}</p>
             </div>

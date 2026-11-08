@@ -2,13 +2,13 @@
 
 > 文档首页：[`index.md`](index.md) › 设计
 
-本页只收录**待办迭代项**与**已识别的问题/隐患**，按优先级从高到低排列；已完成项已移除，完成情况与交接记录见 git 历史及各组件文档。与实现冲突时以代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.8`）。
+本页只收录**待办迭代项**与**已识别的问题/隐患**，按优先级从高到低排列；已完成项已移除，完成情况与交接记录见 git 历史及各组件文档。与实现冲突时以代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.9`）。
 
 ## 1. 优先级总览
 
 | 优先级 | 事项 | 类型 | 状态 |
 | --- | --- | --- | --- |
-| P1 | 物品中文名称（`nameKey`） | 待办 · UX | 已拍板 |
+| P1 | 物品中文名称（`nameKey`） | 待办 · UX | ✅ 已完成（0.0.9） |
 | P2 | 物品图标（客户端渲染导出） | 待办 · UX | 已拍板 |
 | P2 | 模组其他遗留（命令取消、`lastSeenAt`） | 待办 | 已拍板 |
 | P3 | 每网络配对令牌 | 隐患 · 安全 | 暂缓（实施前再确认场景） |
@@ -21,7 +21,7 @@
 
 | 隐患 | 影响 | 处理 |
 | --- | --- | --- |
-| 服务端无多语言，物品名无中文 | 模组端 `getHoverName()` 恒为英文；前端只能英文友好名/占位，UX 差 | §4 传 `nameKey` + 前端语言表 |
+| 服务端无多语言，物品名无中文 | 模组端 `getHoverName()` 恒为英文；前端只能英文友好名/占位，UX 差 | ✅ §4 已实施（0.0.9）：快照传 `nameKey` + 前端官方中文语言表 |
 | 前端物品无图标 | `ItemSlot.vue` 只有按 id 着色的占位方块 | §5 客户端渲染导出 |
 | PENDING 命令无法撤销 | 命令一直等待网络上线后自动提交，误发无法撤回，前端不敢提供取消按钮 | §6 命令取消 API |
 | `lastSeenAt` 不随快照回写 | 在线/离线判定与展示失实 | §6 快照循环回写 |
@@ -47,7 +47,9 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 
 **兼容注意**：只改 Java 类名与 HTTP/JSON 术语；`SavedData` 文件名（`ae2web_identities.dat`）与 NBT 结构不变，不丢存档数据。`accessId` 保留（接入 ID，与 grid/network 之争无关）。
 
-## 4. P1 · 物品中文名称
+## 4. P1 · 物品中文名称 ✅ 已完成（0.0.9）
+
+> 已按下方清单执行完毕：模组快照 stack 条目附可选 `nameKey`（物品 `Item#getDescriptionId()`、流体 `FluidType#getDescriptionId()`）、后端 `StackEntry` DTO 透传（Web 响应省略 null）、前端引入官方中文语言表（minecraft 取自 client.jar，ae2 取自其 Modrinth jar，仅保留 `block.*` / `item.*` / `fluid_type.*` 键）并实现「`nameKey` 查表 → id 启发式 → 英文友好名」三级回退；契约 v0.6（模组 0.0.9）。实现记录见 git 历史。
 
 ### 现状与隐患
 
@@ -58,14 +60,14 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 
 | 端 | 改动 |
 | --- | --- |
-| 模组 | `SnapshotManager` 采集处对物品 key 取对应 `Item#getDescriptionId()`（纯字符串拼接，如 `block.minecraft.stone` / `item.ae2.controller`），`Snapshot.StackEntry` 增加可选 `nameKey` 字段并在 HTTP JSON 输出；流体等其他 AEKey 类型的翻译键来源实施时按 AE2 源码确认 |
-| 后端 | `StackEntry` DTO 透传加字段（`JsonNode key` 不变） |
-| 前端 | 引入官方 `zh_cn.json` 语言表（minecraft 的取自 client.jar，ae2 的取自其 Modrinth jar），按 `nameKey` 查表得中文名；查不到回退现有英文友好名 |
-| 契约 | **实现前先更新** `docs/contracts/index.md`：`inventory[]` / `patterns[]` 各 stack 条目新增可选 `nameKey`（向后兼容） |
+| 模组（0.0.9） | `SnapshotManager.nameKeyOf()` 采集处生成翻译键：物品取 `Item#getDescriptionId()`（纯字符串拼接，如 `block.minecraft.stone` / `item.ae2.controller`），流体取 `FluidType#getDescriptionId()`（`fluid_type.*`，按 AE2 源码 `AEFluidKey.computeDisplayName()` → `FluidStack#getHoverName()` 确认），其他 AEKey 类型从显示名组件提取翻译键。`Snapshot.StackEntry` 增加可选 `nameKey` 字段并随 `SnapshotStore` NBT 持久化、HTTP JSON 输出 |
+| 后端 | `StackEntry` DTO 透传加字段（`JsonNode key` 不变）；`@JsonInclude(NON_NULL)` 使 Web 响应省略 null（向后兼容） |
+| 前端 | 引入官方 `zh_cn.json` 语言表（minecraft 取自 client.jar，ae2 取自其 Modrinth jar；入库前过滤为 `block.*` / `item.*` / `fluid_type.*` 键），`src/lib/itemName.js` 新模块 `displayName()` 按 `nameKey` 查表得中文名；查不到回退启发式与现有英文友好名；组件与 mock fixtures 同步接线 |
+| 契约（v0.6） | 已更新 `docs/contracts/index.md`、`docs/contracts/web-api.md`：`inventory[]` / `patterns[]` 各 stack 条目新增可选 `nameKey`（向后兼容） |
 
-### 过渡方案（可选，零模组改动）
+### 过渡方案（已作为前端二级回退）
 
-前端按 id 启发式拼翻译键（`block.<ns>.<path>` / `item.<ns>.<path>` 双尝试）+ 语言表查询。vanilla 几乎全对、模组物品大多遵循约定，但存在反例；仅作过渡，最终以模组 `nameKey` 为准。
+前端按 id 启发式拼翻译键（`block.<ns>.<path>` / `item.<ns>.<path>` 双尝试）+ 语言表查询。vanilla 几乎全对、模组物品大多遵循约定，但存在反例；仅作过渡与回退，最终以模组 `nameKey` 为准。
 
 ## 5. P2 · 物品图标
 

@@ -10,7 +10,8 @@ import BaseCard from '../base/BaseCard.vue'
 import EmptyState from '../base/EmptyState.vue'
 import ItemSlot from '../base/ItemSlot.vue'
 import StatusBadge from '../base/StatusBadge.vue'
-import { formatAmount, formatTime, friendlyName, keyId } from '../../lib/format.js'
+import { formatAmount, formatTime, keyId } from '../../lib/format.js'
+import { displayName } from '../../lib/itemName.js'
 
 const props = defineProps({
   /** 命令条目数组（GET /commands 的 commands[]，模组升序返回）。 */
@@ -72,7 +73,7 @@ function metaOf(state) {
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-baseline gap-2">
-              <p class="min-w-0 truncate text-sm text-ink">{{ friendlyName(command.target) }}</p>
+              <p class="min-w-0 truncate text-sm text-ink">{{ displayName({ key: command.target }) }}</p>
               <span class="shrink-0 font-mono text-[11px] tabular-nums text-ink-dim">
                 ×{{ formatAmount(command.amount) }}
               </span>

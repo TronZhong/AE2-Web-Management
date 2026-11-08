@@ -125,10 +125,10 @@ class ModApiClientTests {
 						"accessId":"0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001",
 						"capturedAt":1760000000000,
 						"online":true,
-						"inventory":[{"key":{"id":"minecraft:stone"},"amount":12844}],
+						"inventory":[{"key":{"id":"minecraft:stone"},"amount":12844,"nameKey":"block.minecraft.stone"}],
 						"craftingCpus":[{"name":"","busy":false,"availableStorage":16384,"coProcessors":0}],
 						"patterns":[{
-							"primaryOutput":{"key":{"id":"minecraft:stick"},"amount":4},
+							"primaryOutput":{"key":{"id":"minecraft:stick"},"amount":4,"nameKey":"item.minecraft.stick"},
 							"outputs":[{"key":{"id":"minecraft:stick"},"amount":4}],
 							"inputs":[{"possibleInputs":[{"key":{"id":"minecraft:oak_planks"},"amount":2}],"multiplier":1}]
 						}]
@@ -142,9 +142,13 @@ class ModApiClientTests {
 		assertThat(response.online()).isTrue();
 		assertThat(response.inventory().get(0).key().get("id").asText()).isEqualTo("minecraft:stone");
 		assertThat(response.inventory().get(0).amount()).isEqualTo(12844);
+		assertThat(response.inventory().get(0).nameKey()).isEqualTo("block.minecraft.stone");
 		assertThat(response.craftingCpus().get(0).name()).isEmpty();
 		assertThat(response.craftingCpus().get(0).availableStorage()).isEqualTo(16384);
 		assertThat(response.patterns().get(0).primaryOutput().key().get("id").asText()).isEqualTo("minecraft:stick");
+		assertThat(response.patterns().get(0).primaryOutput().nameKey()).isEqualTo("item.minecraft.stick");
+		// 旧版模组快照条目缺 nameKey → 反序列化为 null（可选字段兼容）
+		assertThat(response.patterns().get(0).outputs().get(0).nameKey()).isNull();
 		assertThat(response.patterns().get(0).inputs().get(0).multiplier()).isEqualTo(1);
 		assertThat(response.patterns().get(0).inputs().get(0).possibleInputs().get(0).amount()).isEqualTo(2);
 		this.server.verify();

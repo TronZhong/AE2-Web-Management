@@ -53,9 +53,48 @@ function item(id) {
   return { id }
 }
 
-/** 库存条目快捷构造。 */
+/**
+ * 翻译键表（roadmap.md §4）：与模组端 {@code Item#getDescriptionId()} 一致的
+ * {@code block./item.<命名空间>.<路径>} 形状；用于给 mock 快照条目附加
+ * {@code nameKey}（模拟新模组契约）。未列出的物品缺省 nameKey，前端走启发式回退。
+ */
+const NAME_KEYS = {
+  'minecraft:stone': 'block.minecraft.stone',
+  'minecraft:cobblestone': 'block.minecraft.cobblestone',
+  'minecraft:oak_log': 'block.minecraft.oak_log',
+  'minecraft:oak_planks': 'block.minecraft.oak_planks',
+  'minecraft:glass': 'block.minecraft.glass',
+  'minecraft:sand': 'block.minecraft.sand',
+  'minecraft:wheat': 'item.minecraft.wheat',
+  'minecraft:hay_block': 'block.minecraft.hay_block',
+  'minecraft:crafting_table': 'block.minecraft.crafting_table',
+  'minecraft:furnace': 'block.minecraft.furnace',
+  'minecraft:chest': 'block.minecraft.chest',
+  'minecraft:torch': 'block.minecraft.torch',
+  'minecraft:dirt': 'block.minecraft.dirt',
+  'minecraft:iron_ingot': 'item.minecraft.iron_ingot',
+  'minecraft:raw_iron': 'item.minecraft.raw_iron',
+  'minecraft:gold_ingot': 'item.minecraft.gold_ingot',
+  'minecraft:diamond': 'item.minecraft.diamond',
+  'minecraft:redstone': 'item.minecraft.redstone',
+  'minecraft:coal': 'item.minecraft.coal',
+  'minecraft:stick': 'item.minecraft.stick',
+  'minecraft:bread': 'item.minecraft.bread',
+  'minecraft:wheat_seeds': 'item.minecraft.wheat_seeds',
+  'minecraft:apple': 'item.minecraft.apple',
+  'minecraft:bone_meal': 'item.minecraft.bone_meal',
+  'minecraft:egg': 'item.minecraft.egg',
+  'ae2:certus_quartz_crystal': 'item.ae2.certus_quartz_crystal',
+  'ae2:charged_certus_quartz_crystal': 'item.ae2.charged_certus_quartz_crystal',
+}
+
+/**
+ * 库存条目快捷构造（契约 v0.6）：可带 {@code nameKey}，模拟模组快照输出。
+ * 未登记 id 的条目不带 nameKey（前端回退启发式/英文名）。
+ */
 function stack(id, amount) {
-  return { key: item(id), amount }
+  const nameKey = NAME_KEYS[id]
+  return nameKey ? { key: item(id), amount, nameKey } : { key: item(id), amount }
 }
 
 /** 样板输入槽快捷构造：candidates 为 [物品id, 数量] 数组。 */

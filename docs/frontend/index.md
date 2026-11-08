@@ -13,7 +13,7 @@
 | 样式 | Tailwind CSS v4（设计令牌在 `src/style.css` 的 `@theme`，暗色终端风） |
 | 数据源 | 默认 mock；`VITE_USE_MOCK=false` 切换真实请求（后端转发已实现，dev 走 Vite `/api` 代理） |
 | 认证 | 账号制（后端 satoken Cookie 会话）；未登录一律重定向登录页 |
-| 契约 | [`contracts/web-api.md`](../../contracts/web-api.md)（v0.5，指向 `docs/contracts/web-api.md`） |
+| 契约 | [`contracts/web-api.md`](../../contracts/web-api.md)（v0.6，指向 `docs/contracts/web-api.md`） |
 
 ## 目录结构与源码映射
 
@@ -39,7 +39,11 @@
 | [`../../web/frontend/src/composables/usePolling.js`](../../web/frontend/src/composables/usePolling.js) | 定时轮询：页面不可见暂停、恢复补拉、卸载自停 |
 | [`../../web/frontend/src/composables/useItemTooltip.js`](../../web/frontend/src/composables/useItemTooltip.js) | 物品悬浮提示的全局单例状态（ItemSlot 写入，ItemTooltip 渲染） |
 | **`lib/`** — 纯函数 | |
-| [`../../web/frontend/src/lib/format.js`](../../web/frontend/src/lib/format.js) | 数量千分位/紧凑角标、存储字节（1024 进制）、时间与 AEKey 友好名 |
+| [`../../web/frontend/src/lib/format.js`](../../web/frontend/src/lib/format.js) | 数量千分位/紧凑角标、存储字节（1024 进制）、时间与 AEKey 友好名（英文回退） |
+| [`../../web/frontend/src/lib/itemName.js`](../../web/frontend/src/lib/itemName.js) | 物品中文名解析（roadmap §4）：`displayName()` 按 `nameKey` 查中文语言表 → id 启发式 → 英文友好名三级回退 |
+| **`data/lang/`** — 中文语言表（官方文件「物品名相关键」子集） | |
+| [`../../web/frontend/src/data/lang/minecraft.zh_cn.json`](../../web/frontend/src/data/lang/minecraft.zh_cn.json) | Minecraft 1.21.1 client.jar 的 `zh_cn.json` 子集（仅 `block.*` / `item.*` / `fluid_type.*` 键，正文未转写） |
+| [`../../web/frontend/src/data/lang/ae2.zh_cn.json`](../../web/frontend/src/data/lang/ae2.zh_cn.json) | AE2 19.2.18（Modrinth jar）的 `zh_cn.json` 子集（同上过滤） |
 | **`components/base/`** — 可复用基础组件 | |
 | [`../../web/frontend/src/components/base/BaseCard.vue`](../../web/frontend/src/components/base/BaseCard.vue) | 统一卡片容器（标题 + 动作区插槽 + 内容插槽） |
 | [`../../web/frontend/src/components/base/StatusBadge.vue`](../../web/frontend/src/components/base/StatusBadge.vue) | 状态徽标（ok/err/accent/neutral 四变体） |
@@ -75,7 +79,7 @@
 - [x] 网格密码接入（契约 v0.3）：`GridCard` 锁定徽标与按钮文案切换；详情页 `UnlockGate` 解锁门（错误码直出、MOCK 模式显示演示密码）；解锁成功刷新快照与网格列表；mock 层主基地网格预置密码 `1234`、锁定网格 snapshot/craft/commands 抛 `grid_locked`。
 - [x] 实时推送接入（roadmap 已完成项）：`src/api/events.js` 用 EventSource 订阅 `/api/events`，选页/详情页收到事件立即刷新；**5s/10s 轮询保留作兜底**（SSE 断线/未登录自动降级，EventSource 浏览器自带重连）。
 - [x] 术语统一为 grid（契约 v0.5，模组 0.0.8）：`fetchNetworks`→`fetchGrids`、`unlockNetwork`→`unlockGrid`、`useNetworks`→`useGrids`（读 `data.grids`）、路由 `/networks/:accessId`→`/grids/:accessId`、mock 常量 `NETWORKS`/`NETWORK_PASSWORDS`→`GRIDS`/`GRID_PASSWORDS`、错误码 `network_locked`/`network_not_found`→`grid_locked`/`grid_not_found`；组件 props `network`→`grid`。
-- [ ] 物品中文名：按模组 `nameKey` + 前端中文语言表实现（含过渡启发式方案），见 [`roadmap.md`](../roadmap.md) §4。
+- [x] 物品中文名（契约 v0.6，roadmap.md §4 已完成）：`src/lib/itemName.js` 引入，快照条目按模组 `nameKey` 查官方中文语言表（minecraft/ae2，`src/data/lang/`），查不到回退 id 启发式与英文友好名；库存/样板/命令/计划合成各组件与 mock fixtures 已接线。
 - [ ] 物品贴图接入 `ItemSlot` 的 `iconUrl`（当前为方块占位；来源定为模组客户端渲染导出，见 [`roadmap.md`](../roadmap.md) §5）。
 
 ## 约定
@@ -99,6 +103,6 @@ npm run build  # 生产构建
 
 - [架构总览](../architecture.md)
 - [Web API 契约](../contracts/web-api.md)
-- [后续迭代路线](../roadmap.md)（craft 接线、认证、中文名、图标等待实施项）
+- [后续迭代路线](../roadmap.md)（craft 接线、认证、中文名已实施，图标等待实施）
 - [后端](../backend/index.md)
 - [数据契约](../contracts/index.md)

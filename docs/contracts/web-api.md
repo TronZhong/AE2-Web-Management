@@ -12,6 +12,7 @@
 - **v0.3（2026-11）**：引入**网格密码**（第二层访问控制，密码在游戏内 GUI 设置）：网格摘要新增 `hasPassword` / `unlocked`；新增 `POST /grids/{id}/unlock`；有密码且未解锁的网格，其 snapshot / craft / commands 端点返回 `403 {"error":"grid_locked"}`。
 - **v0.4（2026-11）**：新增**实时事件端点** `GET /api/events`（SSE 推送，与 v0.3 完全向后兼容）：只推变更提示，前端收到后 refetch；轮询保留作兜底。
 - **v0.5（2026-11）**：**术语统一为 grid**（与模组 0.0.8、后端 `Grid*` 类同步）：URL `/api/networks`→`/api/grids`、JSON key `networks`→`grids`、错误码 `network_locked`→`grid_locked`、`network_not_found`→`grid_not_found`。仅术语改名，字段值与 `accessId` 不变。
+- **v0.6（2026-11）**：**物品中文名称**（与模组 0.0.9、roadmap.md §4 同步）：快照 `inventory[]` / `patterns[]` 各 stack 条目新增**可选** `nameKey`（物品翻译键，前端查中文语言表）；旧版模组/旧快照无该字段，Web 响应省略（向后兼容）。
 
 ## 通用约定
 
@@ -99,6 +100,7 @@
 | --- | --- | --- |
 | `key` | object | AEKey 通用 NBT 的 JSON，物品形如 `{"id":"minecraft:stone"}`；含组件时附加字段，前端只读 `id` 做展示 |
 | `amount` | number (long) | 聚合数量 |
+| `nameKey` | string（可选，v0.6） | 物品翻译键（如 `block.minecraft.stone` / `item.ae2.controller`），前端查中文语言表；旧版模组/无翻译键的条目省略该字段 |
 
 `craftingCpus[]`：
 
@@ -113,11 +115,13 @@
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `primaryOutput` | object | 主输出 `{key, amount}`，可直接作为 `POST /craft` 的 `key` |
-| `outputs` | array | 全部样板输出，均为 `{key, amount}` |
+| `primaryOutput` | object | 主输出 `{key, amount[, nameKey]}`，可直接作为 `POST /craft` 的 `key` |
+| `outputs` | array | 全部样板输出，均为 `{key, amount[, nameKey]}` |
 | `inputs` | array | 样板输入槽列表 |
-| `inputs[].possibleInputs` | array | 该槽候选物品，均为 `{key, amount}` |
+| `inputs[].possibleInputs` | array | 该槽候选物品，均为 `{key, amount[, nameKey]}` |
 | `inputs[].multiplier` | number | 槽位倍率；实际需求量 = `possibleInputs[i].amount × multiplier` |
+
+> 各 stack 条目的 `nameKey`（可选，v0.6）同 `inventory[]`：物品翻译键，前端查中文语言表（roadmap.md §4）。
 
 ## 合成命令端点
 

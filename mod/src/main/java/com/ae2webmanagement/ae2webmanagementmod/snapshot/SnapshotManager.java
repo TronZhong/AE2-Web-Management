@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -28,6 +29,9 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.blockentity.networking.ControllerBlockEntity;
 
@@ -198,7 +202,8 @@ public final class SnapshotManager {
             }
             inventory.add(new Snapshot.StackEntry(
                     stack.getKey().toTagGeneric(level.registryAccess()),
-                    stack.getLongValue()));
+                    stack.getLongValue(),
+                    nameKeyOf(stack.getKey())));
         }
 
         List<Snapshot.CpuEntry> cpus = new ArrayList<>();
@@ -280,11 +285,47 @@ public final class SnapshotManager {
                 inputs);
     }
 
-    /** 把 AE2 {@link GenericStack} 转成快照条目：AEKey 存通用 NBT，数量为 long。 */
+    /** 把 AE2 {@link GenericStack} 转成快照条目：AEKey 存通用 NBT，数量为 long，名称翻译键取自 AEKey。 */
     private static Snapshot.StackEntry toStackEntry(GenericStack stack, ServerLevel level) {
         return new Snapshot.StackEntry(
                 stack.what().toTagGeneric(level.registryAccess()),
-                stack.amount());
+                stack.amount(),
+                nameKeyOf(stack.what()));
+    }
+
+    /**
+     * 取 AEKey 对应的翻译键（{@code nameKey}），供前端查中文语言表。
+     *
+     * <p>Minecraft 服务端只加载 en_us（{@code Language.getInstance()} 无多语言），
+     * 直接调 {@code getHoverName().getString()} 恒为英文，因此快照传翻译键、由前端
+     * 按语言表解析（docs/roadmap.md §4）。翻译键来源按 AE2 源码确认：</p>
+     * <ul>
+     *   <li>物品：{@code Item#getDescriptionId()}，纯字符串拼接（如
+     *       {@code block.minecraft.stone} / {@code item.ae2.controller}）；</li>
+     *   <li>流体：{@code AEFluidKey.getDisplayName()} 来自
+     *       {@code FluidStack#getHoverName()} → {@code FluidType#getDescriptionId()}，
+     *       即 {@code fluid_type.<命名空间>.<路径>}（如 {@code fluid_type.minecraft.water}）；</li>
+     *   <li>其他 AEKey 类型：从显示名组件提取 {@code TranslatableContents} 的翻译键。</li>
+     * </ul>
+     *
+     * <p>翻译键不确定（如自定义名称的物品、非可翻译组件）时返回 null，前端退回
+     * 启发式/英文名展示。</p>
+     *
+     * @param key AE2 AEKey
+     * @return 翻译键；无法确定时为 null
+     */
+    private static String nameKeyOf(AEKey key) {
+        if (key instanceof AEItemKey itemKey) {
+            return itemKey.getItem().getDescriptionId();
+        }
+        if (key instanceof AEFluidKey fluidKey) {
+            return fluidKey.getFluid().getFluidType().getDescriptionId();
+        }
+        Component display = key.getDisplayName();
+        if (display.getContents() instanceof TranslatableContents contents && contents.getFallback() == null) {
+            return contents.getKey();
+        }
+        return null;
     }
 
     /** 批量把 AE2 {@link GenericStack} 数组转成快照条目列表。 */

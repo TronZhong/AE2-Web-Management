@@ -417,20 +417,27 @@ public final class LocalDataServer {
         return result;
     }
 
-    /** 将一条库存/样板条目转换成 HTTP JSON。 */
+    /**
+     * 将一条库存/样板条目转换成 HTTP JSON。
+     *
+     * <p>{@code nameKey} 为可选字段（翻译键，前端查中文语言表，见 roadmap.md §4）：
+     * 无翻译键时省略，向后兼容（旧后端/前端按 {@code {key, amount}} 处理）。</p>
+     */
     private static Map<String, Object> stackToJson(Snapshot.StackEntry stack) {
-        return Map.of(
-                "key", toJson(stack.key()),
-                "amount", stack.amount());
+        Map<String, Object> json = new LinkedHashMap<>();
+        json.put("key", toJson(stack.key()));
+        json.put("amount", stack.amount());
+        if (stack.nameKey() != null) {
+            json.put("nameKey", stack.nameKey());
+        }
+        return json;
     }
 
     /** 将一组库存/样板条目转换成 HTTP JSON。 */
     private static List<Map<String, Object>> stacksToJson(List<Snapshot.StackEntry> stacks) {
-        List<Map<String, Object>> result = new ArrayList<>();
+        List<Map<String, Object>> result = new ArrayList<>(stacks.size());
         for (Snapshot.StackEntry stack : stacks) {
-            result.add(Map.of(
-                    "key", toJson(stack.key()),
-                    "amount", stack.amount()));
+            result.add(stackToJson(stack));
         }
         return result;
     }

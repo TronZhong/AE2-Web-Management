@@ -10,7 +10,8 @@ import BaseCard from '../base/BaseCard.vue'
 import EmptyState from '../base/EmptyState.vue'
 import ItemSlot from '../base/ItemSlot.vue'
 import CraftPlanModal from './CraftPlanModal.vue'
-import { friendlyName, keyId } from '../../lib/format.js'
+import { keyId } from '../../lib/format.js'
+import { displayName } from '../../lib/itemName.js'
 
 const props = defineProps({
   /** 目标网格 accessId：透传给计划合成弹窗用于提交命令。 */
@@ -26,7 +27,7 @@ const keyword = ref('')
 /** 当前选中（弹出计划卡）的样板；null 表示关闭。 */
 const selected = ref(null)
 
-/** 按主输出友好名 / id 过滤。 */
+/** 按主输出中文/友好名 / id 过滤。 */
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
   if (!kw) {
@@ -34,7 +35,7 @@ const filtered = computed(() => {
   }
   return props.patterns.filter(
     (pattern) =>
-      friendlyName(pattern.primaryOutput.key).toLowerCase().includes(kw) ||
+      displayName(pattern.primaryOutput).toLowerCase().includes(kw) ||
       keyId(pattern.primaryOutput.key).toLowerCase().includes(kw),
   )
 })
@@ -67,7 +68,7 @@ const filtered = computed(() => {
           :key="keyId(pattern.primaryOutput.key) + ':' + index"
           type="button"
           class="size-12 cursor-pointer"
-          :title="friendlyName(pattern.primaryOutput.key)"
+          :title="displayName(pattern.primaryOutput)"
           @click="selected = pattern"
         >
           <ItemSlot :item="pattern.primaryOutput" />

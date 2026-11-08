@@ -34,6 +34,8 @@ public final class SnapshotStore extends SavedData {
     private static final String KEY_INVENTORY = "inventory";
     private static final String KEY_STACK = "key";
     private static final String KEY_AMOUNT = "amount";
+    /** 可选翻译键（roadmap §4）；旧存档无此字段，读出为 null。 */
+    private static final String KEY_NAME_KEY = "nameKey";
     private static final String KEY_CPUS = "craftingCpus";
     private static final String KEY_PATTERNS = "patterns";
     private static final String KEY_PRIMARY_OUTPUT = "primaryOutput";
@@ -76,7 +78,8 @@ public final class SnapshotStore extends SavedData {
                 CompoundTag stack = inventoryTag.getCompound(j);
                 inventory.add(new Snapshot.StackEntry(
                         stack.getCompound(KEY_STACK).copy(),
-                        stack.getLong(KEY_AMOUNT)));
+                        stack.getLong(KEY_AMOUNT),
+                        nameKeyOf(stack)));
             }
 
             ListTag cpuTag = entry.getList(KEY_CPUS, Tag.TAG_COMPOUND);
@@ -110,10 +113,7 @@ public final class SnapshotStore extends SavedData {
 
             ListTag inventoryTag = new ListTag();
             for (Snapshot.StackEntry stack : snapshot.inventory()) {
-                CompoundTag stackTag = new CompoundTag();
-                stackTag.put(KEY_STACK, stack.key().copy());
-                stackTag.putLong(KEY_AMOUNT, stack.amount());
-                inventoryTag.add(stackTag);
+                inventoryTag.add(saveStack(stack));
             }
             entry.put(KEY_INVENTORY, inventoryTag);
 
@@ -186,9 +186,14 @@ public final class SnapshotStore extends SavedData {
         return tag;
     }
 
-    /** 从 NBT 恢复一条 AEKey + amount 记录。 */
+    /** 从 NBT 恢复一条 AEKey + amount 记录（旧存档无 nameKey 时为 null）。 */
     private static Snapshot.StackEntry loadStack(CompoundTag tag) {
-        return new Snapshot.StackEntry(tag.getCompound(KEY_STACK).copy(), tag.getLong(KEY_AMOUNT));
+        return new Snapshot.StackEntry(tag.getCompound(KEY_STACK).copy(), tag.getLong(KEY_AMOUNT), nameKeyOf(tag));
+    }
+
+    /** 从 NBT 取可选翻译键；字段不存在时返回 null。 */
+    private static String nameKeyOf(CompoundTag tag) {
+        return tag.contains(KEY_NAME_KEY) ? tag.getString(KEY_NAME_KEY) : null;
     }
 
     /** 从 NBT 恢复一组 AEKey + amount 记录。 */
@@ -200,11 +205,14 @@ public final class SnapshotStore extends SavedData {
         return stacks;
     }
 
-    /** 把一条 AEKey + amount 记录序列化为 SavedData NBT。 */
+    /** 把一条 AEKey + amount 记录序列化为 SavedData NBT；nameKey 为空时省略（向后兼容）。 */
     private static CompoundTag saveStack(Snapshot.StackEntry stack) {
         CompoundTag entry = new CompoundTag();
         entry.put(KEY_STACK, stack.key().copy());
         entry.putLong(KEY_AMOUNT, stack.amount());
+        if (stack.nameKey() != null) {
+            entry.putString(KEY_NAME_KEY, stack.nameKey());
+        }
         return entry;
     }
 

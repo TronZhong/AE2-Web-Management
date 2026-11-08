@@ -1,6 +1,6 @@
 <script setup>
 /**
- * 库存卡：MC 风格格子布局展示物品，支持按友好名 / id 过滤。
+ * 库存卡：MC 风格格子布局展示物品，支持按中文/友好名 / id 过滤。
  * 大型网格物品种类可达数千，按「行 × 列」窗口化渲染（虚拟滚动），
  * 列数随容器宽度自适应；格子的悬浮名称与角标由 ItemSlot 负责。
  */
@@ -9,7 +9,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import BaseCard from '../base/BaseCard.vue'
 import EmptyState from '../base/EmptyState.vue'
 import ItemSlot from '../base/ItemSlot.vue'
-import { friendlyName, keyId } from '../../lib/format.js'
+import { keyId } from '../../lib/format.js'
+import { displayName } from '../../lib/itemName.js'
 
 const props = defineProps({
   /** 快照 inventory 数组，条目为 {key, amount}。 */
@@ -45,7 +46,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => resizeObserver?.disconnect())
 
-/** 过滤后的条目：友好名或 id 命中关键字（忽略大小写）。 */
+/** 过滤后的条目：中文/友好名或 id 命中关键字（忽略大小写）。 */
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
   if (!kw) {
@@ -53,7 +54,7 @@ const filtered = computed(() => {
   }
   return props.items.filter(
     (entry) =>
-      friendlyName(entry.key).toLowerCase().includes(kw) || keyId(entry.key).toLowerCase().includes(kw),
+      displayName(entry).toLowerCase().includes(kw) || keyId(entry.key).toLowerCase().includes(kw),
   )
 })
 

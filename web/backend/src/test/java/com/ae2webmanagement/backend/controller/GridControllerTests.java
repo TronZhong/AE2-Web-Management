@@ -82,19 +82,20 @@ class GridControllerTests {
 			.andExpect(jsonPath("$.grids[0].unlocked").value(false));
 	}
 
-	/** GET /api/grids/{accessId}/snapshot：快照嵌套字段名与契约逐一断言。 */
+	/** GET /api/grids/{accessId}/snapshot：快照嵌套字段名与契约逐一断言（含可选 nameKey，roadmap.md §4）。 */
 	@Test
 	void snapshotFieldNamesMatchContract() throws Exception {
 		ObjectMapper mapper = new ObjectMapper();
 		when(this.gridService.getSnapshot(ACCESS_ID, 42L)).thenReturn(new SnapshotResponse(
 				ACCESS_ID, 1760000000000L, true,
-				List.of(new StackEntry(mapper.readTree("{\"id\":\"minecraft:stone\"}"), 12844)),
+				List.of(new StackEntry(mapper.readTree("{\"id\":\"minecraft:stone\"}"), 12844, "block.minecraft.stone")),
 				List.of(new CpuEntry("", false, 16384, 0)),
 				List.of(new PatternEntry(
-						new StackEntry(mapper.readTree("{\"id\":\"minecraft:stick\"}"), 4),
-						List.of(new StackEntry(mapper.readTree("{\"id\":\"minecraft:stick\"}"), 4)),
+						new StackEntry(mapper.readTree("{\"id\":\"minecraft:stick\"}"), 4, "item.minecraft.stick"),
+						// 无 nameKey 的条目：模拟旧版模组快照，验证 Web 响应省略该字段
+						List.of(new StackEntry(mapper.readTree("{\"id\":\"minecraft:stick\"}"), 4, null)),
 						List.of(new PatternInputEntry(
-								List.of(new StackEntry(mapper.readTree("{\"id\":\"minecraft:oak_planks\"}"), 2)), 1))))));
+								List.of(new StackEntry(mapper.readTree("{\"id\":\"minecraft:oak_planks\"}"), 2, "block.minecraft.oak_planks")), 1))))));
 
 		this.mockMvc.perform(get("/api/grids/" + ACCESS_ID + "/snapshot"))
 			.andExpect(status().isOk())
@@ -103,14 +104,19 @@ class GridControllerTests {
 			.andExpect(jsonPath("$.online").value(true))
 			.andExpect(jsonPath("$.inventory[0].key.id").value("minecraft:stone"))
 			.andExpect(jsonPath("$.inventory[0].amount").value(12844))
+			.andExpect(jsonPath("$.inventory[0].nameKey").value("block.minecraft.stone"))
 			.andExpect(jsonPath("$.craftingCpus[0].name").value(""))
 			.andExpect(jsonPath("$.craftingCpus[0].busy").value(false))
 			.andExpect(jsonPath("$.craftingCpus[0].availableStorage").value(16384))
 			.andExpect(jsonPath("$.craftingCpus[0].coProcessors").value(0))
 			.andExpect(jsonPath("$.patterns[0].primaryOutput.key.id").value("minecraft:stick"))
 			.andExpect(jsonPath("$.patterns[0].primaryOutput.amount").value(4))
+			.andExpect(jsonPath("$.patterns[0].primaryOutput.nameKey").value("item.minecraft.stick"))
 			.andExpect(jsonPath("$.patterns[0].outputs[0].key.id").value("minecraft:stick"))
+			// 旧版模组无 nameKey → Web 响应省略该字段（向后兼容）
+			.andExpect(jsonPath("$.patterns[0].outputs[0].nameKey").doesNotExist())
 			.andExpect(jsonPath("$.patterns[0].inputs[0].possibleInputs[0].key.id").value("minecraft:oak_planks"))
+			.andExpect(jsonPath("$.patterns[0].inputs[0].possibleInputs[0].nameKey").value("block.minecraft.oak_planks"))
 			.andExpect(jsonPath("$.patterns[0].inputs[0].multiplier").value(1));
 	}
 

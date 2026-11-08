@@ -12,6 +12,7 @@
 - **displayName 可改名**（模组 0.0.7）：接入方块 GUI 支持修改显示名（C2S payload 写身份表 + 身份镜像缓存即时刷新）；HTTP `GET /grids` 的 `displayName` 字段随之变化，schema 不变。
 - **实时推送（SSE）已实现**（后端 v0.4，模组零改动）：`GET /api/events` 推送变更提示，见 [web-api.md](web-api.md)「实时事件端点」；本页（模组↔后端契约）无新增端点。
 - **术语统一为 grid**（模组 0.0.8，契约 v0.5）：模组端点 `/networks`→`/grids`、JSON key `networks`→`grids`、错误码 `network_not_found`→`grid_not_found`；后端 `/api/networks`→`/api/grids`、`Grid*` 类与错误码 `network_locked`→`grid_locked`。`SavedData` 文件名与 NBT、`accessId` 均不变。
+- **物品中文名称**（模组 0.0.9，契约 v0.6）：快照中 `inventory[]` / `patterns[]` 各 stack 条目新增**可选** `nameKey`（物品翻译键，如 `block.minecraft.stone` / `item.ae2.controller`，roadmap.md §4）；前端按官方中文语言表查名。旧版模组无该字段 → 后端按 null 处理并在 Web 响应省略，向后兼容。`SavedData` NBT 中该字段同样可空（旧存档读出为 null）。
 - 完整 schema、JSON Schema/OpenAPI 仍待定义；字段变更前先更新本页。
 - 目录：`contracts/`（当前以文档形式维护初版 API 形状）。
 
@@ -32,6 +33,7 @@
 | `GET /grids/{accessId}/snapshot` | 单网格快照，含 `inventory`、`craftingCpus` 和 `patterns` |
 
 快照中的 `inventory[].key` 是 AE2 `AEKey` 通用 NBT 转换后的 JSON；`amount` 为 long。
+`inventory[]` / `patterns[]` 的每个 stack 条目（`primaryOutput`、`outputs[]`、`inputs[].possibleInputs[]`）均可能携带**可选** `nameKey`：物品翻译键（如 `block.minecraft.stone` / `item.ae2.controller`，取自 `Item#getDescriptionId()`；流体为 `fluid_type.*`），供前端查中文语言表（roadmap.md §4）。无翻译键时字段省略（旧版模组 / 自定义名称物品）。
 `craftingCpus[].name` 为空字符串表示该合成 CPU 未命名。
 
 `patterns[]` 是样板摘要的声明框架，字段来自 AE2 `IPatternDetails`：

@@ -32,8 +32,13 @@ public record Snapshot(
         patterns = List.copyOf(patterns);
     }
 
-    /** 一条库存记录。{@code key} 是 AEKey 的通用 NBT 表示。 */
-    public record StackEntry(CompoundTag key, long amount) {
+    /**
+     * 一条库存/样板记录。{@code key} 是 AEKey 的通用 NBT 表示；
+     * {@code nameKey} 是可选的物品翻译键（如 {@code block.minecraft.stone} /
+     * {@code item.ae2.controller}），由服务端采集时生成，供前端查中文语言表——
+     * Minecraft 服务端不加载多语言，不能直接传出中文名（见 docs/roadmap.md §4）。
+     */
+    public record StackEntry(CompoundTag key, long amount, String nameKey) {
         public StackEntry {
             key = key.copy();
         }

@@ -81,6 +81,7 @@ cd .\web\backend
 - [x] 测试：`ModApiClientTests`（MockRestServiceServer，含 verify-password 与旧模组兼容）、`ModClientConfigTests`（超时）、`GridServiceTests`（错误翻译 + 访问控制）、`GridControllerTests` / `CraftControllerTests` / `RealtimeControllerTests`（MockMvc 字段对齐，切片关闭拦截器）、`AuthFlowTests`（全上下文认证闭环）、`GridAccessFlowTests`（全上下文解锁闭环：403 → 401 → 204 → unlocked → snapshot 放行）、`GridStateSyncServiceTests`（指纹比对与事件广播）。
 - [x] **实时推送（SSE）已实现**（roadmap 已完成项）：`GET /api/events` 订阅实时事件；`GridStateSyncService` 每 2s 拉模组列表比对指纹，变化即广播 `grids-updated` / `grid-snapshot-updated`（只含模组侧状态，不含账号 `unlocked`）；前端收到后 refetch，轮询保留作兜底。
 - [x] **术语统一为 grid（契约 v0.5，模组 0.0.8）**：`NetworkController`→`GridController`、`NetworkService`→`GridService`、`Network*Response`→`Grid*Response`、`ModNetwork*`→`ModGrid*`、`ModApiClient.listNetworks`→`listGrids`；URL `/api/networks`→`/api/grids`；错误码 `network_locked`→`grid_locked`、`network_not_found`→`grid_not_found`。仅术语改名，`accessId` 与字段值不变。
+- [x] **物品中文名称透传（契约 v0.6，模组 0.0.9，roadmap.md §4）**：`StackEntry` DTO 新增可选 `nameKey`（模组快照 JSON 同名字段透传，`JsonNode key` 不变）；`@JsonInclude(NON_NULL)` 省略 null，旧版模组/旧快照无该字段时 Web 响应仍然省略（向后兼容）。
 - [ ] 暂无改密 / 注册 / 多账号管理端点（个人自用场景，roadmap 未列入待办）。
 
 ## 相关文档
