@@ -99,7 +99,7 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 - [x] **术语统一为 grid（0.0.8）**：`network/` 包改名 `grid/`（`GridIdentity` / `GridIdentityStore`）、本地数据口端点 `/networks`→`/grids`、JSON key `networks`→`grids`、错误码 `network_not_found`→`grid_not_found`；默认显示名由 `"Network @ ..."` 改为 `"Grid @ ..."`。`SavedData` 文件名（`ae2web_identities.dat`）与 NBT、`accessId` 均不变。
 
 - [x] **`nameKey` 字段（`roadmap.md` §4，0.0.9）**：快照 stack 条目附带物品翻译键（物品取 `Item#getDescriptionId()`、流体取 `FluidType#getDescriptionId()`，其余 AEKey 类型从显示名组件提取）；`SnapshotStore` NBT 与 HTTP JSON 透传，旧存档/旧快照无该字段时按「可选」处理。服务端无多语言，不能直接出中文名，由前端按翻译键查中文语言表。
-- [ ] **物品图标导出（`roadmap.md` §5）**：客户端离屏渲染已见物品为 16×16 PNG 并经本地 API 提供给后端。
+- [ ] **物品图标导出（`roadmap.md` §5，细化方案含性能设计）**：客户端离屏渲染已见物品为 16×16 PNG 并经本地 API 提供给后端；专用服务器无客户端、图标回退占位。
 - [ ] **命令取消 API 与 `lastSeenAt` 回写（`roadmap.md` §6）**：PENDING 命令目前无法撤销；`lastSeenAt` 尚未随快照回写。
 
 > 实现顺序与完整方案见 [技术设计](../design.md)：锚点身份（控制器 + `SavedData`）→ 注册器方块 → 4 秒快照循环 → 命令队列 → 本地 127.0.0.1 数据口。

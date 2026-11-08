@@ -12,6 +12,7 @@
 | P2 | 物品图标（客户端渲染导出） | 待办 · UX | 已拍板 |
 | P2 | 模组其他遗留（命令取消、`lastSeenAt`） | 待办 | 已拍板 |
 | P3 | 每网络配对令牌 | 隐患 · 安全 | 暂缓（实施前再确认场景） |
+| P3 | 语言表外部配置化（模块化加载） | 待办 · 工程 | 暂缓（出现第三方模组语言表需求再实施） |
 
 > P1–P2 各节都动模组代码，可按批次合并提交，每批一个主题、`mod_version` 递增 1。
 
@@ -82,6 +83,50 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 3. 后端增加图标转发端点（如 `GET /api/icons/{namespace}/{path}.png`，可不做 per-network）；
 4. 前端把 `iconUrl` 接到该地址，实现前同步更新契约文档。
 
+### 细化方案（含性能设计）
+
+> 本节为实施蓝图。核心分工：**渲染（客户端侧完成，产物是磁盘 PNG）与 HTTP 服务（服务端侧，只读静态文件）是两条独立路径**——HTTP 层不渲染、只读文件；渲染层不接 HTTP、只写文件，互不触碰，因此 HTTP 线程永不接触 Minecraft 状态。
+
+#### 模组端：`IconService`（客户端专用，性能核心）
+
+新增 `mod/.../client/icon/IconService`，仅在客户端侧初始化（`Minecraft.getInstance() != null`）。核心机制是「作业队列 + 每帧预算」，让任意规模的网络都只产生渐进式补齐、不产生单帧卡顿：
+
+- **作业队列 + 每帧预算**：HTTP 线程 / 快照观察只把 key 入队（`ConcurrentLinkedQueue`，只存 AEKey 或 NBT 串，不碰任何 Minecraft 状态）；客户端线程在帧间事件（如 NeoForge 1.21.1 的 `RenderTickEvent.Post`，实现时验证确切挂点）每帧最多消费 N 个（默认 2）。数万物品也只是几十秒后台渐进渲染，任何一帧不掉帧。
+- **复用单个 `Framebuffer`**：一次性创建 16×16（如需更平滑可放大渲染再缩小）离屏画布全程复用，绑定后调 `ItemRenderer`（借游戏的物品渲染管线），画完 `NativeImage.downloadTexture` 读回像素并**立即恢复默认 framebuffer 与 `RenderSystem` 状态**（projection / blit offset / color / shader），避免污染下一帧。玩家画面完全不受影响（不截屏、不叠加）。
+- **去重**：内存 `Set<String>`（已入队）+ 磁盘存在性检查（已渲染）。已存在的 PNG 永不重渲染；快照循环只在出现**新 key** 时入队，不每 4 秒全量重扫。
+- **IO 下移**：读回像素后，PNG 编码（`NativeImage.writePng`）与文件写入交给单线程 daemon executor，渲染线程不碰磁盘。
+- **快照 key 来源与节流**：单人模式（integrated server）下 `AE2WebManagement.SNAPSHOT_MANAGER` 是同一 JVM 的共享静态，客户端线程直接读其缓存；观察节流（如每 20 tick 一次或仅 key 集合变化时），只 diff 出新增 key。
+- **专用服务器（dedicated）**：无客户端 → `IconService` 不激活、零开销、不崩溃；`/icons` 一律 404，前端落回占位方块。特性天然服务于「自建单人存档 + Web 面板」用法，文档需写明该边界。
+
+#### `LocalDataServer`：静态文件服务（绝不现算）
+
+- `GET /icons/{namespace}/{path}.png` 命中磁盘直接回读字节（16×16 PNG 数百字节，单线程 HTTP executor 无压力）。
+- **路径穿越防护**：namespace/path 只允许 `[a-z0-9_.-]`，拼接根目录后 `normalize` 并校验前缀，非法 400/404。
+- **缓存头**（与 JSON 端点的 `no-store` 不同）：`Content-Type: image/png` + `Cache-Control: public, max-age=86400`（图标一经渲染即静态，一天后浏览器自然重验证）。
+- **缺失 → 404 + 惰性补齐**：文件不存在时返回 404，同时把 key 入队，下一次请求大概率已渲染完成；前端 404 时回退占位方块并重试。
+
+#### 后端：纯字节代理
+
+- `ModApiClient` 增加按 `byte[]` 取图标的转发（**不做 JSON 解析**、不进 service 业务层）；`IconController`（或并入 `GridController`）校验字符集后转发，透传 `Content-Type` 与 `Cache-Control`。
+- 模组不可达 → 502/503，前端 `@error` 回退占位。后端不做自建缓存，浏览器缓存承担主要去重，保持纯代理。
+
+#### 前端：懒加载 + 错误回退
+
+- `ItemSlot.vue` 加 `loading="lazy"`（虚拟滚动窗口外不加载）与 `@error` 回退到占位方块（现有 `v-else` 分支）。
+- `iconUrl` 计算为 `/api/icons/{ns}/{path}.png`；同一物品多条库存共用同一 URL，浏览器按 URL 去重，每个图标一次下载。
+- 不预加载：配合模组端惰性渲染，图标渐进出现即可。
+
+#### 配置与契约
+
+- 模组 `Config` 新增：`iconExportEnabled`（默认 true，弱机器/专用服务器可关）、`iconRenderPerFrame`（默认 2）。
+- 契约升级至 v0.7：`docs/contracts/index.md` / `web-api.md` 增加 `GET /api/icons/{namespace}/{path}.png`；实现前同步更新；动模组代码批次递增 `mod_version`。
+
+#### 取舍与边界
+
+- **NBT 变体图标**：缓存文件名 `<ns>/<path>.png` 忽略 NBT，第一个见到的变体决定图标（AE2 库存多为普通物品，可接受）。若需精确，可在文件名追加 tag 哈希（key 集合有界，代价可控）。先做 canonical-first。
+- **流体图标**：`ItemRenderer` 渲染不了流体，单独走 `FluidType.getStillTexture()` 贴图 blit 路径；其他 AEKey 类型跳过（前端占位）。
+- **缓存失效**：图标一经渲染即不可变；更换资源包后手动删 `config/ae2webmanagement/icons/` 或递增模组版本，`max-age` 保证一天内自愈。
+
 ### 备选（不推荐，仅记录理由）
 
 - 前端静态贴图包（构建期从 jar 抽 PNG）：vanilla 方块只有平面贴图、观感打折，modded 需手工维护；
@@ -98,6 +143,17 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 - 若实施：`AccessScreen` 展示已注册网络的 `accessId` + token（一键复制），token 字符串同步需要新的通道（`AccessMenu` 仍为 `SimpleContainerData(2)`，只能传 int，token 需自定义 payload，可复用 `GridPasswordPayload` / `GridIdentityPayload` 的模式）；「重置 token」按钮 + 后端侧同步失效。
 - token 流向约定：模组 `/grids` 可把 token 输出给后端（模组口仅 127.0.0.1 + 共享密钥可达，泄漏面可控），由**后端持有并校验，不下发给前端**。
 - displayName 改名已在 GUI 迭代中实现（模组 0.0.7），token 展示如再实施可与后续 GUI 改动同批提交。
+
+## 8. P3 · 语言表外部配置化（模块化加载，暂缓）
+
+- 现状：`src/data/lang/` 的 `zh_cn.json` 由 `itemName.js` **构建期静态 import** 合并进 `ZH_TABLE`；新增第三方模组语言表需改源码 import 并重新构建，不够"放入即用"。
+- 目标：语言表改为外部配置式——文件放进指定目录即可被加载，不触碰源码。
+- 候选方案（实施前再定）：
+  1. **运行时加载（推荐方向）**：语言表由后端静态目录提供（如新增 `GET /lang/*.json` 端点，与"前端只与后端通信"架构一致）或前端 `public/lang/`；应用启动时预载全部表到 `ZH_TABLE` 缓存，`displayName()` 保持同步纯函数不变（预载后查缓存），现有组件零改动。新增模组只丢一个 json，连构建都不需要；加载失败静默回退英文友好名。实现方案 1 需新增后端契约端点并同步契约文档。
+  2. **Vite `import.meta.glob`（构建期自动收集）**：`itemName.js` 一次性改为 glob 导入 `data/lang/*.json`，之后加文件免改源码，但仍需重新构建。
+  3. 维持现状（源码 import）。
+- 兼容注意：`nameKey` 查表语义与「查表 → 启发式 → 英文友好名」回退链保持不变，仅"表从哪来"变化。
+- 优先级：低。当前仅 minecraft/ae2 两张官方表，源码 import 成本可接受；待第三方模组语言表需求出现再实施。
 
 ## 相关文档
 
