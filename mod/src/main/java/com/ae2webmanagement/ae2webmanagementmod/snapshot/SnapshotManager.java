@@ -141,7 +141,7 @@ public final class SnapshotManager {
      * GUI 改名后由主线程立即同步身份镜像缓存（含密码哈希），
      * 让 HTTP 网络列表无需等待下一个采样周期即可展示新显示名。
      *
-     * <p>对应 docs/roadmap.md §5：接入方块 GUI 支持 displayName 改名。</p>
+     * <p>对应 roadmap 已完成项（GUI 迭代）：接入方块 GUI 支持 displayName 改名。</p>
      *
      * @param identity 更新后的身份记录（displayName 已改）
      */

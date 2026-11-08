@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * {@link RealtimeController} MockMvc 测试：{@code GET /api/events} 注册 SSE
- * 连接并返回 text/event-stream（docs/roadmap.md §3 实时推送）。
+ * 连接并返回 text/event-stream（roadmap 已完成项：SSE 实时推送）。
  *
  * <p>切片不加载 Sa-Token 自动配置，{@code app.auth.enabled=false} 关闭登录拦截；
  * 认证保护由 {@link AuthFlowTests} 全上下文覆盖。真实事件广播语义在

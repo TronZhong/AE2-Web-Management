@@ -79,8 +79,8 @@ cd .\web\backend
 - [x] **P3 账号认证已实现**（Sa-Token `1.46.0` spring-boot4-starter，兼容 Spring Boot 4.1 已实测）：登录/注销/`/me` 端点 + 拦截器保护 `/api/**`；H2 账户表（`domain` / `repository`）；首次启动引导建号；`satoken` Cookie 会话。
 - [x] **网格密码访问控制已实现**（契约 v0.3）：网络摘要计算 `unlocked`；snapshot/craft/commands 转发前锁定检查（`403 network_locked`）；`POST /api/networks/{id}/unlock`（模组 `verify-password` 204 后按账号写 `account_grid_access`，密码不匹配透传 `401 invalid_password`）；密码清除时撤销该网络解锁记录；旧版模组（无 `hasPassword` 字段）按公开网络处理。
 - [x] 测试：`ModApiClientTests`（MockRestServiceServer，含 verify-password 与旧模组兼容）、`ModClientConfigTests`（超时）、`NetworkServiceTests`（错误翻译 + 访问控制）、`NetworkControllerTests` / `CraftControllerTests` / `RealtimeControllerTests`（MockMvc 字段对齐，切片关闭拦截器）、`AuthFlowTests`（全上下文认证闭环）、`GridAccessFlowTests`（全上下文解锁闭环：403 → 401 → 204 → unlocked → snapshot 放行）、`GridStateSyncServiceTests`（指纹比对与事件广播）。
-- [x] **实时推送（SSE）已实现**（`roadmap.md` 原 §3）：`GET /api/events` 订阅实时事件；`GridStateSyncService` 每 2s 拉模组列表比对指纹，变化即广播 `grids-updated` / `grid-snapshot-updated`（只含模组侧状态，不含账号 `unlocked`）；前端收到后 refetch，轮询保留作兜底。
-- [ ] 暂无改密 / 注册 / 多账号管理端点（个人自用场景，见 [`../roadmap.md`](../roadmap.md) §1）。
+- [x] **实时推送（SSE）已实现**（roadmap 已完成项）：`GET /api/events` 订阅实时事件；`GridStateSyncService` 每 2s 拉模组列表比对指纹，变化即广播 `grids-updated` / `grid-snapshot-updated`（只含模组侧状态，不含账号 `unlocked`）；前端收到后 refetch，轮询保留作兜底。
+- [ ] 暂无改密 / 注册 / 多账号管理端点（个人自用场景，roadmap 未列入待办）。
 
 ## 相关文档
 

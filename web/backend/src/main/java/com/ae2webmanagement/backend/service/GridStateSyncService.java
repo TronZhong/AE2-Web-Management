@@ -17,7 +17,7 @@ import com.ae2webmanagement.backend.dto.ModNetworkSummaryResponse;
  * 网格状态同步服务：每 2 秒拉取模组网络列表，与内存指纹比对，变化即通过
  * {@link RealtimeEventHub} 广播事件提示前端刷新。
  *
- * <p>对应 docs/roadmap.md §3（实时推送）：后端无缓存、每次请求直连模组，
+ * <p>对应 roadmap 已完成项（SSE 实时推送）：后端无缓存、每次请求直连模组，
  * 这里在轮询的基础上补一层「状态变化主动通知」，让前端不必干等 5s/10s 轮询。
  * 事件形状只推变更提示（{@code grids-updated} / {@code grid-snapshot-updated}），
  * 前端收到后自行 refetch，契约保持简单。</p>

@@ -19,7 +19,7 @@ import com.ae2webmanagement.ae2webmanagementmod.AE2WebManagement;
  * <p>字符串无法走 containerData 的 int 通道，故用自定义 payload（与
  * {@link GridPasswordPayload} 同一模式，方向相反）：服务端在菜单打开、
  * 注册、改名或网格变化后把最新身份推给客户端，客户端存入菜单供
- * {@code AccessScreen} 渲染。对应 docs/roadmap.md §5（GUI 迭代：展示
+ * {@code AccessScreen} 渲染。对应 roadmap 已完成项（GUI 迭代）：展示
  * accessId/displayName/控制器位置）。</p>
  *
  * <p>未注册 / 无控制器时对应字段为空串，{@code pos} 为 {@code BlockPos.ZERO}，

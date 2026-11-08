@@ -16,7 +16,7 @@ const { networks, loading, error, refresh } = useNetworks()
 // 网络列表变化频率低，用 10s 轮询；start() 会立即执行首次加载
 usePolling(refresh, 10_000).start()
 
-// 后端推送「列表级变化」时立即刷新，不必干等下一次轮询（roadmap §3 实时推送）
+// 后端推送「列表级变化」时立即刷新，不必干等下一次轮询（roadmap 已完成项：SSE 实时推送）
 let unsubscribeEvents = null
 onMounted(() => {
   unsubscribeEvents = subscribeGridEvents({ onGridsUpdated: () => refresh() })

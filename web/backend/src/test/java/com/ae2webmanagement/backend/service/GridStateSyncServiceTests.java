@@ -21,7 +21,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * {@link GridStateSyncService} 单元测试：指纹比对与事件广播语义
- * （docs/roadmap.md §3 实时推送）。
+ * （roadmap 已完成项：SSE 实时推送）。
  *
  * <p>覆盖：无变化不广播；新网络出现 → {@code grids-updated}；快照被刷新
  * （{@code capturedAt}/{@code online} 变化）→ 该网络的 {@code grid-snapshot-updated}；

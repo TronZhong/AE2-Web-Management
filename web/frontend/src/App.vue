@@ -2,7 +2,7 @@
 /**
  * 应用外壳：顶栏（站点标识 + 数据源徽标 + 当前账号）、路由出口与页脚。
  * 数据源徽标按 USE_MOCK 显示 MOCK / 实时，避免误把演示数据当真实状态。
- * 登出：清会话后立即跳回登录页（不带 redirect，主动登出不回跳），见 docs/roadmap.md §4。
+ * 登出：清会话后立即跳回登录页（不带 redirect，主动登出不回跳，roadmap 已完成项）。
  */
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 

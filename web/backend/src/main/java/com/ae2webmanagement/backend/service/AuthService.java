@@ -22,7 +22,7 @@ import com.ae2webmanagement.backend.repository.AccountRepository;
  * 账号制认证用例（契约 v0.2「认证端点」）：登录 / 注销 / 当前账号，
  * 以及首次启动时引导创建初始管理员。
  *
- * <p>语义（docs/roadmap.md §2）：密码是后端账号密码，与 Minecraft/AE2 无关；
+ * <p>语义（roadmap 已完成项，账号制认证）：密码是后端账号密码，与 Minecraft/AE2 无关；
  * 登录后可见全部已注册网络；会话由 Sa-Token 管理（satoken Cookie / 请求头）。
  * 密码只存 BCrypt 哈希；登录失败统一 {@code 401 unauthorized}，不区分
  * 「用户不存在」与「密码错误」。</p>

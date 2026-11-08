@@ -12,7 +12,7 @@
 | 路由 | vue-router 4（`/login` 登录页，`/` 选择页，`/networks/:accessId` 详情页） |
 | 样式 | Tailwind CSS v4（设计令牌在 `src/style.css` 的 `@theme`，暗色终端风） |
 | 数据源 | 默认 mock；`VITE_USE_MOCK=false` 切换真实请求（后端转发已实现，dev 走 Vite `/api` 代理） |
-| 认证 | 账号制（后端 satoken Cookie 会话）；未登录一律重定向登录页，见 [`../roadmap.md`](../roadmap.md) §1 |
+| 认证 | 账号制（后端 satoken Cookie 会话）；未登录一律重定向登录页 |
 | 契约 | [`contracts/web-api.md`](../../contracts/web-api.md)（v0.4，指向 `docs/contracts/web-api.md`） |
 
 ## 目录结构与源码映射
@@ -71,11 +71,11 @@
 - [x] 后端转发已实现，`VITE_USE_MOCK=false` + dev 代理（`vite.config.js` 的 `/api` → `http://localhost:8080`）即可走真实请求，响应形状与 mock 一致。
 - [x] 合成命令接线：计划合成弹窗提交 `POST /craft`（含受理回执与错误码透出）+ 详情页合成命令卡（`GET /commands` 5s 轮询、状态徽标、倒序展示），mock 层模拟模组队列语义。
 - [x] 账号认证接入：登录页 + 全局路由守卫（未登录重定向并带回跳）+ 顶栏用户名/登出 + 401 统一处理（会话过期自动跳登录页）；原选择页 `PasswordField` 预留栏位移除（每网络口令语义由全局账号取代）。
-- [x] 登出即跳登录页（`roadmap.md` 原 §4）：顶栏登出清会话后立即 `router.push({name:'login'})`（不带 `redirect`，主动登出不回跳）；`useAuth` 不依赖 router。
+- [x] 登出即跳登录页（roadmap 已完成项）：顶栏登出清会话后立即 `router.push({name:'login'})`（不带 `redirect`，主动登出不回跳）；`useAuth` 不依赖 router。
 - [x] 网格密码接入（契约 v0.3）：`GridCard` 锁定徽标与按钮文案切换；详情页 `UnlockGate` 解锁门（错误码直出、MOCK 模式显示演示密码）；解锁成功刷新快照与网络列表；mock 层主基地网络预置密码 `1234`、锁定网络 snapshot/craft/commands 抛 `network_locked`。
-- [x] 实时推送接入（`roadmap.md` 原 §3）：`src/api/events.js` 用 EventSource 订阅 `/api/events`，选页/详情页收到事件立即刷新；**5s/10s 轮询保留作兜底**（SSE 断线/未登录自动降级，EventSource 浏览器自带重连）。
-- [ ] 物品中文名：按模组 `nameKey` + 前端中文语言表实现（含过渡启发式方案），见 [`roadmap.md`](../roadmap.md) §3。
-- [ ] 物品贴图接入 `ItemSlot` 的 `iconUrl`（当前为方块占位；来源定为模组客户端渲染导出，见 [`roadmap.md`](../roadmap.md) §4）。
+- [x] 实时推送接入（roadmap 已完成项）：`src/api/events.js` 用 EventSource 订阅 `/api/events`，选页/详情页收到事件立即刷新；**5s/10s 轮询保留作兜底**（SSE 断线/未登录自动降级，EventSource 浏览器自带重连）。
+- [ ] 物品中文名：按模组 `nameKey` + 前端中文语言表实现（含过渡启发式方案），见 [`roadmap.md`](../roadmap.md) §4。
+- [ ] 物品贴图接入 `ItemSlot` 的 `iconUrl`（当前为方块占位；来源定为模组客户端渲染导出，见 [`roadmap.md`](../roadmap.md) §5）。
 
 ## 约定
 

@@ -15,7 +15,7 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * 实时推送的事件枢纽：管理所有已注册的 {@link SseEmitter}，向它们广播变更提示。
  *
- * <p>对应 docs/roadmap.md §3（SSE 实时推送）：事件形状只推「变更提示」
+ * <p>对应 roadmap 已完成项（SSE 实时推送）：事件形状只推「变更提示」
  * （{@code {"type":"grids-updated"}} / {@code {"type":"grid-snapshot-updated","accessId":...}}），
  * 前端收到后再 refetch，契约保持简单。广播由 {@link GridStateSyncService} 触发；
  * 本类只负责 emitter 生命周期（注册 / 移除）与心跳保活。</p>

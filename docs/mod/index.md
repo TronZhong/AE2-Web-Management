@@ -95,11 +95,11 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 - [x] **命令队列**：HTTP 只入队，主线程持久化并用 AE2 异步重算后提交。
 - [x] **后端代理**：Spring Boot 已把本机 API 的网络列表 / 快照 / 合成命令转发给网页（`web/backend/`，见 [后端](../backend/index.md)）。
 - [x] **网格密码（0.0.6）**：游戏内 GUI 设密（PBKDF2 哈希入身份表）、`verify-password` 校验端点、C2S payload 通道；旧版后端/前端可无缝忽略。
-- [x] **GUI 迭代（0.0.7）**：接入方块 GUI 状态实时刷新（`containerData` 随 `broadcastChanges` 每 tick 同步，网格变化无需重开菜单）、展示 accessId/displayName/控制器位置（S2C `GridIdentityPayload`）、displayName 可改名（C2S `GridRenamePayload` + `NetworkIdentityStore.rename` + 身份镜像缓存即时刷新）；`token` 展示/复制未做（配对令牌方案暂缓，见 [`roadmap.md`](../roadmap.md) §6）。
+- [x] **GUI 迭代（0.0.7）**：接入方块 GUI 状态实时刷新（`containerData` 随 `broadcastChanges` 每 tick 同步，网格变化无需重开菜单）、展示 accessId/displayName/控制器位置（S2C `GridIdentityPayload`）、displayName 可改名（C2S `GridRenamePayload` + `NetworkIdentityStore.rename` + 身份镜像缓存即时刷新）；`token` 展示/复制未做（配对令牌方案暂缓，见 [`roadmap.md`](../roadmap.md) §7）。
 
-- [ ] **`nameKey` 字段（`roadmap.md` §3）**：快照 stack 条目附带物品翻译键（服务端无多语言，不能直接出中文名，由前端按翻译键查中文语言表）。
-- [ ] **物品图标导出（`roadmap.md` §4）**：客户端离屏渲染已见物品为 16×16 PNG 并经本地 API 提供给后端。
-- [ ] **命令取消 API 与 `lastSeenAt` 回写（`roadmap.md` §5）**：PENDING 命令目前无法撤销；`lastSeenAt` 尚未随快照回写。
+- [ ] **`nameKey` 字段（`roadmap.md` §4）**：快照 stack 条目附带物品翻译键（服务端无多语言，不能直接出中文名，由前端按翻译键查中文语言表）。
+- [ ] **物品图标导出（`roadmap.md` §5）**：客户端离屏渲染已见物品为 16×16 PNG 并经本地 API 提供给后端。
+- [ ] **命令取消 API 与 `lastSeenAt` 回写（`roadmap.md` §6）**：PENDING 命令目前无法撤销；`lastSeenAt` 尚未随快照回写。
 
 > 实现顺序与完整方案见 [技术设计](../design.md)：锚点身份（控制器 + `SavedData`）→ 注册器方块 → 4 秒快照循环 → 命令队列 → 本地 127.0.0.1 数据口。
 

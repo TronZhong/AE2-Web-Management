@@ -13,7 +13,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import com.ae2webmanagement.ae2webmanagementmod.AE2WebManagement;
 
 /**
- * C2S：接入方块 GUI 提交新的显示名（displayName 改名，docs/roadmap.md §5）。
+ * C2S：接入方块 GUI 提交新的显示名（displayName 改名，roadmap 已完成项：GUI 迭代）。
  *
  * <p>复用 {@link GridPasswordPayload} 的通道模式（字符串无法进 containerData，
  * 用自定义 payload 走 C2S）；服务端处理器由 NeoForge 默认调度到主线程，

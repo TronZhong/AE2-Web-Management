@@ -27,7 +27,7 @@ import com.ae2webmanagement.ae2webmanagementmod.grid.ControllerAnchor;
  * <p>按钮 ID 0 —— 「注册网络」。密码输入走 {@link GridPasswordPayload}；
  * displayName 改名走 {@link GridRenamePayload}；身份信息（accessId/displayName/
  * 控制器位置）经 {@link GridIdentityPayload} 推给客户端展示（字符串无法进
- * containerData，见 docs/roadmap.md §5）。</p>
+ * containerData，roadmap 已完成项：GUI 迭代）。</p>
  */
 public class AccessMenu extends AbstractContainerMenu {
 
@@ -85,7 +85,7 @@ public class AccessMenu extends AbstractContainerMenu {
     /**
      * 服务端每 tick 广播变化前，先从方块实体刷新状态与身份信息，实现
      * 「网格变化（{@code onGridChanged}）后客户端无需重开菜单即可看到最新状态」
-     * （docs/roadmap.md §5 状态实时刷新）。
+     * （roadmap 已完成项：GUI 状态实时刷新）。
      */
     @Override
     public void broadcastChanges() {

@@ -45,7 +45,7 @@
 2. 后端校验令牌与授权（该用户能访问哪些 `networkAccessId`）。
 3. 后端通过 `RestClient` 调用模组的本机 API（`X-Shared-Secret` 头做机器级认证），读取已缓存的库存/合成状态或提交合成命令。
 4. 模组只在主线程内读写 AE2 状态，定时（如 4 秒）把状态快照放入只读缓存区供后端读取。
-5. **实时推送（2026-11）**：后端每 2s 拉模组网络列表与内存指纹比对，变化即通过 SSE（`GET /api/events`）广播变更提示给前端；前端收到后 refetch，原有 5s/10s 轮询保留作兜底（详见 `docs/roadmap.md` 原 §3 与 `docs/contracts/web-api.md` v0.4）。
+5. **实时推送（2026-11）**：后端每 2s 拉模组网络列表与内存指纹比对，变化即通过 SSE（`GET /api/events`）广播变更提示给前端；前端收到后 refetch，原有 5s/10s 轮询保留作兜底（详见 `docs/contracts/web-api.md` v0.4；roadmap 已完成项）。
 
 ## 关键设计决策
 

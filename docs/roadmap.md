@@ -2,25 +2,39 @@
 
 > 文档首页：[`index.md`](index.md) › 设计
 
-本页收录**已拍板、待实施**的迭代项与决策理由；已完成项已移除，完成情况见各组件文档与 git 历史，最近一轮收尾的交接备忘见 §7。与交接会话记录冲突时，以本页 + 实际代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.7`）。
+本页只收录**待办迭代项**与**已识别的问题/隐患**，按优先级从高到低排列；已完成项已移除，完成情况与交接记录见 git 历史及各组件文档。与实现冲突时以代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.7`）。
 
-## 1. 迭代顺序总览
+## 1. 优先级总览
 
-| # | 主题 | 改动面 | 状态 |
+| 优先级 | 事项 | 类型 | 状态 |
 | --- | --- | --- | --- |
-| 1 | 术语统一为 grid（契约 v0.4） | 模组 + 契约 + 后端 + 前端 | 已拍板（2026-11） |
-| 2 | 物品中文名称（`nameKey`） | 模组 + 契约 + 后端 DTO + 前端 | 已拍板 |
-| 3 | 物品图标（客户端渲染导出） | 模组 + 契约 + 后端 + 前端 | 已拍板 |
-| 4 | 模组其他遗留（命令取消、`lastSeenAt`） | 模组 + 契约 | 已拍板 |
-| 5 | 每网络配对令牌 | 模组 + 契约 + 后端 | 暂缓（实施前再确认场景） |
+| P1 | 术语统一为 grid | 待办 · 一致性重构（契约 v0.4） | 已拍板 |
+| P1 | 物品中文名称（`nameKey`） | 待办 · UX | 已拍板 |
+| P2 | 物品图标（客户端渲染导出） | 待办 · UX | 已拍板 |
+| P2 | 模组其他遗留（命令取消、`lastSeenAt`） | 待办 | 已拍板 |
+| P3 | 每网络配对令牌 | 隐患 · 安全 | 暂缓（实施前再确认场景） |
 
-> #1–#4 都动模组代码，可按批次合并提交，每批一个主题、`mod_version` 递增 1。
+> P1–P2 各节都动模组代码，可按批次合并提交，每批一个主题、`mod_version` 递增 1。
 
-## 2. 术语统一为 grid
+## 2. 问题与隐患清单
 
-### 背景
+已识别、尚未消除的隐患，处理见对应待办：
 
-AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。此前工程术语分裂：对外契约层（后端 `Network*` 类、`/api/networks`、模组 `/networks` 端点）用 network，而前端页面/组件、后端访问控制领域表（`GridAccess`）与模组 `grid/` 包用 grid。
+| 隐患 | 影响 | 处理 |
+| --- | --- | --- |
+| 术语 network/grid 分裂 | 契约层（`Network*` 类、`/api/networks`、模组 `/networks`）与 `grid` 包/前端命名不一致，越晚改成本越高 | §3 全站统一到 grid |
+| 服务端无多语言，物品名无中文 | 模组端 `getHoverName()` 恒为英文；前端只能英文友好名/占位，UX 差 | §4 传 `nameKey` + 前端语言表 |
+| 前端物品无图标 | `ItemSlot.vue` 只有按 id 着色的占位方块 | §5 客户端渲染导出 |
+| PENDING 命令无法撤销 | 命令一直等待网络上线后自动提交，误发无法撤回，前端不敢提供取消按钮 | §6 命令取消 API |
+| `lastSeenAt` 不随快照回写 | 在线/离线判定与展示失实 | §6 快照循环回写 |
+| 授权仅网格密码，无按网络隔离 | 多玩家/对外部署权限粒度不足；token 语义暂无需求 | §7 暂缓，实施前确认场景 |
+| 模组无自动化测试 | CI 只构建模组，游戏内行为靠手动复现，回归风险高 | 后续补 NeoForge GameTest |
+
+## 3. P1 · 术语统一为 grid
+
+### 现状与隐患
+
+AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约层（后端 `Network*` 类、`/api/networks`、模组 `/networks` 端点）用 network，而前端页面/组件、后端访问控制领域表（`GridAccess`）与模组 `grid/` 包用 grid。
 
 ### 决策：全站统一到 grid
 
@@ -33,9 +47,9 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。此前工程�
 
 **兼容注意**：只改 Java 类名与 HTTP/JSON 术语；`SavedData` 文件名（`ae2web_identities.dat`）与 NBT 结构不变，不丢存档数据。`accessId` 保留（接入 ID，与 grid/network 之争无关）。
 
-## 3. 物品中文名称
+## 4. P1 · 物品中文名称
 
-### 背景
+### 现状与隐患
 
 - 模组快照只传 AEKey 通用 NBT（如 `{"#t":"ae2:i","id":"minecraft:iron_block"}`）；前端 `friendlyName()`（`src/lib/format.js`）只做英文 id 首字母大写，无中文数据源。
 - **关键技术事实**：Minecraft 服务端没有多语言——`Language.getInstance()` 只加载 en_us，模组端调 `getHoverName().getString()` 等永远解析出英文，"模组直接传出中文名"不可行。
@@ -53,9 +67,9 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。此前工程�
 
 前端按 id 启发式拼翻译键（`block.<ns>.<path>` / `item.<ns>.<path>` 双尝试）+ 语言表查询。vanilla 几乎全对、模组物品大多遵循约定，但存在反例；仅作过渡，最终以模组 `nameKey` 为准。
 
-## 4. 物品图标
+## 5. P2 · 物品图标
 
-### 背景
+### 现状与隐患
 
 前端 `ItemSlot.vue` 已预留 `iconUrl` prop 与 `pixelated` 渲染分支，当前用按 id 着色的方块占位；只差贴图来源。
 
@@ -71,37 +85,17 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。此前工程�
 - 前端静态贴图包（构建期从 jar 抽 PNG）：vanilla 方块只有平面贴图、观感打折，modded 需手工维护；
 - 第三方贴图 CDN：只覆盖 vanilla、依赖外网，不可控。
 
-## 5. 模组其他遗留
+## 6. P2 · 模组其他遗留
 
 - **命令删除/取消 API**：`DELETE /grids/{accessId}/commands/{commandId}`。当前 PENDING 命令无法撤销、会一直等网络上线后自动提交；有了它前端命令列表才敢提供取消按钮。实现前更新契约文档。
 - **`lastSeenAt` 随快照回写**：design.md §4.1 已标注，快照循环 `tick` 时更新身份表。
 
-## 6. 每网络配对令牌（暂缓，实施前与用户再确认场景）
+## 7. P3 · 每网络配对令牌（暂缓）
 
 - 适用场景：多玩家 / 对外部署，需要按网络隔离授权；网格密码已覆盖个人自用与小型多人场景，随机 token 语义暂无需求。
 - 若实施：`AccessScreen` 展示已注册网络的 `accessId` + token（一键复制），token 字符串同步需要新的通道（`AccessMenu` 仍为 `SimpleContainerData(2)`，只能传 int，token 需自定义 payload，可复用 `GridPasswordPayload` / `GridIdentityPayload` 的模式）；「重置 token」按钮 + 后端侧同步失效。
 - token 流向约定：模组 `/grids` 可把 token 输出给后端（模组口仅 127.0.0.1 + 共享密钥可达，泄漏面可控），由**后端持有并校验，不下发给前端**。
 - displayName 改名已在 GUI 迭代中实现（模组 0.0.7），token 展示如再实施可与后续 GUI 改动同批提交。
-
-## 7. 交接记录（2026-11 批次：#2 SSE / #3 登出 / #4 GUI 迭代）
-
-> 供下一会话接续，不参与 §1 迭代顺序；细节见对应 commit 与组件文档。
-
-本轮已完成并提交，按主题分三个批次：
-
-| 项 | 内容 | 批次 |
-| --- | --- | --- |
-| #2 SSE 实时推送 | 后端 `RealtimeEventHub` + `GridStateSyncService`（`@Scheduled` 2s 指纹比对，首次拉取仅建基线不广播）+ `RealtimeController`（`GET /api/events`，`text/event-stream`，15s 心跳）；前端 `src/api/events.js`，`GridSelectPage` / `GridDetailPage` 订阅 `grids-updated` / `grid-snapshot-updated` 即时刷新，保留 5s/10s 轮询兜底 | A |
-| #3 登出跳登录页 | `App.vue` 登出改 `logout()` 后 `router.push({name:'login'})`，不带 redirect；`useAuth` 保持不依赖 router | A |
-| #4 接入方块 GUI 迭代（裁剪范围） | 不做 token 展示/复制（重置 token 仍暂缓）；`AccessMenu` 每 tick 刷新 containerData + `handleRename`；新增 `GridIdentityPayload`（S2C）/ `GridRenamePayload`（C2S）；`AccessBlockEntity.getIdentity/renameGrid`；`NetworkIdentityStore.rename`；`SnapshotManager.updateIdentity`；`AccessScreen` 身份展示 + 改名区；中英文 lang 各 +3 键 | B |
-
-批次划分：**A** = #2 + #3（web 端代码 + 测试，一个 commit）；**B** = #4（模组代码，`mod_version` 0.0.7，一个 commit）；**C** = 文档/契约同步（本页 + 各组件文档 + `contracts/`，一个 commit）。
-
-接续要点：
-
-- 模组端游戏内行为（GUI 状态实时刷新、改名、网页列表即时更新）需 build 后手动装入游戏复现；CI 只构建模组。
-- 后端 61 项测试、前端 `npm run build`、模组 `gradlew build` 均已通过，改动均已提交、未推送。
-- 下一迭代建议从 §2「术语统一为 grid」继续（契约 v0.4 已含 SSE 端点，`mod_version` 升 0.0.8）。
 
 ## 相关文档
 
