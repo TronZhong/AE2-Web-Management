@@ -11,12 +11,12 @@ import net.minecraft.nbt.CompoundTag;
  * <p>库存使用 AE2 {@code getCachedInventory()} 的聚合值；{@code key} 保存
  * {@code AEKey#toTagGeneric} 生成的 NBT，避免直接持久化 AE2 内部对象。
  *
- * @param accessId     归属的网络身份
+ * @param accessId     归属的网格身份
  * @param capturedAt   最近一次成功采样的 epoch 毫秒
  * @param online       采样时控制器区块是否加载且网格可用
  * @param inventory    物品种类及其数量
  * @param craftingCpus 合成 CPU 状态
- * @param patterns     网络中可提供给 AE2 的样板摘要，采集自 ICraftingProvider，与库存同循环全量重采
+ * @param patterns     网格中可提供给 AE2 的样板摘要，采集自 ICraftingProvider，与库存同循环全量重采
  */
 public record Snapshot(
         UUID accessId,

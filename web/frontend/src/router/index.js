@@ -6,7 +6,7 @@ import { useAuth } from '../composables/useAuth.js'
  * 应用路由：
  * - `/login` 登录页（账号制认证，唯一免登录页面）
  * - `/` 网格选择页（列表卡片）
- * - `/networks/:accessId` 网格详情页（状态 / CPU / 样板 / 命令 / 库存卡片）
+ * - `/grids/:accessId` 网格详情页（状态 / CPU / 样板 / 命令 / 库存卡片）
  * 页面组件懒加载，首屏只打包登录与选择页；未登录访问一律重定向到登录页并带回跳地址。
  */
 const router = createRouter({
@@ -23,7 +23,7 @@ const router = createRouter({
       component: () => import('../pages/GridSelectPage.vue'),
     },
     {
-      path: '/networks/:accessId',
+      path: '/grids/:accessId',
       name: 'grid-detail',
       component: () => import('../pages/GridDetailPage.vue'),
       props: true,

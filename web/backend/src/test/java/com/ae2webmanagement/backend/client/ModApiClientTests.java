@@ -15,7 +15,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import com.ae2webmanagement.backend.dto.CraftRequest;
-import com.ae2webmanagement.backend.dto.ModNetworkListResponse;
+import com.ae2webmanagement.backend.dto.ModGridListResponse;
 import com.ae2webmanagement.backend.dto.SnapshotResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,16 +51,16 @@ class ModApiClientTests {
 		this.client = new ModApiClient(builder.build(), new ObjectMapper());
 	}
 
-	/** 正常响应：GET /networks 解析为 NetworkListResponse，字段一一对应（含 v0.3 hasPassword）。 */
+	/** 正常响应：GET /grids 解析为 ModGridListResponse，字段一一对应（含 v0.3 hasPassword）。 */
 	@Test
-	void listNetworksParsesNetworksArray() {
-		this.server.expect(requestTo(BASE_URL + "/networks"))
+	void listGridsParsesGridsArray() {
+		this.server.expect(requestTo(BASE_URL + "/grids"))
 			.andExpect(method(HttpMethod.GET))
 			.andExpect(header("X-Shared-Secret", "test-secret"))
 			.andRespond(withSuccess("""
-					{"networks":[{
+					{"grids":[{
 						"accessId":"0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001",
-						"displayName":"主基地 ME 网络",
+						"displayName":"主基地 ME 网格",
 						"dimension":"minecraft:overworld",
 						"controllerX":128,"controllerY":64,"controllerZ":-256,
 						"online":true,
@@ -71,20 +71,20 @@ class ModApiClientTests {
 					}]}
 				""", MediaType.APPLICATION_JSON));
 
-		ModNetworkListResponse response = this.client.listNetworks();
+		ModGridListResponse response = this.client.listGrids();
 
-		assertThat(response.networks()).hasSize(1);
-		assertThat(response.networks().get(0).accessId()).isEqualTo("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
-		assertThat(response.networks().get(0).displayName()).isEqualTo("主基地 ME 网络");
-		assertThat(response.networks().get(0).dimension()).isEqualTo("minecraft:overworld");
-		assertThat(response.networks().get(0).controllerX()).isEqualTo(128);
-		assertThat(response.networks().get(0).controllerY()).isEqualTo(64);
-		assertThat(response.networks().get(0).controllerZ()).isEqualTo(-256);
-		assertThat(response.networks().get(0).online()).isTrue();
-		assertThat(response.networks().get(0).capturedAt()).isEqualTo(1760000000000L);
-		assertThat(response.networks().get(0).inventoryEntries()).isEqualTo(17);
-		assertThat(response.networks().get(0).cpuCount()).isEqualTo(2);
-		assertThat(response.networks().get(0).hasPassword()).isTrue();
+		assertThat(response.grids()).hasSize(1);
+		assertThat(response.grids().get(0).accessId()).isEqualTo("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
+		assertThat(response.grids().get(0).displayName()).isEqualTo("主基地 ME 网格");
+		assertThat(response.grids().get(0).dimension()).isEqualTo("minecraft:overworld");
+		assertThat(response.grids().get(0).controllerX()).isEqualTo(128);
+		assertThat(response.grids().get(0).controllerY()).isEqualTo(64);
+		assertThat(response.grids().get(0).controllerZ()).isEqualTo(-256);
+		assertThat(response.grids().get(0).online()).isTrue();
+		assertThat(response.grids().get(0).capturedAt()).isEqualTo(1760000000000L);
+		assertThat(response.grids().get(0).inventoryEntries()).isEqualTo(17);
+		assertThat(response.grids().get(0).cpuCount()).isEqualTo(2);
+		assertThat(response.grids().get(0).hasPassword()).isTrue();
 		this.server.verify();
 	}
 
@@ -93,12 +93,12 @@ class ModApiClientTests {
 	 * {@code null}（service 按「无密码 = 公开」归一，无需特判）。
 	 */
 	@Test
-	void legacyNetworkListWithoutHasPasswordDefaultsToNull() {
-		this.server.expect(requestTo(BASE_URL + "/networks"))
+	void legacyGridListWithoutHasPasswordDefaultsToNull() {
+		this.server.expect(requestTo(BASE_URL + "/grids"))
 			.andRespond(withSuccess("""
-					{"networks":[{
+					{"grids":[{
 						"accessId":"0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001",
-						"displayName":"旧版模组网络",
+						"displayName":"旧版模组网格",
 						"dimension":"minecraft:overworld",
 						"controllerX":1,"controllerY":2,"controllerZ":3,
 						"online":false,
@@ -108,17 +108,17 @@ class ModApiClientTests {
 					}]}
 				""", MediaType.APPLICATION_JSON));
 
-		ModNetworkListResponse response = this.client.listNetworks();
+		ModGridListResponse response = this.client.listGrids();
 
-		assertThat(response.networks().get(0).hasPassword()).isNull();
+		assertThat(response.grids().get(0).hasPassword()).isNull();
 		this.server.verify();
 	}
 
-	/** 正常响应：GET /networks/{id}/snapshot 解析嵌套结构，key 为 JsonNode 透传。 */
+	/** 正常响应：GET /grids/{id}/snapshot 解析嵌套结构，key 为 JsonNode 透传。 */
 	@Test
 	void getSnapshotParsesNestedStructure() {
 		UUID accessId = UUID.fromString("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
-		this.server.expect(requestTo(BASE_URL + "/networks/" + accessId + "/snapshot"))
+		this.server.expect(requestTo(BASE_URL + "/grids/" + accessId + "/snapshot"))
 			.andExpect(method(HttpMethod.GET))
 			.andRespond(withSuccess("""
 					{
@@ -154,7 +154,7 @@ class ModApiClientTests {
 	@Test
 	void submitCraftSendsKeyAndAmountParsesAccepted() {
 		UUID accessId = UUID.fromString("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
-		this.server.expect(requestTo(BASE_URL + "/networks/" + accessId + "/craft"))
+		this.server.expect(requestTo(BASE_URL + "/grids/" + accessId + "/craft"))
 			.andExpect(method(HttpMethod.POST))
 			.andExpect(jsonPath("$.key.id").value("minecraft:stone"))
 			.andExpect(jsonPath("$.amount").value(64))
@@ -174,7 +174,7 @@ class ModApiClientTests {
 	@Test
 	void getCommandsParsesCommandEntries() {
 		UUID accessId = UUID.fromString("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
-		this.server.expect(requestTo(BASE_URL + "/networks/" + accessId + "/commands"))
+		this.server.expect(requestTo(BASE_URL + "/grids/" + accessId + "/commands"))
 			.andExpect(method(HttpMethod.GET))
 			.andRespond(withSuccess("""
 					{"commands":[{
@@ -203,7 +203,7 @@ class ModApiClientTests {
 	@Test
 	void verifyPasswordSendsPasswordAndAccepts204() {
 		UUID accessId = UUID.fromString("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
-		this.server.expect(requestTo(BASE_URL + "/networks/" + accessId + "/verify-password"))
+		this.server.expect(requestTo(BASE_URL + "/grids/" + accessId + "/verify-password"))
 			.andExpect(method(HttpMethod.POST))
 			.andExpect(jsonPath("$.password").value("secret"))
 			.andRespond(withStatus(HttpStatus.NO_CONTENT));
@@ -217,7 +217,7 @@ class ModApiClientTests {
 	@Test
 	void verifyPasswordWrongPasswordPassesThrough401() {
 		UUID accessId = UUID.fromString("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
-		this.server.expect(requestTo(BASE_URL + "/networks/" + accessId + "/verify-password"))
+		this.server.expect(requestTo(BASE_URL + "/grids/" + accessId + "/verify-password"))
 			.andRespond(withStatus(HttpStatus.UNAUTHORIZED).contentType(MediaType.APPLICATION_JSON)
 				.body("{\"error\":\"invalid_password\"}"));
 
@@ -229,18 +229,18 @@ class ModApiClientTests {
 		this.server.verify();
 	}
 
-	/** 错误透传：模组 404 + {"error":"network_not_found"} → ModApiException(404, network_not_found)。 */
+	/** 错误透传：模组 404 + {"error":"grid_not_found"} → ModApiException(404, grid_not_found)。 */
 	@Test
 	void modErrorBodyIsPassedThrough() {
 		UUID accessId = UUID.fromString("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
-		this.server.expect(requestTo(BASE_URL + "/networks/" + accessId + "/snapshot"))
+		this.server.expect(requestTo(BASE_URL + "/grids/" + accessId + "/snapshot"))
 			.andRespond(withStatus(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON)
-				.body("{\"error\":\"network_not_found\"}"));
+				.body("{\"error\":\"grid_not_found\"}"));
 
 		assertThatThrownBy(() -> this.client.getSnapshot(accessId))
 			.isInstanceOfSatisfying(ModApiException.class, e -> {
 				assertThat(e.status()).isEqualTo(404);
-				assertThat(e.code()).isEqualTo("network_not_found");
+				assertThat(e.code()).isEqualTo("grid_not_found");
 			});
 		this.server.verify();
 	}
@@ -248,11 +248,11 @@ class ModApiClientTests {
 	/** 错误透传：401 unauthorized 原样抛出（由 service 翻译为 mod_unavailable）。 */
 	@Test
 	void unauthorizedIsPassedThroughForServiceTranslation() {
-		this.server.expect(requestTo(BASE_URL + "/networks"))
+		this.server.expect(requestTo(BASE_URL + "/grids"))
 			.andRespond(withStatus(HttpStatus.UNAUTHORIZED).contentType(MediaType.APPLICATION_JSON)
 				.body("{\"error\":\"unauthorized\"}"));
 
-		assertThatThrownBy(this.client::listNetworks)
+		assertThatThrownBy(this.client::listGrids)
 			.isInstanceOfSatisfying(ModApiException.class, e -> {
 				assertThat(e.status()).isEqualTo(401);
 				assertThat(e.code()).isEqualTo("unauthorized");
@@ -263,10 +263,10 @@ class ModApiClientTests {
 	/** 兜底：模组错误体不是契约 JSON 时归为 internal_error，保留模组状态码。 */
 	@Test
 	void unparsableErrorBodyFallsBackToInternalError() {
-		this.server.expect(requestTo(BASE_URL + "/networks"))
+		this.server.expect(requestTo(BASE_URL + "/grids"))
 			.andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR).body("<html>boom</html>"));
 
-		assertThatThrownBy(this.client::listNetworks)
+		assertThatThrownBy(this.client::listGrids)
 			.isInstanceOfSatisfying(ModApiException.class, e -> {
 				assertThat(e.status()).isEqualTo(500);
 				assertThat(e.code()).isEqualTo("internal_error");
@@ -278,7 +278,7 @@ class ModApiClientTests {
 	@Test
 	void craftRequestBodyIsTransferredVerbatim() {
 		UUID accessId = UUID.fromString("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
-		this.server.expect(requestTo(BASE_URL + "/networks/" + accessId + "/craft"))
+		this.server.expect(requestTo(BASE_URL + "/grids/" + accessId + "/craft"))
 			.andExpect(content().json("{\"key\":{\"id\":\"ae2:certus_quartz_crystal\",\"grind\":true},\"amount\":1}"))
 			.andRespond(withStatus(HttpStatus.ACCEPTED).contentType(MediaType.APPLICATION_JSON)
 				.body("{\"commandId\":\"5b0cdd1e-6e0e-4a1f-9a1b-3f0f9b21b100\",\"state\":\"PENDING\",\"submittedAt\":1}"));

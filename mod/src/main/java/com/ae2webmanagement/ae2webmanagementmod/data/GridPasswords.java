@@ -13,7 +13,7 @@ import javax.crypto.spec.PBEKeySpec;
  * 网格密码哈希工具（纯 JDK，无新增依赖）。
  *
  * <p>算法：PBKDF2WithHmacSHA256，随机 16 字节盐，60k 迭代；存储格式
- * {@code pbkdf2:<迭代>:<盐B64>:<哈希B64>}，存入 {@link NetworkIdentity} 的
+ * {@code pbkdf2:<迭代>:<盐B64>:<哈希B64>}，存入 {@link com.ae2webmanagement.ae2webmanagementmod.grid.GridIdentity} 的
  * {@code passwordHash} 字段（SavedData）。明文密码只出现在游戏内 GUI 输入
  * 与 HTTP 校验请求体，任何持久化层只保存哈希。</p>
  *

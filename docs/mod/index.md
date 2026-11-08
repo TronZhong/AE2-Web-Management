@@ -15,7 +15,7 @@
 | Gradle 插件 | NeoGradle ModDev 2.0.148 |
 | 映射 | Parchment `2024.11.17`（MC 1.21.1） |
 | Java | 21 |
-| 版本 | `0.0.7` |
+| 版本 | `0.0.8` |
 | mod_id / 包名 | `ae2webmanagement` / `com.ae2webmanagement.ae2webmanagementmod` |
 
 ## 目录结构与源码映射
@@ -40,9 +40,9 @@
 | [`../../mod/src/main/java/.../access/GridIdentityPayload.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/GridIdentityPayload.java) | S2C 自定义 payload：服务端推送 accessId/displayName/控制器位置给客户端 GUI 展示 |
 | [`../../mod/src/main/java/.../access/client/AccessScreen.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/client/AccessScreen.java) | 客户端界面：标题、实时状态、身份信息（accessId/displayName/控制器位置）、改名区 + 注册按钮 + 密码区（EditBox 掩码、设置/清除按钮），无物品栏 |
 | [`../../mod/src/main/java/.../access/AccessRegistration.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessRegistration.java) | 方块/物品/方块实体注册、AE2 capability 注册、C2S payload 注册、创造标签页 |
-| **`network/`** — 网络身份 | |
-| [`../../mod/src/main/java/.../network/NetworkIdentity.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/network/NetworkIdentity.java) | 网络接入身份（数据记录：`accessId` + 控制器锚点 + token + `passwordHash`） |
-| [`../../mod/src/main/java/.../data/NetworkIdentityStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/NetworkIdentityStore.java) | Overworld 网络身份表（`ae2web_identities.dat`），`setPassword` 写密码哈希、`rename` 改显示名 |
+| **`grid/`** — 网格身份 | |
+| [`../../mod/src/main/java/.../grid/GridIdentity.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/grid/GridIdentity.java) | 网格接入身份（数据记录：`accessId` + 控制器锚点 + token + `passwordHash`） |
+| [`../../mod/src/main/java/.../data/GridIdentityStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/GridIdentityStore.java) | Overworld 网格身份表（`ae2web_identities.dat`），`setPassword` 写密码哈希、`rename` 改显示名 |
 | **`snapshot/`** — 快照 | |
 | [`../../mod/src/main/java/.../snapshot/Snapshot.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/Snapshot.java) | 库存、合成 CPU、样板摘要、采样时间和在线态 |
 | [`../../mod/src/main/java/.../snapshot/SnapshotManager.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/SnapshotManager.java) | 主线程 4 秒采样、内存缓存、离线保留；密码哈希镜像（`getPasswordHash`/`updatePasswordHash`，HTTP 线程可读）；改名后 `updateIdentity` 即时刷新身份镜像 |
@@ -54,7 +54,7 @@
 | [`../../mod/src/main/java/.../data/CommandStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/CommandStore.java) | Overworld 命令表（`ae2web_commands.dat`） |
 | [`../../mod/src/main/java/.../data/GridPasswords.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/GridPasswords.java) | 网格密码 PBKDF2 哈希工具（纯 JDK；`pbkdf2:<迭代>:<盐B64>:<哈希B64>`，上限 64 字符） |
 | **`http/`** — 本地数据 API | |
-| [`../../mod/src/main/java/.../http/LocalDataServer.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/http/LocalDataServer.java) | 仅回环绑定；`/health`、网络/快照查询（含 `hasPassword`）、合成命令投递与查询、`verify-password` 密码校验 |
+| [`../../mod/src/main/java/.../http/LocalDataServer.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/http/LocalDataServer.java) | 仅回环绑定；`/health`、`/grids` 网格/快照查询（含 `hasPassword`）、合成命令投递与查询、`verify-password` 密码校验 |
 | **配置/元数据** | |
 | [`../../mod/src/main/templates/META-INF/neoforge.mods.toml`](../../mod/src/main/templates/META-INF/neoforge.mods.toml) | 模组元数据模板，含 AE2 `required` 依赖 |
 | [`../../mod/src/main/resources/assets/ae2webmanagement/lang/en_us.json`](../../mod/src/main/resources/assets/ae2webmanagement/lang/en_us.json) | 语言文件（含方块名、GUI 文案与配置项翻译） |
@@ -67,7 +67,7 @@
 | `minecraft_version` | `1.21.1` | 目标 MC 版本 |
 | `neo_version` | `21.1.265` | 必须与 MC 版本一致 |
 | `ae2_version` | `19.2.18` | AE2 依赖版本（`build.gradle` 引用） |
-| `mod_version` | `0.0.7` | 每次提交递增补丁号 |
+| `mod_version` | `0.0.8` | 每次提交递增补丁号 |
 | `mod_id` | `ae2webmanagement` | 必须与主类 `MODID` 一致 |
 | `mod_name` | `AE2 Web Management` | 展示名 |
 | `mod_group_id` | `com.ae2webmanagement.ae2webmanagementmod` | 应与源码基础包一致 |
@@ -91,11 +91,12 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 - [x] **快照循环**：每 4 秒读取 `getCachedInventory()` 与 `getCpus()`，离线时保留最后数据。
 - [x] **样板摘要采集**：`SnapshotManager.capturePatterns` 遍历 `ICraftingProvider` 采集、按 `IPatternDetails` 去重，随快照缓存/持久化/HTTP 透传。
 - [x] **方块与 GUI**：方块使用默认缺失纹理渲染；GUI 含标题、实时状态、身份信息（accessId/displayName/控制器位置）、改名区、注册按钮与网格密码区（设置/清除，掩码输入）。
-- [x] **本机 API**：仅绑定回环地址，支持健康检查、网络列表（含 `hasPassword`）、快照查询、命令投递、命令查询与 `verify-password` 密码校验。
+- [x] **本机 API**：仅绑定回环地址，支持健康检查、网格列表（`/grids`，含 `hasPassword`）、快照查询、命令投递、命令查询与 `verify-password` 密码校验。
 - [x] **命令队列**：HTTP 只入队，主线程持久化并用 AE2 异步重算后提交。
-- [x] **后端代理**：Spring Boot 已把本机 API 的网络列表 / 快照 / 合成命令转发给网页（`web/backend/`，见 [后端](../backend/index.md)）。
+- [x] **后端代理**：Spring Boot 已把本机 API 的网格列表 / 快照 / 合成命令转发给网页（`web/backend/`，见 [后端](../backend/index.md)）。
 - [x] **网格密码（0.0.6）**：游戏内 GUI 设密（PBKDF2 哈希入身份表）、`verify-password` 校验端点、C2S payload 通道；旧版后端/前端可无缝忽略。
-- [x] **GUI 迭代（0.0.7）**：接入方块 GUI 状态实时刷新（`containerData` 随 `broadcastChanges` 每 tick 同步，网格变化无需重开菜单）、展示 accessId/displayName/控制器位置（S2C `GridIdentityPayload`）、displayName 可改名（C2S `GridRenamePayload` + `NetworkIdentityStore.rename` + 身份镜像缓存即时刷新）；`token` 展示/复制未做（配对令牌方案暂缓，见 [`roadmap.md`](../roadmap.md) §7）。
+- [x] **GUI 迭代（0.0.7）**：接入方块 GUI 状态实时刷新（`containerData` 随 `broadcastChanges` 每 tick 同步，网格变化无需重开菜单）、展示 accessId/displayName/控制器位置（S2C `GridIdentityPayload`）、displayName 可改名（C2S `GridRenamePayload` + `GridIdentityStore.rename` + 身份镜像缓存即时刷新）；`token` 展示/复制未做（配对令牌方案暂缓，见 [`roadmap.md`](../roadmap.md) §7）。
+- [x] **术语统一为 grid（0.0.8）**：`network/` 包改名 `grid/`（`GridIdentity` / `GridIdentityStore`）、本地数据口端点 `/networks`→`/grids`、JSON key `networks`→`grids`、错误码 `network_not_found`→`grid_not_found`；默认显示名由 `"Network @ ..."` 改为 `"Grid @ ..."`。`SavedData` 文件名（`ae2web_identities.dat`）与 NBT、`accessId` 均不变。
 
 - [ ] **`nameKey` 字段（`roadmap.md` §4）**：快照 stack 条目附带物品翻译键（服务端无多语言，不能直接出中文名，由前端按翻译键查中文语言表）。
 - [ ] **物品图标导出（`roadmap.md` §5）**：客户端离屏渲染已见物品为 16×16 PNG 并经本地 API 提供给后端。

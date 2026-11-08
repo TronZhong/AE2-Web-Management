@@ -6,7 +6,7 @@ package com.ae2webmanagement.backend.client;
  * <p>产生来源：</p>
  * <ul>
  *   <li>{@link ModApiClient}：模组返回非 2xx 时按响应体 {@code {"error":"code"}} 抛出；</li>
- *   <li>{@code NetworkService}：accessId 非法、连接失败翻译（mod_unreachable）、
+ *   <li>{@code GridService}：accessId 非法、连接失败翻译（mod_unreachable）、
  *       401 翻译（mod_unavailable）；</li>
  *   <li>controller：合成请求体校验（missing_key_or_amount / invalid_amount / invalid_key）。</li>
  * </ul>

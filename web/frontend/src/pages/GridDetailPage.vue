@@ -1,17 +1,17 @@
 <script setup>
 /**
  * 网格详情页：状态 / 合成 CPU / 库存 / 样板 / 合成命令五类卡片。
- * 快照与命令列表各 5s 轮询；离线网络照常进入，展示最后快照并给出提示条。
+ * 快照与命令列表各 5s 轮询；离线网格照常进入，展示最后快照并给出提示条。
  * 样板卡内提交合成后通过 submitted 事件立即刷新命令列表。
- * 锁定网络（契约 v0.3：快照返回 network_locked）以解锁门面板替代内容，
- * 解锁成功后刷新快照与网络列表（unlocked 徽标随之更新）。
+ * 锁定网格（契约 v0.5：快照返回 grid_locked）以解锁门面板替代内容，
+ * 解锁成功后刷新快照与网格列表（unlocked 徽标随之更新）。
  */
 import { computed, onMounted, onUnmounted } from 'vue'
 
 import { USE_MOCK } from '../api/index.js'
 import { subscribeGridEvents } from '../api/events.js'
 import { useCommands } from '../composables/useCommands.js'
-import { useNetworks } from '../composables/useNetworks.js'
+import { useGrids } from '../composables/useGrids.js'
 import { usePolling } from '../composables/usePolling.js'
 import { useSnapshot } from '../composables/useSnapshot.js'
 import UnlockGate from '../components/grid/UnlockGate.vue'
@@ -27,18 +27,18 @@ const props = defineProps({
 
 const { snapshot, loading, error, refresh } = useSnapshot()
 const { commands, error: commandsError, refresh: refreshCommands } = useCommands()
-const { networks, refresh: refreshNetworks } = useNetworks()
+const { grids, refresh: refreshGrids } = useGrids()
 
-// 快照与命令列表各 5s 轮询；网络列表仅在进入页面时拉一次，用于解析显示名与控制器位置
+// 快照与命令列表各 5s 轮询；网格列表仅在进入页面时拉一次，用于解析显示名与控制器位置
 usePolling(() => refresh(props.accessId), 5_000).start()
 usePolling(() => refreshCommands(props.accessId), 5_000).start()
-onMounted(refreshNetworks)
+onMounted(refreshGrids)
 
-// 后端推送：列表级变化 → 刷新网络列表（显示名/锁定徽标同步）；本网络快照刷新 → 立即拉快照与命令
+// 后端推送：列表级变化 → 刷新网格列表（显示名/锁定徽标同步）；本网格快照刷新 → 立即拉快照与命令
 let unsubscribeEvents = null
 onMounted(() => {
   unsubscribeEvents = subscribeGridEvents({
-    onGridsUpdated: () => refreshNetworks(),
+    onGridsUpdated: () => refreshGrids(),
     onGridSnapshotUpdated: (accessId) => {
       if (accessId === props.accessId) {
         refresh(props.accessId)
@@ -49,21 +49,21 @@ onMounted(() => {
 })
 onUnmounted(() => unsubscribeEvents?.())
 
-/** 命中的网络摘要（可能为 null：快照存在但列表未返回）。 */
-const network = computed(() => networks.value.find((item) => item.accessId === props.accessId) ?? null)
+/** 命中的网格摘要（可能为 null：快照存在但列表未返回）。 */
+const grid = computed(() => grids.value.find((item) => item.accessId === props.accessId) ?? null)
 
 /** 标题优先用显示名，退化用 accessId 前 8 位。 */
 const title = computed(
-  () => network.value?.displayName ?? (snapshot.value ? `网格 ${props.accessId.slice(0, 8)}` : '加载中…'),
+  () => grid.value?.displayName ?? (snapshot.value ? `网格 ${props.accessId.slice(0, 8)}` : '加载中…'),
 )
 
-/** 网格锁定态：快照端点返回 network_locked（设有密码且当前账号未解锁）。 */
-const locked = computed(() => error.value === 'network_locked')
+/** 网格锁定态：快照端点返回 grid_locked（设有密码且当前账号未解锁）。 */
+const locked = computed(() => error.value === 'grid_locked')
 
-/** 解锁成功：刷新快照（恢复内容）与网络列表（同步 unlocked 徽标）。 */
+/** 解锁成功：刷新快照（恢复内容）与网格列表（同步 unlocked 徽标）。 */
 function onUnlocked() {
   refresh(props.accessId)
-  refreshNetworks()
+  refreshGrids()
 }
 </script>
 
@@ -81,7 +81,7 @@ function onUnlocked() {
     <UnlockGate
       v-if="locked"
       :access-id="accessId"
-      :display-name="network?.displayName ?? ''"
+      :display-name="grid?.displayName ?? ''"
       @unlocked="onUnlocked"
     />
 
@@ -103,11 +103,11 @@ function onUnlocked() {
           v-if="!snapshot.online"
           class="mb-4 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 font-mono text-xs text-accent"
         >
-          网络离线：显示最后一份快照
+          网格离线：显示最后一份快照
         </p>
 
         <div class="grid gap-4 lg:grid-cols-2">
-          <StatusCpuCard :snapshot="snapshot" :network="network" />
+          <StatusCpuCard :snapshot="snapshot" :grid="grid" />
           <PatternListCard :access-id="accessId" :patterns="snapshot.patterns" @submitted="refreshCommands(accessId)" />
           <CommandsCard :commands="commands" :error="commandsError" />
           <InventoryCard class="lg:col-span-2" :items="snapshot.inventory" />

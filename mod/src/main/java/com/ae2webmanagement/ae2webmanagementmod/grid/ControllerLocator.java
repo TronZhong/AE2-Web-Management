@@ -7,7 +7,7 @@ import appeng.api.networking.IGridNode;
 import appeng.blockentity.networking.ControllerBlockEntity;
 
 /**
- * 从 AE2 网络中定位 ME 控制器，返回其纬度+坐标锚点。
+ * 从 AE2 网格中定位 ME 控制器，返回其纬度+坐标锚点。
  *
  * <p>判定依据与 AE2 内部 {@code PathingService} 完全一致：{@code node.getOwner() instanceof ControllerBlockEntity}。
  *
@@ -21,14 +21,14 @@ public final class ControllerLocator {
     }
 
     /**
-     * 在网络中定位 ME 控制器。
+     * 在网格中定位 ME 控制器。
      *
      * <p>一个合法的控制器是由若干 {@code ControllerBlockEntity} 组成的多方块结构，其每个方块都会作为一个节点
-     * 出现在 {@link IGrid#getNodes()} 里。虽然它们同属一个网络、任取其一即可，但为了让结果<b>稳定可复现</b>
+     * 出现在 {@link IGrid#getNodes()} 里。虽然它们同属一个网格、任取其一即可，但为了让结果<b>稳定可复现</b>
      * （例如锚点写入 SavedData 后每次重启都指向同一处），这里取坐标字典序最小者。
      *
-     * @param grid 目标网络
-     * @return 控制器锚点；网络中没有 ME 控制器时返回 {@link Optional#empty()}
+     * @param grid 目标网格
+     * @return 控制器锚点；网格中没有 ME 控制器时返回 {@link Optional#empty()}
      */
     public static Optional<ControllerAnchor> locate(IGrid grid) {
         ControllerAnchor best = null;

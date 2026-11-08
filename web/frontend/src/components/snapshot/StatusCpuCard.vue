@@ -9,10 +9,10 @@ import StatusBadge from '../base/StatusBadge.vue'
 import { formatStorage, formatTime } from '../../lib/format.js'
 
 defineProps({
-  /** 快照对象，形状见 contracts/web-api.md 的 GET /api/networks/{id}/snapshot。 */
+  /** 快照对象，形状见 contracts/web-api.md 的 GET /api/grids/{id}/snapshot。 */
   snapshot: { type: Object, required: true },
-  /** 网络摘要（GET /api/networks 条目），用于控制器位置展示。 */
-  network: { type: Object, default: null },
+  /** 网格摘要（GET /api/grids 条目），用于控制器位置展示。 */
+  grid: { type: Object, default: null },
 })
 </script>
 
@@ -20,7 +20,7 @@ defineProps({
   <BaseCard title="状态 · 合成 CPU">
     <div class="grid gap-x-8 gap-y-4 font-mono text-xs sm:grid-cols-2">
       <div>
-        <p class="mb-1.5 text-[10px] uppercase tracking-widest text-ink-faint">网络状态</p>
+        <p class="mb-1.5 text-[10px] uppercase tracking-widest text-ink-faint">网格状态</p>
         <StatusBadge :label="snapshot.online ? '在线' : '离线'" :variant="snapshot.online ? 'ok' : 'neutral'" />
       </div>
       <div>
@@ -30,12 +30,12 @@ defineProps({
       <div>
         <p class="mb-1.5 text-[10px] uppercase tracking-widest text-ink-faint">控制器</p>
         <p
-          v-if="network"
+          v-if="grid"
           class="truncate text-ink"
-          :title="`${network.dimension} @ (${network.controllerX}, ${network.controllerY}, ${network.controllerZ})`"
+          :title="`${grid.dimension} @ (${grid.controllerX}, ${grid.controllerY}, ${grid.controllerZ})`"
         >
-          {{ network.dimension }} @ ({{ network.controllerX }}, {{ network.controllerY }},
-          {{ network.controllerZ }})
+          {{ grid.dimension }} @ ({{ grid.controllerX }}, {{ grid.controllerY }},
+          {{ grid.controllerZ }})
         </p>
         <p v-else class="text-ink-faint">—</p>
       </div>
@@ -49,7 +49,7 @@ defineProps({
       <p class="mb-2 text-[10px] uppercase tracking-widest text-ink-faint">
         合成 CPU（{{ snapshot.craftingCpus.length }}）
       </p>
-      <EmptyState v-if="!snapshot.craftingCpus.length" text="该网络没有合成 CPU" />
+      <EmptyState v-if="!snapshot.craftingCpus.length" text="该网格没有合成 CPU" />
       <ul v-else class="divide-y divide-line">
         <li
           v-for="(cpu, index) in snapshot.craftingCpus"

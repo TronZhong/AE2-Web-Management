@@ -6,11 +6,12 @@
 
 ## 状态
 
-- **初版本机 API 已实现**：模组提供 `/health`、`/networks`、`/networks/{id}/snapshot`、`/networks/{id}/craft`、`/networks/{id}/commands`。
-- **Web API v0.1 已实现**：后端对前端的 `/api/networks`、`/api/networks/{id}/snapshot`、`/api/networks/{id}/craft`、`/api/networks/{id}/commands` 均为对模组的透传转发，形状见 [web-api.md](web-api.md)；前端默认 mock，`VITE_USE_MOCK=false` 切真实请求。
-- **网格密码已实现**（模组 0.0.6）：`GET /networks` 摘要新增 `hasPassword`；新增 `POST /networks/{id}/verify-password` 供后端校验解锁。密码在游戏内 GUI 设置，模组只存 PBKDF2 哈希，明文不出模组；旧版模组无这些字段时后端按「无密码=公开」处理，向后兼容。
-- **displayName 可改名**（模组 0.0.7）：接入方块 GUI 支持修改显示名（C2S payload 写身份表 + 身份镜像缓存即时刷新）；HTTP `GET /networks` 的 `displayName` 字段随之变化，schema 不变。
+- **初版本机 API 已实现**：模组提供 `/health`、`/grids`、`/grids/{id}/snapshot`、`/grids/{id}/craft`、`/grids/{id}/commands`。
+- **Web API v0.1 已实现**：后端对前端的 `/api/grids`、`/api/grids/{id}/snapshot`、`/api/grids/{id}/craft`、`/api/grids/{id}/commands` 均为对模组的透传转发，形状见 [web-api.md](web-api.md)；前端默认 mock，`VITE_USE_MOCK=false` 切真实请求。
+- **网格密码已实现**（模组 0.0.6）：`GET /grids` 摘要新增 `hasPassword`；新增 `POST /grids/{id}/verify-password` 供后端校验解锁。密码在游戏内 GUI 设置，模组只存 PBKDF2 哈希，明文不出模组；旧版模组无这些字段时后端按「无密码=公开」处理，向后兼容。
+- **displayName 可改名**（模组 0.0.7）：接入方块 GUI 支持修改显示名（C2S payload 写身份表 + 身份镜像缓存即时刷新）；HTTP `GET /grids` 的 `displayName` 字段随之变化，schema 不变。
 - **实时推送（SSE）已实现**（后端 v0.4，模组零改动）：`GET /api/events` 推送变更提示，见 [web-api.md](web-api.md)「实时事件端点」；本页（模组↔后端契约）无新增端点。
+- **术语统一为 grid**（模组 0.0.8，契约 v0.5）：模组端点 `/networks`→`/grids`、JSON key `networks`→`grids`、错误码 `network_not_found`→`grid_not_found`；后端 `/api/networks`→`/api/grids`、`Grid*` 类与错误码 `network_locked`→`grid_locked`。`SavedData` 文件名与 NBT、`accessId` 均不变。
 - 完整 schema、JSON Schema/OpenAPI 仍待定义；字段变更前先更新本页。
 - 目录：`contracts/`（当前以文档形式维护初版 API 形状）。
 
@@ -27,8 +28,8 @@
 | 端点 | 用途 |
 | --- | --- |
 | `GET /health` | 健康检查，返回 `{"ok":true}` |
-| `GET /networks` | 网络列表，含 `accessId`、显示名、控制器维度/坐标、在线态、快照摘要和 `hasPassword` |
-| `GET /networks/{accessId}/snapshot` | 单网络快照，含 `inventory`、`craftingCpus` 和 `patterns` |
+| `GET /grids` | 网格列表，含 `accessId`、显示名、控制器维度/坐标、在线态、快照摘要和 `hasPassword` |
+| `GET /grids/{accessId}/snapshot` | 单网格快照，含 `inventory`、`craftingCpus` 和 `patterns` |
 
 快照中的 `inventory[].key` 是 AE2 `AEKey` 通用 NBT 转换后的 JSON；`amount` 为 long。
 `craftingCpus[].name` 为空字符串表示该合成 CPU 未命名。
@@ -45,12 +46,12 @@
 
 > `patterns` 由模组每 4 秒全量采集自 AE2 `ICraftingProvider`（同一编码样板在多个
 > 样板供应器间按 `IPatternDetails` 去重，并按主输出排序）。输入槽的实际需求量 =
-> `possibleInputs[i].amount × multiplier`。网络离线时保留最近一次在线的样板值；
+> `possibleInputs[i].amount × multiplier`。网格离线时保留最近一次在线的样板值；
 > 从未在线（无任何快照）时为空数组。
 
 ## 合成命令 API
 
-### `POST /networks/{accessId}/craft`
+### `POST /grids/{accessId}/craft`
 
 请求体字段：
 
@@ -67,7 +68,7 @@
 | `state` | 当前状态，受理时为 `PENDING` |
 | `submittedAt` | 受理时间戳 |
 
-### `GET /networks/{accessId}/commands`
+### `GET /grids/{accessId}/commands`
 
 返回 `commands` 数组，每项包含 `commandId`、`accessId`、`state`、`submittedAt`、`result`、`amount`、`target`。
 
@@ -75,28 +76,28 @@
 
 | 状态 | 说明 |
 | --- | --- |
-| `PENDING` | 已入队；等待主线程持久化、重算或网络在线 |
+| `PENDING` | 已入队；等待主线程持久化、重算或网格在线 |
 | `SUBMITTED` | 已成功提交给 AE2，`result` 含 AE2 `craftingId` |
 | `FAILED` | 重算或提交失败，`result` 含原因 |
 
 > `POST` 返回 `202` 表示已进入线程安全队列；主线程下一 tick 会持久化命令，
-> 网络在线后异步重算并提交给 AE2。
+> 网格在线后异步重算并提交给 AE2。
 
 ## 网格密码 API
 
-### `POST /networks/{accessId}/verify-password`
+### `POST /grids/{accessId}/verify-password`
 
-校验网络访问密码（后端在账号「解锁网格」时转发调用）。请求体：
+校验网格访问密码（后端在账号「解锁网格」时转发调用）。请求体：
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `password` | string | 用户输入的网络密码 |
+| `password` | string | 用户输入的网格密码 |
 
 响应：
 
-- `204`：网络**未设密码**（公开网络，无需校验）**或**密码匹配；
+- `204`：网格**未设密码**（公开网格，无需校验）**或**密码匹配；
 - `401 {"error":"invalid_password"}`：密码不匹配；
-- `404 {"error":"network_not_found"}`：网络不存在。
+- `404 {"error":"grid_not_found"}`：网格不存在。
 
 > 密码只能在游戏内接入方块 GUI 设置/清除（C2S 自定义 payload，主线程写入
 > 身份表）；模组身份表只存 PBKDF2 哈希（`pbkdf2:<迭代>:<盐B64>:<哈希B64>`），

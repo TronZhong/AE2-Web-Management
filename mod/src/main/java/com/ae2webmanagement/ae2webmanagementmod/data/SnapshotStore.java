@@ -19,7 +19,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 import com.ae2webmanagement.ae2webmanagementmod.snapshot.Snapshot;
 
 /**
- * 最后一次网络快照的持久化表，始终挂载在 Overworld。
+ * 最后一次网格快照的持久化表，始终挂载在 Overworld。
  *
  * <p>运行时的实时读取应使用 {@code SnapshotManager} 的内存缓存；本表只负责
  * 重启后的离线展示，不供 HTTP 线程直接访问。
@@ -60,7 +60,7 @@ public final class SnapshotStore extends SavedData {
                 SAVED_DATA_KEY);
     }
 
-    /** 从 SavedData NBT 恢复每个网络的最后一次快照。 */
+    /** 从 SavedData NBT 恢复每个网格的最后一次快照。 */
     public static SnapshotStore load(CompoundTag tag, HolderLookup.Provider registries) {
         SnapshotStore store = new SnapshotStore();
         ListTag list = tag.getList(KEY_SNAPSHOTS, Tag.TAG_COMPOUND);
@@ -217,13 +217,13 @@ public final class SnapshotStore extends SavedData {
         return tag;
     }
 
-    /** 新增或替换某网络的最后快照，并标记 SavedData 为脏数据。 */
+    /** 新增或替换某网格的最后快照，并标记 SavedData 为脏数据。 */
     public void put(Snapshot snapshot) {
         this.snapshots.put(snapshot.accessId(), snapshot);
         setDirty();
     }
 
-    /** 按网络身份读取最后快照。 */
+    /** 按网格身份读取最后快照。 */
     public Optional<Snapshot> get(UUID accessId) {
         return Optional.ofNullable(this.snapshots.get(accessId));
     }

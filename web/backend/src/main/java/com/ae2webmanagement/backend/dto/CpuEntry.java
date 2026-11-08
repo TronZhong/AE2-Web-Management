@@ -3,7 +3,7 @@ package com.ae2webmanagement.backend.dto;
 /**
  * 合成 CPU 条目：快照 {@code craftingCpus[]} 元素。
  *
- * <p>对应 docs/contracts/web-api.md「GET /api/networks/{accessId}/snapshot」的
+ * <p>对应 docs/contracts/web-api.md「GET /api/grids/{accessId}/snapshot」的
  * {@code craftingCpus[]} 字段表。</p>
  *
  * @param name             CPU 名称；空字符串表示未命名

@@ -17,8 +17,8 @@ import com.ae2webmanagement.backend.service.RealtimeEventHub;
  *
  * <p>事件形状（变更提示，前端收到后 refetch）：</p>
  * <ul>
- *   <li>{@code {"type":"grids-updated"}} —— 网络列表级变化；</li>
- *   <li>{@code {"type":"grid-snapshot-updated","accessId":"..."}} —— 某网络快照被刷新。</li>
+ *   <li>{@code {"type":"grids-updated"}} —— 网格列表级变化；</li>
+ *   <li>{@code {"type":"grid-snapshot-updated","accessId":"..."}} —— 某网格快照被刷新。</li>
  * </ul>
  */
 @RestController

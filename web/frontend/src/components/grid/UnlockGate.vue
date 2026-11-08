@@ -1,19 +1,19 @@
 <script setup>
 /**
- * 网格解锁面板（契约 v0.3 网格访问控制）：
- * 网络在游戏内设置了密码且当前账号未解锁时，详情页以此面板替代快照内容。
- * 提交 POST /api/networks/{accessId}/unlock；invalid_password 显示「密码错误」，
+ * 网格解锁面板（契约 v0.5 网格访问控制）：
+ * 网格在游戏内设置了密码且当前账号未解锁时，详情页以此面板替代快照内容。
+ * 提交 POST /api/grids/{accessId}/unlock；invalid_password 显示「密码错误」，
  * 其余错误码原样透出；成功后向父级发 unlocked 事件（父级刷新快照与列表）。
  * MOCK 模式下显示演示密码提示（真实密码校验在模组端，明文不出模组）。
  */
 import { ref } from 'vue'
 
 import BaseButton from '../base/BaseButton.vue'
-import { USE_MOCK, unlockNetwork } from '../../api/index.js'
-import { NETWORK_PASSWORDS } from '../../api/mock/fixtures.js'
+import { USE_MOCK, unlockGrid } from '../../api/index.js'
+import { GRID_PASSWORDS } from '../../api/mock/fixtures.js'
 
 const props = defineProps({
-  /** 目标网络 accessId。 */
+  /** 目标网格 accessId。 */
   accessId: { type: String, required: true },
   /** 显示名（用于面板标题）。 */
   displayName: { type: String, default: '' },
@@ -28,8 +28,8 @@ const error = ref('')
 /** 契约错误码 → 面板文案；未收录的原样展示。 */
 const ERROR_TEXT = {
   invalid_password: '密码错误，请重新输入',
-  invalid_json: '请输入网络密码',
-  network_not_found: '网络不存在（可能已被游戏内注销）',
+  invalid_json: '请输入网格密码',
+  grid_not_found: '网格不存在（可能已被游戏内注销）',
   mod_unreachable: '无法连接游戏端（游戏未启动或数据口未开启）',
   mod_unavailable: '游戏端拒绝了后端共享密钥',
 }
@@ -46,7 +46,7 @@ async function submit() {
   submitting.value = true
   error.value = ''
   try {
-    await unlockNetwork(props.accessId, password.value)
+    await unlockGrid(props.accessId, password.value)
     password.value = ''
     emit('unlocked')
   } catch (cause) {
@@ -89,9 +89,9 @@ async function submit() {
 
     <p class="mt-4 font-mono text-[10px] leading-4 text-ink-faint">
       {{
-        USE_MOCK && NETWORK_PASSWORDS[accessId]
-          ? `MOCK 模式：演示密码为 ${NETWORK_PASSWORDS[accessId]}`
-          : '密码由网络所有者在游戏内接入方块 GUI 设置；解锁状态按账号长期记忆'
+        USE_MOCK && GRID_PASSWORDS[accessId]
+          ? `MOCK 模式：演示密码为 ${GRID_PASSWORDS[accessId]}`
+          : '密码由网格所有者在游戏内接入方块 GUI 设置；解锁状态按账号长期记忆'
       }}
     </p>
   </div>

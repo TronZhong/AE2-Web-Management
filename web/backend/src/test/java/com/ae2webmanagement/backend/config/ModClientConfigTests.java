@@ -46,7 +46,7 @@ class ModClientConfigTests {
 
 			long start = System.nanoTime();
 			assertTimeoutPreemptively(Duration.ofSeconds(15), () -> assertThatThrownBy(
-					() -> restClient.get().uri("/networks").retrieve().body(String.class))
+					() -> restClient.get().uri("/grids").retrieve().body(String.class))
 				.isInstanceOf(ResourceAccessException.class));
 			long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
 			assertThat(elapsedMillis).as("读取超时应约为 5s，实际 %dms", elapsedMillis).isGreaterThanOrEqualTo(4500);

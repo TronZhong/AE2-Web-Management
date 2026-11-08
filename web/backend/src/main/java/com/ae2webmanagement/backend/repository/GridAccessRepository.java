@@ -12,19 +12,19 @@ import com.ae2webmanagement.backend.domain.GridAccess;
 public interface GridAccessRepository extends JpaRepository<GridAccess, Long> {
 
 	/**
-	 * 判断某账号是否已解锁某网络。
+	 * 判断某账号是否已解锁某网格。
 	 *
 	 * @param accountId 账号 ID
-	 * @param accessId  网络接入 ID（UUID 字符串）
+	 * @param accessId  网格接入 ID（UUID 字符串）
 	 * @return 已存在解锁记录为 {@code true}
 	 */
 	boolean existsByAccountIdAndAccessId(Long accountId, String accessId);
 
 	/**
-	 * 删除某网络的全部解锁记录（幂等）：用于后端观察到网络密码被清除时
+	 * 删除某网格的全部解锁记录（幂等）：用于后端观察到网格密码被清除时
 	 * 撤销所有账号的解锁状态，避免重新设密后旧记录残留放行。
 	 *
-	 * @param accessId 网络接入 ID（UUID 字符串）
+	 * @param accessId 网格接入 ID（UUID 字符串）
 	 */
 	@Transactional
 	void deleteByAccessId(String accessId);

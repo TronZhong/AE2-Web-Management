@@ -16,8 +16,8 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import com.ae2webmanagement.backend.client.ModApiClient;
 import com.ae2webmanagement.backend.client.ModApiException;
-import com.ae2webmanagement.backend.dto.ModNetworkListResponse;
-import com.ae2webmanagement.backend.dto.ModNetworkSummaryResponse;
+import com.ae2webmanagement.backend.dto.ModGridListResponse;
+import com.ae2webmanagement.backend.dto.ModGridSummaryResponse;
 import com.ae2webmanagement.backend.dto.SnapshotResponse;
 
 import static org.mockito.ArgumentMatchers.eq;
@@ -31,8 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * 网格密码全链路集成测试（契约 v0.3「网格访问控制」）：真实 Sa-Token 拦截器 +
- * 真实 {@code NetworkService} + 内存 H2（真 {@code account_grid_access} 表），
- * 仅把 {@link ModApiClient} 换成 mock 模组。覆盖「锁定网络 unlocked=false →
+ * 真实 {@code GridService} + 内存 H2（真 {@code account_grid_access} 表），
+ * 仅把 {@link ModApiClient} 换成 mock 模组。覆盖「锁定网格 unlocked=false →
  * snapshot 403 → 错密码 401 → 正确密码 204 → unlocked=true → snapshot 放行」
  * 的账号维度持久记忆闭环。
  *
@@ -63,50 +63,50 @@ class GridAccessFlowTests {
 	}
 
 	/**
-	 * 便捷构造：模组列表响应（锁定网络 + 公开网络各一，模组侧 DTO）。
+	 * 便捷构造：模组列表响应（锁定网格 + 公开网格各一，模组侧 DTO）。
 	 *
-	 * @param lockedId    设有密码的网络 ID
-	 * @param publicId    未设密码的网络 ID
-	 * @param hasPassword 锁定网络是否带密码（false 用于模拟清除密码）
+	 * @param lockedId    设有密码的网格 ID
+	 * @param publicId    未设密码的网格 ID
+	 * @param hasPassword 锁定网格是否带密码（false 用于模拟清除密码）
 	 */
-	private static ModNetworkListResponse modList(String lockedId, String publicId, boolean hasPassword) {
-		return new ModNetworkListResponse(List.of(
-				new ModNetworkSummaryResponse(lockedId, "锁定网络", "minecraft:overworld",
+	private static ModGridListResponse modList(String lockedId, String publicId, boolean hasPassword) {
+		return new ModGridListResponse(List.of(
+				new ModGridSummaryResponse(lockedId, "锁定网格", "minecraft:overworld",
 						1, 2, 3, true, 1760000000000L, 5, 1, hasPassword),
-				new ModNetworkSummaryResponse(publicId, "公开网络", "minecraft:overworld",
+				new ModGridSummaryResponse(publicId, "公开网格", "minecraft:overworld",
 						4, 5, 6, false, 0, 0, 0, false)));
 	}
 
-	/** 闭环：锁定网络 unlocked=false → snapshot 403 → 错密码 401 → 正确密码 204 → unlocked=true → snapshot 200。 */
+	/** 闭环：锁定网格 unlocked=false → snapshot 403 → 错密码 401 → 正确密码 204 → unlocked=true → snapshot 200。 */
 	@Test
 	void unlockFlowPersistsPerAccountAndGrantsAccess() throws Exception {
 		String lockedId = UUID.randomUUID().toString();
 		String publicId = UUID.randomUUID().toString();
 		UUID lockedUuid = UUID.fromString(lockedId);
-		when(this.modApiClient.listNetworks()).thenReturn(modList(lockedId, publicId, true));
+		when(this.modApiClient.listGrids()).thenReturn(modList(lockedId, publicId, true));
 		doNothing().when(this.modApiClient).verifyPassword(eq(lockedUuid), eq("secret"));
 		when(this.modApiClient.getSnapshot(eq(lockedUuid)))
 			.thenReturn(new SnapshotResponse(lockedId, 1760000000000L, true, List.of(), List.of(), List.of()));
 
 		Cookie satoken = login();
 
-		// 列表可见但显示锁定；公开网络 unlocked 恒 true
-		this.mockMvc.perform(get("/api/networks").cookie(satoken))
+		// 列表可见但显示锁定；公开网格 unlocked 恒 true
+		this.mockMvc.perform(get("/api/grids").cookie(satoken))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.networks[0].hasPassword").value(true))
-			.andExpect(jsonPath("$.networks[0].unlocked").value(false))
-			.andExpect(jsonPath("$.networks[1].hasPassword").value(false))
-			.andExpect(jsonPath("$.networks[1].unlocked").value(true));
+			.andExpect(jsonPath("$.grids[0].hasPassword").value(true))
+			.andExpect(jsonPath("$.grids[0].unlocked").value(false))
+			.andExpect(jsonPath("$.grids[1].hasPassword").value(false))
+			.andExpect(jsonPath("$.grids[1].unlocked").value(true));
 
-		// 未解锁的锁定网络 snapshot → 403 network_locked
-		this.mockMvc.perform(get("/api/networks/" + lockedId + "/snapshot").cookie(satoken))
+		// 未解锁的锁定网格 snapshot → 403 grid_locked
+		this.mockMvc.perform(get("/api/grids/" + lockedId + "/snapshot").cookie(satoken))
 			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.error").value("network_locked"));
+			.andExpect(jsonPath("$.error").value("grid_locked"));
 
 		// 错密码 → 401 invalid_password
 		doThrow(new ModApiException(401, "invalid_password"))
 			.when(this.modApiClient).verifyPassword(eq(lockedUuid), eq("wrong"));
-		this.mockMvc.perform(post("/api/networks/" + lockedId + "/unlock")
+		this.mockMvc.perform(post("/api/grids/" + lockedId + "/unlock")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"password\":\"wrong\"}")
 				.cookie(satoken))
@@ -114,17 +114,17 @@ class GridAccessFlowTests {
 			.andExpect(jsonPath("$.error").value("invalid_password"));
 
 		// 正确密码 → 204，解锁按账号持久记忆
-		this.mockMvc.perform(post("/api/networks/" + lockedId + "/unlock")
+		this.mockMvc.perform(post("/api/grids/" + lockedId + "/unlock")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"password\":\"secret\"}")
 				.cookie(satoken))
 			.andExpect(status().isNoContent());
 
-		this.mockMvc.perform(get("/api/networks").cookie(satoken))
+		this.mockMvc.perform(get("/api/grids").cookie(satoken))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.networks[0].unlocked").value(true));
+			.andExpect(jsonPath("$.grids[0].unlocked").value(true));
 
-		this.mockMvc.perform(get("/api/networks/" + lockedId + "/snapshot").cookie(satoken))
+		this.mockMvc.perform(get("/api/grids/" + lockedId + "/snapshot").cookie(satoken))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.accessId").value(lockedId));
 	}
@@ -135,39 +135,39 @@ class GridAccessFlowTests {
 		String lockedId = UUID.randomUUID().toString();
 		String publicId = UUID.randomUUID().toString();
 		UUID lockedUuid = UUID.fromString(lockedId);
-		when(this.modApiClient.listNetworks()).thenReturn(modList(lockedId, publicId, true));
+		when(this.modApiClient.listGrids()).thenReturn(modList(lockedId, publicId, true));
 		doNothing().when(this.modApiClient).verifyPassword(eq(lockedUuid), eq("secret"));
 
 		Cookie satoken = login();
 
-		this.mockMvc.perform(post("/api/networks/" + lockedId + "/unlock")
+		this.mockMvc.perform(post("/api/grids/" + lockedId + "/unlock")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"password\":\"secret\"}")
 				.cookie(satoken))
 			.andExpect(status().isNoContent());
 
-		this.mockMvc.perform(post("/api/networks/" + lockedId + "/unlock")
+		this.mockMvc.perform(post("/api/grids/" + lockedId + "/unlock")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"password\":\"secret\"}")
 				.cookie(satoken))
 			.andExpect(status().isNoContent());
 
-		this.mockMvc.perform(get("/api/networks").cookie(satoken))
+		this.mockMvc.perform(get("/api/grids").cookie(satoken))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.networks[0].unlocked").value(true));
+			.andExpect(jsonPath("$.grids[0].unlocked").value(true));
 	}
 
-	/** 清除密码撤销语义：模组观察到 hasPassword=false → 网络回到公开（unlocked 恒 true）。 */
+	/** 清除密码撤销语义：模组观察到 hasPassword=false → 网格回到公开（unlocked 恒 true）。 */
 	@Test
-	void clearedPasswordMakesNetworkPublicAgain() throws Exception {
+	void clearedPasswordMakesGridPublicAgain() throws Exception {
 		String lockedId = UUID.randomUUID().toString();
 		String publicId = UUID.randomUUID().toString();
-		when(this.modApiClient.listNetworks()).thenReturn(modList(lockedId, publicId, false));
+		when(this.modApiClient.listGrids()).thenReturn(modList(lockedId, publicId, false));
 		Cookie satoken = login();
 
-		this.mockMvc.perform(get("/api/networks").cookie(satoken))
+		this.mockMvc.perform(get("/api/grids").cookie(satoken))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.networks[0].hasPassword").value(false))
-			.andExpect(jsonPath("$.networks[0].unlocked").value(true));
+			.andExpect(jsonPath("$.grids[0].hasPassword").value(false))
+			.andExpect(jsonPath("$.grids[0].unlocked").value(true));
 	}
 }

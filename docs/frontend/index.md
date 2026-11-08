@@ -2,18 +2,18 @@
 
 > 文档首页：[`index.md`](../index.md) › 组件 › 前端
 
-浏览器端 UI。负责登录、网络选择、库存、样板/可合成项展示、合成状态，以及下达合成命令。当前已实现**网格选择页 + 网格详情页（只读 + 合成命令下达与状态跟踪）**；默认使用按契约构造的 mock，后端转发已实现，可切换真实请求。
+浏览器端 UI。负责登录、网格选择、库存、样板/可合成项展示、合成状态，以及下达合成命令。当前已实现**网格选择页 + 网格详情页（只读 + 合成命令下达与状态跟踪）**；默认使用按契约构造的 mock，后端转发已实现，可切换真实请求。
 
 ## 概览
 
 | 项 | 值 |
 | --- | --- |
 | 框架 | Vue 3 + Vite |
-| 路由 | vue-router 4（`/login` 登录页，`/` 选择页，`/networks/:accessId` 详情页） |
+| 路由 | vue-router 4（`/login` 登录页，`/` 选择页，`/grids/:accessId` 详情页） |
 | 样式 | Tailwind CSS v4（设计令牌在 `src/style.css` 的 `@theme`，暗色终端风） |
 | 数据源 | 默认 mock；`VITE_USE_MOCK=false` 切换真实请求（后端转发已实现，dev 走 Vite `/api` 代理） |
 | 认证 | 账号制（后端 satoken Cookie 会话）；未登录一律重定向登录页 |
-| 契约 | [`contracts/web-api.md`](../../contracts/web-api.md)（v0.4，指向 `docs/contracts/web-api.md`） |
+| 契约 | [`contracts/web-api.md`](../../contracts/web-api.md)（v0.5，指向 `docs/contracts/web-api.md`） |
 
 ## 目录结构与源码映射
 
@@ -26,16 +26,16 @@
 | **`router/`** | |
 | [`../../web/frontend/src/router/index.js`](../../web/frontend/src/router/index.js) | 路由表：选择页与详情页（懒加载、`props: true` 传 accessId） |
 | **`api/`** — 后端调用层（组件唯一网络出口） | |
-| [`../../web/frontend/src/api/index.js`](../../web/frontend/src/api/index.js) | `login` / `logout` / `fetchMe`（认证）+ `fetchNetworks` / `fetchSnapshot` / `submitCraft` / `fetchCommands` / `unlockNetwork`（v0.3 解锁）；`USE_MOCK` 开关、契约错误码归一化、`onUnauthorized` 401 统一回调 |
-| [`../../web/frontend/src/api/events.js`](../../web/frontend/src/api/events.js) | SSE 实时事件订阅（`EventSource` 连 `/api/events`；`USE_MOCK` 时 no-op）：`grids-updated` → 刷新列表，`grid-snapshot-updated` → 刷新对应网络；断线由浏览器自动重连，轮询兜底 |
-| [`../../web/frontend/src/api/mock/fixtures.js`](../../web/frontend/src/api/mock/fixtures.js) | 三个示例网络（两在线一离线）的列表与快照固定数据；`NETWORK_PASSWORDS` 演示密码表（主基地网络 `1234`） |
-| [`../../web/frontend/src/api/mock/index.js`](../../web/frontend/src/api/mock/index.js) | mock 读取：模拟延迟；在线快照推进 `capturedAt` 并少量漂移数量；命令队列模拟（在线网络 PENDING 延时转 SUBMITTED，离线保持排队）；网格密码模拟（锁定网络 snapshot/craft/commands 抛 `network_locked`，`unlockNetwork` 按会话记住解锁）；mock 登录接受任意非空凭证 |
+| [`../../web/frontend/src/api/index.js`](../../web/frontend/src/api/index.js) | `login` / `logout` / `fetchMe`（认证）+ `fetchGrids` / `fetchSnapshot` / `submitCraft` / `fetchCommands` / `unlockGrid`（v0.3 解锁）；`USE_MOCK` 开关、契约错误码归一化、`onUnauthorized` 401 统一回调 |
+| [`../../web/frontend/src/api/events.js`](../../web/frontend/src/api/events.js) | SSE 实时事件订阅（`EventSource` 连 `/api/events`；`USE_MOCK` 时 no-op）：`grids-updated` → 刷新列表，`grid-snapshot-updated` → 刷新对应网格；断线由浏览器自动重连，轮询兜底 |
+| [`../../web/frontend/src/api/mock/fixtures.js`](../../web/frontend/src/api/mock/fixtures.js) | 三个示例网格（两在线一离线）的列表与快照固定数据；`GRID_PASSWORDS` 演示密码表（主基地网格 `1234`） |
+| [`../../web/frontend/src/api/mock/index.js`](../../web/frontend/src/api/mock/index.js) | mock 读取：模拟延迟；在线快照推进 `capturedAt` 并少量漂移数量；命令队列模拟（在线网格 PENDING 延时转 SUBMITTED，离线保持排队）；网格密码模拟（锁定网格 snapshot/craft/commands 抛 `grid_locked`，`unlockGrid` 按会话记住解锁）；mock 登录接受任意非空凭证 |
 | [`../../web/frontend/src/api/events.js`](../../web/frontend/src/api/events.js) | SSE 事件订阅（EventSource → `/api/events`；`USE_MOCK` 时 no-op） |
 | **`composables/`** — 状态与轮询 | |
 | [`../../web/frontend/src/composables/useAuth.js`](../../web/frontend/src/composables/useAuth.js) | 账号登录态单例：`ensureReady`（启动恢复会话）、`login` / `logout` / `clearSession` |
-| [`../../web/frontend/src/composables/useNetworks.js`](../../web/frontend/src/composables/useNetworks.js) | 网络列表状态（首次 loading、后续静默刷新） |
-| [`../../web/frontend/src/composables/useSnapshot.js`](../../web/frontend/src/composables/useSnapshot.js) | 单网络快照状态 |
-| [`../../web/frontend/src/composables/useCommands.js`](../../web/frontend/src/composables/useCommands.js) | 单网络合成命令列表状态（全量历史；提交后可手动刷新） |
+| [`../../web/frontend/src/composables/useGrids.js`](../../web/frontend/src/composables/useGrids.js) | 网格列表状态（首次 loading、后续静默刷新） |
+| [`../../web/frontend/src/composables/useSnapshot.js`](../../web/frontend/src/composables/useSnapshot.js) | 单网格快照状态 |
+| [`../../web/frontend/src/composables/useCommands.js`](../../web/frontend/src/composables/useCommands.js) | 单网格合成命令列表状态（全量历史；提交后可手动刷新） |
 | [`../../web/frontend/src/composables/usePolling.js`](../../web/frontend/src/composables/usePolling.js) | 定时轮询：页面不可见暂停、恢复补拉、卸载自停 |
 | [`../../web/frontend/src/composables/useItemTooltip.js`](../../web/frontend/src/composables/useItemTooltip.js) | 物品悬浮提示的全局单例状态（ItemSlot 写入，ItemTooltip 渲染） |
 | **`lib/`** — 纯函数 | |
@@ -49,7 +49,7 @@
 | [`../../web/frontend/src/components/base/ItemTooltip.vue`](../../web/frontend/src/components/base/ItemTooltip.vue) | 跟随鼠标的 MC 风格 tooltip（teleport 到 body，按缩放系数换算坐标） |
 | **`components/grid/`** — 选择页组件 | |
 | [`../../web/frontend/src/components/grid/GridCard.vue`](../../web/frontend/src/components/grid/GridCard.vue) | 网格卡片：名称、在线徽标、锁定徽标（v0.3 `hasPassword && !unlocked`）、控制器位置、快照摘要、进入/解锁按钮 |
-| [`../../web/frontend/src/components/grid/UnlockGate.vue`](../../web/frontend/src/components/grid/UnlockGate.vue) | 网格解锁门（v0.3）：锁定网络的详情页以此面板替代内容，密码提交 `POST /unlock`，`invalid_password` 等错误码直出，成功后冒泡 `unlocked` 事件 |
+| [`../../web/frontend/src/components/grid/UnlockGate.vue`](../../web/frontend/src/components/grid/UnlockGate.vue) | 网格解锁门（v0.3）：锁定网格的详情页以此面板替代内容，密码提交 `POST /unlock`，`invalid_password` 等错误码直出，成功后冒泡 `unlocked` 事件 |
 | **`components/snapshot/`** — 详情页组件 | |
 | [`../../web/frontend/src/components/snapshot/StatusCpuCard.vue`](../../web/frontend/src/components/snapshot/StatusCpuCard.vue) | 状态 + 合成 CPU 合并卡：在线态、数据截至、控制器、CPU 忙闲/存储/协处理器 |
 | [`../../web/frontend/src/components/snapshot/InventoryCard.vue`](../../web/frontend/src/components/snapshot/InventoryCard.vue) | 库存卡：MC 格子布局（ItemSlot 网格），关键字过滤 + 按行窗口化虚拟滚动，列数自适应宽度 |
@@ -59,7 +59,7 @@
 | **`pages/`** — 页面 | |
 | [`../../web/frontend/src/pages/LoginPage.vue`](../../web/frontend/src/pages/LoginPage.vue) | 登录页：用户名/密码表单，unauthorized → 「用户名或密码错误」，成功后回跳 `?redirect=` |
 | [`../../web/frontend/src/pages/GridSelectPage.vue`](../../web/frontend/src/pages/GridSelectPage.vue) | 选择页：网格卡片栅格，10s 轮询 + SSE 事件即时刷新 + 手动刷新 |
-| [`../../web/frontend/src/pages/GridDetailPage.vue`](../../web/frontend/src/pages/GridDetailPage.vue) | 详情页：状态/样板/命令/库存卡片布局，快照与命令列表各 5s 轮询 + SSE 事件即时刷新，离线提示条；快照返回 `network_locked` 时以解锁门替代内容，解锁成功刷新快照与列表 |
+| [`../../web/frontend/src/pages/GridDetailPage.vue`](../../web/frontend/src/pages/GridDetailPage.vue) | 详情页：状态/样板/命令/库存卡片布局，快照与命令列表各 5s 轮询 + SSE 事件即时刷新，离线提示条；快照返回 `grid_locked` 时以解锁门替代内容，解锁成功刷新快照与列表 |
 
 ## 当前状态与后续
 
@@ -72,8 +72,9 @@
 - [x] 合成命令接线：计划合成弹窗提交 `POST /craft`（含受理回执与错误码透出）+ 详情页合成命令卡（`GET /commands` 5s 轮询、状态徽标、倒序展示），mock 层模拟模组队列语义。
 - [x] 账号认证接入：登录页 + 全局路由守卫（未登录重定向并带回跳）+ 顶栏用户名/登出 + 401 统一处理（会话过期自动跳登录页）；原选择页 `PasswordField` 预留栏位移除（每网络口令语义由全局账号取代）。
 - [x] 登出即跳登录页（roadmap 已完成项）：顶栏登出清会话后立即 `router.push({name:'login'})`（不带 `redirect`，主动登出不回跳）；`useAuth` 不依赖 router。
-- [x] 网格密码接入（契约 v0.3）：`GridCard` 锁定徽标与按钮文案切换；详情页 `UnlockGate` 解锁门（错误码直出、MOCK 模式显示演示密码）；解锁成功刷新快照与网络列表；mock 层主基地网络预置密码 `1234`、锁定网络 snapshot/craft/commands 抛 `network_locked`。
+- [x] 网格密码接入（契约 v0.3）：`GridCard` 锁定徽标与按钮文案切换；详情页 `UnlockGate` 解锁门（错误码直出、MOCK 模式显示演示密码）；解锁成功刷新快照与网格列表；mock 层主基地网格预置密码 `1234`、锁定网格 snapshot/craft/commands 抛 `grid_locked`。
 - [x] 实时推送接入（roadmap 已完成项）：`src/api/events.js` 用 EventSource 订阅 `/api/events`，选页/详情页收到事件立即刷新；**5s/10s 轮询保留作兜底**（SSE 断线/未登录自动降级，EventSource 浏览器自带重连）。
+- [x] 术语统一为 grid（契约 v0.5，模组 0.0.8）：`fetchNetworks`→`fetchGrids`、`unlockNetwork`→`unlockGrid`、`useNetworks`→`useGrids`（读 `data.grids`）、路由 `/networks/:accessId`→`/grids/:accessId`、mock 常量 `NETWORKS`/`NETWORK_PASSWORDS`→`GRIDS`/`GRID_PASSWORDS`、错误码 `network_locked`/`network_not_found`→`grid_locked`/`grid_not_found`；组件 props `network`→`grid`。
 - [ ] 物品中文名：按模组 `nameKey` + 前端中文语言表实现（含过渡启发式方案），见 [`roadmap.md`](../roadmap.md) §4。
 - [ ] 物品贴图接入 `ItemSlot` 的 `iconUrl`（当前为方块占位；来源定为模组客户端渲染导出，见 [`roadmap.md`](../roadmap.md) §5）。
 

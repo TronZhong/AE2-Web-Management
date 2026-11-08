@@ -13,7 +13,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
 /**
- * 「接入」方块：放在 AE2 网络旁，作为网格节点加入网络并定位 ME 控制器。
+ * 「接入」方块：放在 AE2 网格旁，作为网格节点加入网格并定位 ME 控制器。
  * 右击打开 GUI（{@link AccessScreen}）。
  */
 public class AccessBlock extends BaseEntityBlock {

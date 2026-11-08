@@ -31,14 +31,14 @@
 | 后端实时推送（SSE 事件枢纽） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/RealtimeEventHub.java` |
 | 后端实时推送（指纹轮询与广播） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/GridStateSyncService.java` |
 | 后端实时事件端点 | `web/backend/src/main/java/com/ae2webmanagement/backend/controller/RealtimeController.java` |
-| 后端错误码翻译（mod_unreachable / mod_unavailable） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/NetworkService.java` |
+| 后端错误码翻译（mod_unreachable / mod_unavailable） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/GridService.java` |
 | 后端 Web 端点（/api/**） | `web/backend/src/main/java/com/ae2webmanagement/backend/controller/` |
 | 后端契约 DTO | `web/backend/src/main/java/com/ae2webmanagement/backend/dto/` |
 | 后端 CORS、模组 RestClient（2s/5s 超时） | `web/backend/src/main/java/com/ae2webmanagement/backend/config/` |
 | 后端运行配置（端口、数据源、app.*） | `web/backend/src/main/resources/application.yaml` |
 | 模组主类 / 方块物品注册 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/AE2WebManagement.java` |
 | 模组配置 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/Config.java` |
-| 网络身份表（SavedData） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/NetworkIdentityStore.java` |
+| 网格身份表（SavedData） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/GridIdentityStore.java` |
 | 快照表（SavedData） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/SnapshotStore.java` |
 | 快照采集与缓存 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/SnapshotManager.java` |
 | 样板摘要 record | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/Snapshot.java` |

@@ -19,7 +19,7 @@ import com.ae2webmanagement.ae2webmanagementmod.AE2WebManagement;
  * 用自定义 payload 走 C2S）；服务端处理器由 NeoForge 默认调度到主线程，
  * 并校验玩家当前打开的菜单与 payload 携带的 containerId 一致，防止越权改名。</p>
  *
- * <p>改名只影响网页展示名（HTTP 网络列表的 {@code displayName} 字段），
+ * <p>改名只影响网页展示名（HTTP 网格列表的 {@code displayName} 字段），
  * 不改 accessId / token / 密码哈希；空串或超长由服务端忽略。</p>
  *
  * @param containerId 发起 GUI 的容器 ID

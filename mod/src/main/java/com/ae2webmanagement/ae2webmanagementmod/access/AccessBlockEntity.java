@@ -32,16 +32,16 @@ import appeng.api.networking.IManagedGridNode;
 
 import com.ae2webmanagement.ae2webmanagementmod.AE2WebManagement;
 import com.ae2webmanagement.ae2webmanagementmod.data.GridPasswords;
-import com.ae2webmanagement.ae2webmanagementmod.data.NetworkIdentityStore;
+import com.ae2webmanagement.ae2webmanagementmod.data.GridIdentityStore;
 import com.ae2webmanagement.ae2webmanagementmod.grid.ControllerAnchor;
 import com.ae2webmanagement.ae2webmanagementmod.grid.ControllerLocator;
-import com.ae2webmanagement.ae2webmanagementmod.network.NetworkIdentity;
+import com.ae2webmanagement.ae2webmanagementmod.grid.GridIdentity;
 
 /**
  * 「接入」方块的方块实体：一个 AE2 托管网格节点 + GUI 交互。
  *
- * <p>放在 AE2 网络旁 → 自动加入网络 → 定位 ME 控制器 → 右击打开 GUI →
- * 点击「Register」在{@link NetworkIdentityStore}（SavedData）中登记或查重。
+ * <p>放在 AE2 网格旁 → 自动加入网格 → 定位 ME 控制器 → 右击打开 GUI →
+ * 点击「Register」在{@link GridIdentityStore}（SavedData）中登记或查重。
  */
 public class AccessBlockEntity extends BlockEntity
         implements IInWorldGridNodeHost, IGridNodeListener<AccessBlockEntity>, MenuProvider {
@@ -54,7 +54,7 @@ public class AccessBlockEntity extends BlockEntity
     /** 最近一次定位到的 ME 控制器锚点。 */
     private ControllerAnchor controllerAnchor;
 
-    /** 最近一次「注册网络」操作的结果状态码（{@link AccessMenu#STATUS_NO_CONTROLLER} 等）。 */
+    /** 最近一次「注册网格」操作的结果状态码（{@link AccessMenu#STATUS_NO_CONTROLLER} 等）。 */
     private int registrationStatus = AccessMenu.STATUS_NO_CONTROLLER;
 
     public AccessBlockEntity(BlockPos pos, BlockState blockState) {
@@ -120,13 +120,13 @@ public class AccessBlockEntity extends BlockEntity
     }
 
     /**
-     * 按控制器锚点查身份表，返回该网络的身份记录（未注册时为空）。
+     * 按控制器锚点查身份表，返回该网格的身份记录（未注册时为空）。
      *
      * @param anchor 控制器锚点
-     * @return 对应的 {@link NetworkIdentity}；未注册 / 无法访问身份表时为空
+     * @return 对应的 {@link GridIdentity}；未注册 / 无法访问身份表时为空
      */
-    public Optional<NetworkIdentity> getIdentity(ControllerAnchor anchor) {
-        NetworkIdentityStore store = identityStoreOrNull(anchor);
+    public Optional<GridIdentity> getIdentity(ControllerAnchor anchor) {
+        GridIdentityStore store = identityStoreOrNull(anchor);
         if (store == null) {
             return Optional.empty();
         }
@@ -153,10 +153,10 @@ public class AccessBlockEntity extends BlockEntity
     /**
      * GUI 按钮「Register」按下时由 {@link AccessMenu#clickMenuButton} 调用（已在主线程）。
      *
-     * <p>从 Overworld 的 {@link NetworkIdentityStore}（SavedData）中按控制器锚点
+     * <p>从 Overworld 的 {@link GridIdentityStore}（SavedData）中按控制器锚点
      * 查重或创建新身份记录。
      */
-    public void tryRegisterNetwork() {
+    public void tryRegisterGrid() {
         if (this.controllerAnchor == null) {
             this.registrationStatus = AccessMenu.STATUS_NO_CONTROLLER;
             return;
@@ -165,18 +165,18 @@ public class AccessBlockEntity extends BlockEntity
             return;
         }
 
-        NetworkIdentityStore store = NetworkIdentityStore.get(sl);
+        GridIdentityStore store = GridIdentityStore.get(sl);
 
-        NetworkIdentityStore.Result result = store.addOrGet(this.controllerAnchor);
+        GridIdentityStore.Result result = store.addOrGet(this.controllerAnchor);
         this.registrationStatus = switch (result) {
-            case NetworkIdentityStore.Created c -> {
-                LOGGER.info("[AE2Web] Created network identity: accessId={}, token={}, anchor={} @ {}",
+            case GridIdentityStore.Created c -> {
+                LOGGER.info("[AE2Web] Created grid identity: accessId={}, token={}, anchor={} @ {}",
                         c.identity().accessId(), c.identity().token(),
                         c.identity().controllerLevel().location(), c.identity().controllerPos());
                 yield AccessMenu.STATUS_CREATED;
             }
-            case NetworkIdentityStore.AlreadyExists e -> {
-                LOGGER.info("[AE2Web] Network already registered: accessId={}, anchor={} @ {}",
+            case GridIdentityStore.AlreadyExists e -> {
+                LOGGER.info("[AE2Web] Grid already registered: accessId={}, anchor={} @ {}",
                         e.identity().accessId(),
                         e.identity().controllerLevel().location(), e.identity().controllerPos());
                 yield AccessMenu.STATUS_ALREADY_EXISTS;
@@ -192,12 +192,12 @@ public class AccessBlockEntity extends BlockEntity
     // ===================== 网格密码 =====================
 
     /**
-     * 当前网络是否已设置网格密码（主线程调用）。
+     * 当前网格是否已设置网格密码（主线程调用）。
      *
-     * @return 已设置且未清除为 {@code true}；未注册网络 / 无控制器锚点为 {@code false}
+     * @return 已设置且未清除为 {@code true}；未注册网格 / 无控制器锚点为 {@code false}
      */
     public boolean isPasswordSet() {
-        NetworkIdentityStore store = identityStoreOrNull();
+        GridIdentityStore store = identityStoreOrNull();
         if (store == null) {
             return false;
         }
@@ -216,13 +216,13 @@ public class AccessBlockEntity extends BlockEntity
      * @param password 密码原文；空串 = 清除密码（恢复公开）；非法输入静默忽略
      */
     public void setGridPassword(String password) {
-        NetworkIdentityStore store = identityStoreOrNull();
+        GridIdentityStore store = identityStoreOrNull();
         if (store == null) {
             return;
         }
         UUID accessId = store.findAccessId(this.controllerAnchor).orElse(null);
         if (accessId == null) {
-            LOGGER.warn("[AE2Web] Ignored password change: network not registered at {}",
+            LOGGER.warn("[AE2Web] Ignored password change: grid not registered at {}",
                     this.worldPosition);
             return;
         }
@@ -237,29 +237,29 @@ public class AccessBlockEntity extends BlockEntity
         var updated = store.setPassword(accessId, clear ? null : password);
         updated.ifPresent((identity) -> {
             AE2WebManagement.snapshotManager().updatePasswordHash(accessId, identity.passwordHash());
-            LOGGER.info("[AE2Web] Grid password {} for network {}",
+            LOGGER.info("[AE2Web] Grid password {} for grid {}",
                     clear ? "cleared" : "updated", accessId);
         });
     }
 
     /**
-     * 修改当前网络的显示名（{@link AccessMenu#handleRename} 转发，主线程）。
+     * 修改当前网格的显示名（{@link AccessMenu#handleRename} 转发，主线程）。
      *
      * <p>校验：须已注册、新名非空白、长度不超过 {@link AccessMenu#MAX_DISPLAY_NAME_LENGTH}。
      * 写入身份表 SavedData 后立即刷新 SnapshotManager 的身份镜像缓存，
-     * 让网页网络列表无需等待下一个采样周期即可看到新名。</p>
+     * 让网页网格列表无需等待下一个采样周期即可看到新名。</p>
      *
      * @param newName 新显示名原文
-     * @return 是否成功改名（网络未注册 / 非法输入时为 {@code false}）
+     * @return 是否成功改名（网格未注册 / 非法输入时为 {@code false}）
      */
     public boolean renameGrid(String newName) {
-        NetworkIdentityStore store = identityStoreOrNull();
+        GridIdentityStore store = identityStoreOrNull();
         if (store == null || this.controllerAnchor == null) {
             return false;
         }
         UUID accessId = store.findAccessId(this.controllerAnchor).orElse(null);
         if (accessId == null) {
-            LOGGER.warn("[AE2Web] Ignored rename: network not registered at {}", this.worldPosition);
+            LOGGER.warn("[AE2Web] Ignored rename: grid not registered at {}", this.worldPosition);
             return false;
         }
         if (newName == null || newName.isBlank()) {
@@ -276,7 +276,7 @@ public class AccessBlockEntity extends BlockEntity
         var updated = store.rename(accessId, trimmed);
         updated.ifPresent((identity) -> {
             AE2WebManagement.snapshotManager().updateIdentity(identity);
-            LOGGER.info("[AE2Web] Renamed network {} to \"{}\"", accessId, identity.displayName());
+            LOGGER.info("[AE2Web] Renamed grid {} to \"{}\"", accessId, identity.displayName());
         });
         return updated.isPresent();
     }
@@ -284,11 +284,11 @@ public class AccessBlockEntity extends BlockEntity
     /**
      * @return Overworld 身份表（仅服务端主线程且已有控制器锚点时）；否则 {@code null}
      */
-    private NetworkIdentityStore identityStoreOrNull() {
+    private GridIdentityStore identityStoreOrNull() {
         if (!(this.level instanceof ServerLevel serverLevel) || this.controllerAnchor == null) {
             return null;
         }
-        return NetworkIdentityStore.get(serverLevel);
+        return GridIdentityStore.get(serverLevel);
     }
 
     /**
@@ -297,16 +297,16 @@ public class AccessBlockEntity extends BlockEntity
      * @param anchor 控制器锚点
      * @return 身份表；无法访问时为 {@code null}
      */
-    private NetworkIdentityStore identityStoreOrNull(ControllerAnchor anchor) {
+    private GridIdentityStore identityStoreOrNull(ControllerAnchor anchor) {
         if (!(this.level instanceof ServerLevel serverLevel) || anchor == null) {
             return null;
         }
-        return NetworkIdentityStore.get(serverLevel);
+        return GridIdentityStore.get(serverLevel);
     }
 
     // ===================== BlockEntity 生命周期 =====================
 
-    /** 服务端方块实体加载后创建 AE2 托管节点，使其自动加入相邻网络。 */
+    /** 服务端方块实体加载后创建 AE2 托管节点，使其自动加入相邻网格。 */
     @Override
     public void onLoad() {
         super.onLoad();

@@ -1,7 +1,7 @@
 <script setup>
 /**
  * 库存卡：MC 风格格子布局展示物品，支持按友好名 / id 过滤。
- * 大型网络物品种类可达数千，按「行 × 列」窗口化渲染（虚拟滚动），
+ * 大型网格物品种类可达数千，按「行 × 列」窗口化渲染（虚拟滚动），
  * 列数随容器宽度自适应；格子的悬浮名称与角标由 ItemSlot 负责。
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -124,7 +124,7 @@ function onScroll(event) {
         </div>
       </div>
       <p class="mt-2 text-right font-mono text-[11px] text-ink-faint">
-        数量为网络聚合值（getCachedInventory）· 悬浮查看名称
+        数量为网格聚合值（getCachedInventory）· 悬浮查看名称
       </p>
     </template>
   </BaseCard>

@@ -3,7 +3,7 @@ package com.ae2webmanagement.backend.dto;
 import tools.jackson.databind.JsonNode;
 
 /**
- * 合成命令请求体：{@code POST /api/networks/{accessId}/craft} 的入参。
+ * 合成命令请求体：{@code POST /api/grids/{accessId}/craft} 的入参。
  *
  * <p>对应 docs/contracts/web-api.md「合成命令端点」：请求体 {@code {key, amount}}，
  * {@code key} 可复用快照 {@code inventory[].key}，后端以 {@link JsonNode} 透传给模组。</p>

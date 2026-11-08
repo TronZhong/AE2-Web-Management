@@ -26,7 +26,7 @@ import com.ae2webmanagement.ae2webmanagementmod.AE2WebManagement;
  * 客户端据此显示占位文案。</p>
  *
  * @param containerId 发起 GUI 的容器 ID（客户端据此匹配当前打开的菜单）
- * @param accessId    网络接入 ID；未注册为空串
+ * @param accessId    网格接入 ID；未注册为空串
  * @param displayName 显示名；未注册为空串
  * @param dimension   控制器所在维度；无控制器为空串
  * @param pos         控制器方块坐标；无控制器为 {@code BlockPos.ZERO}

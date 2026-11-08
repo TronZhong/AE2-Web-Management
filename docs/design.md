@@ -45,14 +45,14 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 
 ## 4. 数据模型（全部存 `SavedData`，挂 Overworld）
 
-### 4.1 网络接入记录（一个 `networkAccessId` 一条）
+### 4.1 网格接入记录（一个 `networkAccessId` 一条）
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `accessId` | UUID | 存档内专属标识（由模组生成） |
 | `controllerKey` | `ResourceKey<Level>` + `BlockPos` | 锚点：ME 控制器的维度 + 坐标 |
 | `token` | String | 网页访问令牌（生成时随机，后端持有；当前闲置，语义保留给 roadmap §7 的配对令牌方案） |
-| `displayName` | String | 显示名（注册时默认 `"Network @ x,y,z"`，0.0.7 起可在接入方块 GUI 改名） |
+| `displayName` | String | 显示名（注册时默认 `"Grid @ x,y,z"`，0.0.7 起可在接入方块 GUI 改名） |
 | `createdAt` / `lastSeenAt` | long（时间戳） | 建档时间 / 最近一次在线时间；`lastSeenAt` 当前尚未随快照回写 |
 | `passwordHash` | String | 网格密码的 PBKDF2 哈希（`pbkdf2:<迭代>:<盐B64>:<哈希B64>`，0.0.6 新增）；空串 = 未设密码（公开网络）。明文只在游戏内 GUI 与 HTTP 校验请求体出现，不出模组 |
 
@@ -60,7 +60,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `accessId` | UUID | 归属哪个网络 |
+| `accessId` | UUID | 归属哪个网格 |
 | `capturedAt` | long | 采样时间（网页据此显示"数据截至 xx"） |
 | `online` | boolean | 采样时控制器区块是否加载、`getGrid()` 是否非 null |
 | `inventory` | `AEKey → long` 列表 | 物品种类 → 数量（聚合值，无节点来源） |
@@ -72,7 +72,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `id` | UUID | 命令 ID（用于回传结果） |
-| `accessId` | UUID | 目标网络 |
+| `accessId` | UUID | 目标网格 |
 | `target` | `AEKey` 通用 NBT | 要合成的物品种类（存**意图**，非预计算计划） |
 | `amount` | long | 要合成的数量 |
 | `state` | 枚举 | `PENDING` / `SUBMITTED` / `FAILED` |
@@ -86,7 +86,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 
 1. 玩家把注册器方块放到某个 AE2 网络旁。
 2. 注册器**临时**接入相邻网络（或扫描邻居获取网格引用），定位到 ME 控制器，取其坐标。
-3. 生成 `accessId` + `token`，写一条「网络接入记录」进 `SavedData`。
+3. 生成 `accessId` + `token`，写一条「网格接入记录」进 `SavedData`。
 4. 注册完成；注册器方块随后可被拆除，身份不受影响。
 5. **改名（0.0.7）**：接入方块 GUI 可修改 `displayName`（C2S payload 写身份表 + 身份镜像缓存即时刷新），网页列表立即看到新名。
 
@@ -104,14 +104,14 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 | 控制器区块加载且 `getGrid()!=null` | 网页显示 |
 | --- | --- |
 | 是 | 快照 + "截至 hh:mm:ss" |
-| 否 | 最后快照 + "网络离线，数据截至 hh:mm:ss" |
+| 否 | 最后快照 + "网格离线，数据截至 hh:mm:ss" |
 
 > 就这两态 + 一个时间戳，不做任何节点级对账。
 
 ### 5.4 命令提交流程
 
 1. 网页 → 后端 → 模组 HTTP 口，命令写入线程安全队列（`state=PENDING`），立即返回"已受理"，并持久化到 `SavedData`。
-2. 主线程发现目标网络的控制器在线后，逐个取出 `PENDING` 命令：
+2. 主线程发现目标网格的控制器在线后，逐个取出 `PENDING` 命令：
    - 重新 `beginCraftingCalculation(...)`（用**当时**库存重新模拟）；
    - 模拟成功后 `submitJob(...)`；
    - 回写 `SUBMITTED` 或 `FAILED` 与结果。
@@ -121,10 +121,10 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 
 | 端点（示意） | 方向 | 用途 |
 | --- | --- | --- |
-| `GET /networks` | 后端→模组 | 列出在线/离线网络（含 `accessId`、名称、在线态） |
-| `GET /networks/{id}/snapshot` | 后端→模组 | 读库存 + 合成状态快照 |
-| `POST /networks/{id}/craft` | 后端→模组 | 投递合成命令（返回受理 ID） |
-| `GET /networks/{id}/commands` | 后端→模组 | 查命令执行结果 |
+| `GET /grids` | 后端→模组 | 列出在线/离线网格（含 `accessId`、名称、在线态） |
+| `GET /grids/{id}/snapshot` | 后端→模组 | 读库存 + 合成状态快照 |
+| `POST /grids/{id}/craft` | 后端→模组 | 投递合成命令（返回受理 ID） |
+| `GET /grids/{id}/commands` | 后端→模组 | 查命令执行结果 |
 
 认证：模组 HTTP 口只绑定 127.0.0.1，后端请求带 `X-Shared-Secret` 头（与 `application.yaml` 的 `app.mod.shared-secret` 一致）。
 

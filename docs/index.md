@@ -36,7 +36,7 @@
 | 要找什么 | 去这里 |
 | --- | --- |
 | 项目整体结构 | [README.md](../README.md)（根目录） |
-| 网络身份/快照/命令队列怎么设计 | [design.md](design.md) |
+| 网格身份/快照/命令队列怎么设计 | [design.md](design.md) |
 | 某个后端包/类的职责 | [backend/index.md](backend/index.md) 的源码映射 |
 | 某个模组文件/配置的职责 | [mod/index.md](mod/index.md) 的源码映射 |
 | 后端配置项含义 | [backend/index.md](backend/index.md) › 配置 |

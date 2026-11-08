@@ -11,8 +11,8 @@ import org.springframework.web.client.ResourceAccessException;
 
 import com.ae2webmanagement.backend.client.ModApiClient;
 import com.ae2webmanagement.backend.client.ModApiException;
-import com.ae2webmanagement.backend.dto.ModNetworkListResponse;
-import com.ae2webmanagement.backend.dto.ModNetworkSummaryResponse;
+import com.ae2webmanagement.backend.dto.ModGridListResponse;
+import com.ae2webmanagement.backend.dto.ModGridSummaryResponse;
 
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.never;
@@ -23,9 +23,9 @@ import static org.mockito.Mockito.when;
  * {@link GridStateSyncService} 单元测试：指纹比对与事件广播语义
  * （roadmap 已完成项：SSE 实时推送）。
  *
- * <p>覆盖：无变化不广播；新网络出现 → {@code grids-updated}；快照被刷新
- * （{@code capturedAt}/{@code online} 变化）→ 该网络的 {@code grid-snapshot-updated}；
- * 名称/密码变化 → {@code grids-updated}；网络移除 → {@code grids-updated}；
+ * <p>覆盖：无变化不广播；新网格出现 → {@code grids-updated}；快照被刷新
+ * （{@code capturedAt}/{@code online} 变化）→ 该网格的 {@code grid-snapshot-updated}；
+ * 名称/密码变化 → {@code grids-updated}；网格移除 → {@code grids-updated}；
  * 模组不可达静默跳过。</p>
  */
 @ExtendWith(MockitoExtension.class)
@@ -43,11 +43,11 @@ class GridStateSyncServiceTests {
 	@InjectMocks
 	private GridStateSyncService service;
 
-	/** 网络状态完全不变 → 不广播任何事件。 */
+	/** 网格状态完全不变 → 不广播任何事件。 */
 	@Test
 	void unchangedFingerprintBroadcastsNothing() {
-		when(this.modApiClient.listNetworks())
-			.thenReturn(new ModNetworkListResponse(List.of(summary(ID_A, false, true, 1_000L, "主基地"))));
+		when(this.modApiClient.listGrids())
+			.thenReturn(new ModGridListResponse(List.of(summary(ID_A, false, true, 1_000L, "主基地"))));
 
 		this.service.sync();
 		this.service.sync();
@@ -55,12 +55,12 @@ class GridStateSyncServiceTests {
 		verify(this.eventHub, never()).broadcast(anyMap());
 	}
 
-	/** 新网络出现 → 广播 grids-updated + 该网络的 grid-snapshot-updated（共 2 次广播）。 */
+	/** 新网格出现 → 广播 grids-updated + 该网格的 grid-snapshot-updated（共 2 次广播）。 */
 	@Test
-	void newNetworkBroadcastsGridsUpdated() {
-		when(this.modApiClient.listNetworks())
-			.thenReturn(new ModNetworkListResponse(List.of(summary(ID_A, false, true, 1_000L, "主基地"))))
-			.thenReturn(new ModNetworkListResponse(List.of(
+	void newGridBroadcastsGridsUpdated() {
+		when(this.modApiClient.listGrids())
+			.thenReturn(new ModGridListResponse(List.of(summary(ID_A, false, true, 1_000L, "主基地"))))
+			.thenReturn(new ModGridListResponse(List.of(
 					summary(ID_A, false, true, 1_000L, "主基地"),
 					summary(ID_B, false, true, 2_000L, "农场"))));
 
@@ -70,12 +70,12 @@ class GridStateSyncServiceTests {
 		verify(this.eventHub, org.mockito.Mockito.times(2)).broadcast(anyMap());
 	}
 
-	/** 某网络快照被刷新（capturedAt 变化）→ 广播该网络的 grid-snapshot-updated。 */
+	/** 某网格快照被刷新（capturedAt 变化）→ 广播该网格的 grid-snapshot-updated。 */
 	@Test
 	void snapshotRefreshBroadcastsSnapshotUpdated() {
-		when(this.modApiClient.listNetworks())
-			.thenReturn(new ModNetworkListResponse(List.of(summary(ID_A, false, true, 1_000L, "主基地"))))
-			.thenReturn(new ModNetworkListResponse(List.of(summary(ID_A, false, true, 2_000L, "主基地"))));
+		when(this.modApiClient.listGrids())
+			.thenReturn(new ModGridListResponse(List.of(summary(ID_A, false, true, 1_000L, "主基地"))))
+			.thenReturn(new ModGridListResponse(List.of(summary(ID_A, false, true, 2_000L, "主基地"))));
 
 		this.service.sync();
 		this.service.sync();
@@ -86,10 +86,10 @@ class GridStateSyncServiceTests {
 
 	/** 显示名变化（列表级信息）→ 广播 grids-updated。 */
 	@Test
-	void renamedNetworkBroadcastsGridsUpdated() {
-		when(this.modApiClient.listNetworks())
-			.thenReturn(new ModNetworkListResponse(List.of(summary(ID_A, false, true, 1_000L, "旧名"))))
-			.thenReturn(new ModNetworkListResponse(List.of(summary(ID_A, false, true, 1_000L, "新名"))));
+	void renamedGridBroadcastsGridsUpdated() {
+		when(this.modApiClient.listGrids())
+			.thenReturn(new ModGridListResponse(List.of(summary(ID_A, false, true, 1_000L, "旧名"))))
+			.thenReturn(new ModGridListResponse(List.of(summary(ID_A, false, true, 1_000L, "新名"))));
 
 		this.service.sync();
 		this.service.sync();
@@ -97,14 +97,14 @@ class GridStateSyncServiceTests {
 		verify(this.eventHub).broadcast(new java.util.HashMap<>(java.util.Map.of("type", "grids-updated")));
 	}
 
-	/** 网络被移除 → 广播 grids-updated。 */
+	/** 网格被移除 → 广播 grids-updated。 */
 	@Test
-	void removedNetworkBroadcastsGridsUpdated() {
-		when(this.modApiClient.listNetworks())
-			.thenReturn(new ModNetworkListResponse(List.of(
+	void removedGridBroadcastsGridsUpdated() {
+		when(this.modApiClient.listGrids())
+			.thenReturn(new ModGridListResponse(List.of(
 					summary(ID_A, false, true, 1_000L, "主基地"),
 					summary(ID_B, false, true, 2_000L, "农场"))))
-			.thenReturn(new ModNetworkListResponse(List.of(summary(ID_A, false, true, 1_000L, "主基地"))));
+			.thenReturn(new ModGridListResponse(List.of(summary(ID_A, false, true, 1_000L, "主基地"))));
 
 		this.service.sync();
 		this.service.sync();
@@ -115,7 +115,7 @@ class GridStateSyncServiceTests {
 	/** 模组不可达（连接失败）→ 静默跳过，不广播不抛异常。 */
 	@Test
 	void modUnreachableSkipsSilently() {
-		when(this.modApiClient.listNetworks()).thenThrow(new ResourceAccessException("connect timed out"));
+		when(this.modApiClient.listGrids()).thenThrow(new ResourceAccessException("connect timed out"));
 
 		this.service.sync();
 
@@ -125,7 +125,7 @@ class GridStateSyncServiceTests {
 	/** 模组业务错误（如共享密钥被拒）→ 静默跳过，不广播不抛异常。 */
 	@Test
 	void modApiErrorSkipsSilently() {
-		when(this.modApiClient.listNetworks()).thenThrow(new ModApiException(503, "mod_unavailable"));
+		when(this.modApiClient.listGrids()).thenThrow(new ModApiException(503, "mod_unavailable"));
 
 		this.service.sync();
 
@@ -133,17 +133,17 @@ class GridStateSyncServiceTests {
 	}
 
 	/**
-	 * 构造模组侧网络摘要。
+	 * 构造模组侧网格摘要。
 	 *
-	 * @param accessId    网络接入 ID
+	 * @param accessId    网格接入 ID
 	 * @param hasPassword 是否设密码
 	 * @param online      在线态
 	 * @param capturedAt  采样时间
 	 * @param displayName 显示名
 	 */
-	private static ModNetworkSummaryResponse summary(
+	private static ModGridSummaryResponse summary(
 			String accessId, boolean hasPassword, boolean online, long capturedAt, String displayName) {
-		return new ModNetworkSummaryResponse(accessId, displayName, "minecraft:overworld",
+		return new ModGridSummaryResponse(accessId, displayName, "minecraft:overworld",
 				128, 64, -256, online, capturedAt, 17, 2, hasPassword);
 	}
 }

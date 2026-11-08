@@ -16,7 +16,7 @@ import com.ae2webmanagement.backend.dto.CraftRequest;
 import com.ae2webmanagement.backend.dto.CommandEntryResponse;
 import com.ae2webmanagement.backend.dto.CommandListResponse;
 import com.ae2webmanagement.backend.service.AuthService;
-import com.ae2webmanagement.backend.service.NetworkService;
+import com.ae2webmanagement.backend.service.GridService;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * <p>切片不加载 Sa-Token 自动配置，{@code app.auth.enabled=false} 关闭登录拦截，
  * 认证链路由 {@link AuthFlowTests} 全上下文覆盖；网格访问控制（v0.3）在
- * {@link NetworkService} 内实现，由其单元测试覆盖，本切片只断言转发形状。</p>
+ * {@link GridService} 内实现，由其单元测试覆盖，本切片只断言转发形状。</p>
  */
 @WebMvcTest(value = CraftController.class, properties = "app.auth.enabled=false")
 class CraftControllerTests {
@@ -48,7 +48,7 @@ class CraftControllerTests {
 	private MockMvc mockMvc;
 
 	@MockitoBean
-	private NetworkService networkService;
+	private GridService gridService;
 
 	@MockitoBean
 	private AuthService authService;
@@ -62,10 +62,10 @@ class CraftControllerTests {
 	/** POST /craft 正常路径：返回 202 且 commandId/state/submittedAt 与契约对齐。 */
 	@Test
 	void craftReturns202WithAcceptedFields() throws Exception {
-		when(this.networkService.submitCraft(eq(ACCESS_ID), any(CraftRequest.class), eq(ACCOUNT_ID)))
+		when(this.gridService.submitCraft(eq(ACCESS_ID), any(CraftRequest.class), eq(ACCOUNT_ID)))
 			.thenReturn(new CraftAcceptedResponse("5b0cdd1e-6e0e-4a1f-9a1b-3f0f9b21b100", "PENDING", 1760000000000L));
 
-		this.mockMvc.perform(post("/api/networks/" + ACCESS_ID + "/craft")
+		this.mockMvc.perform(post("/api/grids/" + ACCESS_ID + "/craft")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"key\":{\"id\":\"minecraft:stone\"},\"amount\":64}"))
 			.andExpect(status().isAccepted())
@@ -77,7 +77,7 @@ class CraftControllerTests {
 	/** 校验对齐：缺失 key 或 amount → 400 missing_key_or_amount（模拟模组行为）。 */
 	@Test
 	void craftWithMissingKeyOrAmountReturns400() throws Exception {
-		this.mockMvc.perform(post("/api/networks/" + ACCESS_ID + "/craft")
+		this.mockMvc.perform(post("/api/grids/" + ACCESS_ID + "/craft")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"amount\":64}"))
 			.andExpect(status().isBadRequest())
@@ -87,7 +87,7 @@ class CraftControllerTests {
 	/** 校验对齐：amount ≤ 0 → 400 invalid_amount。 */
 	@Test
 	void craftWithNonPositiveAmountReturns400() throws Exception {
-		this.mockMvc.perform(post("/api/networks/" + ACCESS_ID + "/craft")
+		this.mockMvc.perform(post("/api/grids/" + ACCESS_ID + "/craft")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"key\":{\"id\":\"minecraft:stone\"},\"amount\":0}"))
 			.andExpect(status().isBadRequest())
@@ -97,7 +97,7 @@ class CraftControllerTests {
 	/** 校验对齐：key 为空 object → 400 invalid_key。 */
 	@Test
 	void craftWithEmptyKeyObjectReturns400() throws Exception {
-		this.mockMvc.perform(post("/api/networks/" + ACCESS_ID + "/craft")
+		this.mockMvc.perform(post("/api/grids/" + ACCESS_ID + "/craft")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"key\":{},\"amount\":64}"))
 			.andExpect(status().isBadRequest())
@@ -107,7 +107,7 @@ class CraftControllerTests {
 	/** 校验对齐：key 不是 object → 400 invalid_key。 */
 	@Test
 	void craftWithNonObjectKeyReturns400() throws Exception {
-		this.mockMvc.perform(post("/api/networks/" + ACCESS_ID + "/craft")
+		this.mockMvc.perform(post("/api/grids/" + ACCESS_ID + "/craft")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"key\":\"minecraft:stone\",\"amount\":64}"))
 			.andExpect(status().isBadRequest())
@@ -117,7 +117,7 @@ class CraftControllerTests {
 	/** 校验对齐：请求体不是 JSON → 400 invalid_json（对齐模组 invalid_json）。 */
 	@Test
 	void craftWithMalformedJsonReturns400() throws Exception {
-		this.mockMvc.perform(post("/api/networks/" + ACCESS_ID + "/craft")
+		this.mockMvc.perform(post("/api/grids/" + ACCESS_ID + "/craft")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("not-json"))
 			.andExpect(status().isBadRequest())
@@ -128,11 +128,11 @@ class CraftControllerTests {
 	@Test
 	void commandsFieldNamesMatchContract() throws Exception {
 		ObjectMapper mapper = new ObjectMapper();
-		when(this.networkService.getCommands(ACCESS_ID, ACCOUNT_ID)).thenReturn(new CommandListResponse(List.of(
+		when(this.gridService.getCommands(ACCESS_ID, ACCOUNT_ID)).thenReturn(new CommandListResponse(List.of(
 				new CommandEntryResponse("5b0cdd1e-6e0e-4a1f-9a1b-3f0f9b21b100", ACCESS_ID, "SUBMITTED",
 						1760000000000L, "crafting-1", 64, mapper.readTree("{\"id\":\"minecraft:stone\"}")))));
 
-		this.mockMvc.perform(get("/api/networks/" + ACCESS_ID + "/commands"))
+		this.mockMvc.perform(get("/api/grids/" + ACCESS_ID + "/commands"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.commands[0].commandId").value("5b0cdd1e-6e0e-4a1f-9a1b-3f0f9b21b100"))
 			.andExpect(jsonPath("$.commands[0].accessId").value(ACCESS_ID))
@@ -143,16 +143,16 @@ class CraftControllerTests {
 			.andExpect(jsonPath("$.commands[0].target.id").value("minecraft:stone"));
 	}
 
-	/** 错误透传：模组 network_not_found → 404 {"error":"network_not_found"}。 */
+	/** 错误透传：模组 grid_not_found → 404 {"error":"grid_not_found"}。 */
 	@Test
 	void modErrorIsRenderedAsContractErrorBody() throws Exception {
-		when(this.networkService.submitCraft(eq(ACCESS_ID), any(CraftRequest.class), eq(ACCOUNT_ID)))
-			.thenThrow(new ModApiException(404, "network_not_found"));
+		when(this.gridService.submitCraft(eq(ACCESS_ID), any(CraftRequest.class), eq(ACCOUNT_ID)))
+			.thenThrow(new ModApiException(404, "grid_not_found"));
 
-		this.mockMvc.perform(post("/api/networks/" + ACCESS_ID + "/craft")
+		this.mockMvc.perform(post("/api/grids/" + ACCESS_ID + "/craft")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"key\":{\"id\":\"minecraft:stone\"},\"amount\":64}"))
 			.andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.error").value("network_not_found"));
+			.andExpect(jsonPath("$.error").value("grid_not_found"));
 	}
 }

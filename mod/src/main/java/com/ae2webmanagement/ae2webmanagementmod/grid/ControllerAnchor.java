@@ -6,7 +6,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 
 /**
- * ME 控制器的位置锚点，用于在「没有持久 ID 的 AE2 网络」里唯一标识一个网络（docs/design.md 决策 D1）。
+ * ME 控制器的位置锚点，用于在「没有持久 ID 的 AE2 网格」里唯一标识一个网格（docs/design.md 决策 D1）。
  *
  * <p>这是纯值对象（不可变），供定位逻辑返回、供身份表持久化复用。
  *

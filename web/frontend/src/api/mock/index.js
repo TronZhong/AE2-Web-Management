@@ -1,18 +1,18 @@
 /**
- * Mock 数据源：按契约形状提供网络列表、快照读取与合成命令，模拟 120–300ms 网络延迟。
- * 在线网络每次读取会「推进采样」：刷新 capturedAt 并让少量库存数量小幅漂移，
- * 用于演示轮询刷新效果；离线网络原样返回最后快照。
+ * Mock 数据源：按契约形状提供网格列表、快照读取与合成命令，模拟 120–300ms 网络延迟。
+ * 在线网格每次读取会「推进采样」：刷新 capturedAt 并让少量库存数量小幅漂移，
+ * 用于演示轮询刷新效果；离线网格原样返回最后快照。
  * 命令部分模拟模组命令表语义：全量历史按 submittedAt 升序返回；
- * 在线网络的 PENDING 命令经延时后转为 SUBMITTED，离线网络保持排队。
- * 网格密码（契约 v0.3）：主基地网络设有密码，锁定网络的 snapshot/craft/commands
- * 抛 network_locked，unlockNetwork 校验 fixtures.NETWORK_PASSWORDS 并按会话记住解锁。
+ * 在线网格的 PENDING 命令经延时后转为 SUBMITTED，离线网格保持排队。
+ * 网格密码（契约 v0.5）：主基地网格设有密码，锁定网格的 snapshot/craft/commands
+ * 抛 grid_locked，unlockGrid 校验 fixtures.GRID_PASSWORDS 并按会话记住解锁。
  */
-import { NETWORKS, NETWORK_PASSWORDS, SNAPSHOTS } from './fixtures.js'
+import { GRIDS, GRID_PASSWORDS, SNAPSHOTS } from './fixtures.js'
 
-/** 会发生数量漂移的物品 id（模拟网络存取活动）。 */
+/** 会发生数量漂移的物品 id（模拟网格存取活动）。 */
 const DRIFT_IDS = new Set(['minecraft:stone', 'minecraft:coal', 'minecraft:wheat'])
 
-/** 在线网络的 PENDING 命令等待多少毫秒后转为 SUBMITTED（模拟模组队列调度）。 */
+/** 在线网格的 PENDING 命令等待多少毫秒后转为 SUBMITTED（模拟模组队列调度）。 */
 const SUBMIT_DELAY_MS = 6_000
 
 /** 模块级命令历史：accessId → 命令数组（按 submittedAt 升序），对应模组 CommandStore。 */
@@ -22,11 +22,11 @@ const COMMAND_HISTORY = new Map()
 const UNLOCKED_GRIDS = new Set()
 
 /**
- * 判断某网络对当前会话是否可访问：未设密码恒可访问；设了密码则须已解锁。
- * @param network 网络摘要对象（含 hasPassword）
+ * 判断某网格对当前会话是否可访问：未设密码恒可访问；设了密码则须已解锁。
+ * @param grid 网格摘要对象（含 hasPassword）
  */
-function isUnlocked(network) {
-  return !network.hasPassword || UNLOCKED_GRIDS.has(network.accessId)
+function isUnlocked(grid) {
+  return !grid.hasPassword || UNLOCKED_GRIDS.has(grid.accessId)
 }
 
 /** 模拟网络延迟，让 loading 态可见。 */
@@ -48,7 +48,7 @@ function makeCommand(accessId, target, amount, state, submittedAt, result) {
 }
 
 /**
- * 取某网络的命令历史（懒初始化）：预置两条历史记录（一条已提交、一条失败），
+ * 取某网格的命令历史（懒初始化）：预置两条历史记录（一条已提交、一条失败），
  * 让命令列表在首次进入时就具备可演示的数据。
  */
 function ensureHistory(accessId) {
@@ -67,7 +67,7 @@ function ensureHistory(accessId) {
   return COMMAND_HISTORY.get(accessId)
 }
 
-/** 推进在线网络的 PENDING 命令：超过等待时长后置为 SUBMITTED 并写入模组同格式回执；离线网络保持排队。 */
+/** 推进在线网格的 PENDING 命令：超过等待时长后置为 SUBMITTED 并写入模组同格式回执；离线网格保持排队。 */
 function advanceCommands(history, online) {
   if (!online) {
     return
@@ -92,35 +92,35 @@ function simulateTick(snapshot) {
   return snapshot
 }
 
-/** GET /api/networks（mock）：摘要统计从快照推导，保证与详情页一致；unlocked 按 v0.3 计算。 */
-export async function fetchNetworks() {
+/** GET /api/grids（mock）：摘要统计从快照推导，保证与详情页一致；unlocked 按 v0.5 计算。 */
+export async function fetchGrids() {
   await latency()
   const now = Date.now()
   return {
-    networks: NETWORKS.map((network) => {
-      const snapshot = SNAPSHOTS[network.accessId]
-      const capturedAt = network.online ? now : snapshot.capturedAt
+    grids: GRIDS.map((grid) => {
+      const snapshot = SNAPSHOTS[grid.accessId]
+      const capturedAt = grid.online ? now : snapshot.capturedAt
       return {
-        ...network,
+        ...grid,
         capturedAt,
         inventoryEntries: snapshot.inventory.length,
         cpuCount: snapshot.craftingCpus.length,
-        unlocked: isUnlocked(network),
+        unlocked: isUnlocked(grid),
       }
     }),
   }
 }
 
-/** GET /api/networks/{accessId}/snapshot（mock）：未知 accessId 抛 network_not_found，锁定网格抛 network_locked。 */
+/** GET /api/grids/{accessId}/snapshot（mock）：未知 accessId 抛 grid_not_found，锁定网格抛 grid_locked。 */
 export async function fetchSnapshot(accessId) {
   await latency()
   const snapshot = SNAPSHOTS[accessId]
   if (!snapshot) {
-    throw new Error('network_not_found')
+    throw new Error('grid_not_found')
   }
-  const network = NETWORKS.find((item) => item.accessId === accessId)
-  if (network && !isUnlocked(network)) {
-    throw new Error('network_locked')
+  const grid = GRIDS.find((item) => item.accessId === accessId)
+  if (grid && !isUnlocked(grid)) {
+    throw new Error('grid_locked')
   }
   if (!snapshot.online) {
     return structuredClone(snapshot)
@@ -129,18 +129,18 @@ export async function fetchSnapshot(accessId) {
 }
 
 /**
- * POST /api/networks/{accessId}/craft（mock）：校验规则与后端/模组对齐，
+ * POST /api/grids/{accessId}/craft（mock）：校验规则与后端/模组对齐，
  * 入队 PENDING 命令并返回 202 受理响应 {commandId, state, submittedAt}。
- * 锁定网格抛 network_locked（契约 v0.3 访问控制）。
+ * 锁定网格抛 grid_locked（契约 v0.5 访问控制）。
  */
 export async function submitCraft(accessId, key, amount) {
   await latency()
   if (!SNAPSHOTS[accessId]) {
-    throw new Error('network_not_found')
+    throw new Error('grid_not_found')
   }
-  const network = NETWORKS.find((item) => item.accessId === accessId)
-  if (network && !isUnlocked(network)) {
-    throw new Error('network_locked')
+  const grid = GRIDS.find((item) => item.accessId === accessId)
+  if (grid && !isUnlocked(grid)) {
+    throw new Error('grid_locked')
   }
   if (key == null || amount == null) {
     throw new Error('missing_key_or_amount')
@@ -157,16 +157,16 @@ export async function submitCraft(accessId, key, amount) {
   return { commandId: command.commandId, state: command.state, submittedAt: command.submittedAt }
 }
 
-/** GET /api/networks/{accessId}/commands（mock）：先推进状态，再按升序返回全量历史；锁定网格抛 network_locked。 */
+/** GET /api/grids/{accessId}/commands（mock）：先推进状态，再按升序返回全量历史；锁定网格抛 grid_locked。 */
 export async function fetchCommands(accessId) {
   await latency()
   const snapshot = SNAPSHOTS[accessId]
   if (!snapshot) {
-    throw new Error('network_not_found')
+    throw new Error('grid_not_found')
   }
-  const network = NETWORKS.find((item) => item.accessId === accessId)
-  if (network && !isUnlocked(network)) {
-    throw new Error('network_locked')
+  const grid = GRIDS.find((item) => item.accessId === accessId)
+  if (grid && !isUnlocked(grid)) {
+    throw new Error('grid_locked')
   }
   const history = ensureHistory(accessId)
   advanceCommands(history, snapshot.online)
@@ -174,18 +174,18 @@ export async function fetchCommands(accessId) {
 }
 
 /**
- * POST /api/networks/{accessId}/unlock（mock）：校验 fixtures.NETWORK_PASSWORDS 并
+ * POST /api/grids/{accessId}/unlock（mock）：校验 fixtures.GRID_PASSWORDS 并
  * 按会话记住解锁（对应后端按账号持久记忆的 account_grid_access 表）。
- * 网络不存在抛 network_not_found；密码不匹配抛 invalid_password；
- * 未设密码的网络幂等返回成功。
+ * 网格不存在抛 grid_not_found；密码不匹配抛 invalid_password；
+ * 未设密码的网格幂等返回成功。
  */
-export async function unlockNetwork(accessId, password) {
+export async function unlockGrid(accessId, password) {
   await latency()
-  const network = NETWORKS.find((item) => item.accessId === accessId)
-  if (!network) {
-    throw new Error('network_not_found')
+  const grid = GRIDS.find((item) => item.accessId === accessId)
+  if (!grid) {
+    throw new Error('grid_not_found')
   }
-  const expected = NETWORK_PASSWORDS[accessId]
+  const expected = GRID_PASSWORDS[accessId]
   if (expected !== undefined && password !== expected) {
     throw new Error('invalid_password')
   }

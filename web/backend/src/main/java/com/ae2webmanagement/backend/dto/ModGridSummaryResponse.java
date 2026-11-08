@@ -1,15 +1,15 @@
 package com.ae2webmanagement.backend.dto;
 
 /**
- * 模组网络摘要（模组契约 {@code GET /networks} 的单个条目，反序列化目标）。
+ * 模组网格摘要（模组契约 {@code GET /grids} 的单个条目，反序列化目标）。
  *
- * <p>对应 docs/contracts/index.md「GET /networks」；字段透传、不重命名。
- * 与 web 侧 {@link NetworkSummaryResponse} 的差异：无 {@code unlocked}
+ * <p>对应 docs/contracts/index.md「GET /grids」；字段透传、不重命名。
+ * 与 web 侧 {@link GridSummaryResponse} 的差异：无 {@code unlocked}
  * （后端按账号计算），{@code hasPassword} 为 {@code Boolean} ——
  * 旧版模组（&lt;0.0.6）无该字段时反序列化为 {@code null}，
- * 由 {@code NetworkService} 归一为「无密码 = 公开」（向后兼容）。</p>
+ * 由 {@code GridService} 归一为「无密码 = 公开」（向后兼容）。</p>
  *
- * @param accessId         网络接入 ID（UUID）
+ * @param accessId         网格接入 ID（UUID）
  * @param displayName      显示名（游戏内注册时命名）
  * @param dimension        控制器所在维度
  * @param controllerX      ME 控制器 X 坐标
@@ -21,7 +21,7 @@ package com.ae2webmanagement.backend.dto;
  * @param cpuCount         合成 CPU 数量
  * @param hasPassword      是否设置了网格密码（v0.3；旧版模组为 null → 按公开处理）
  */
-public record ModNetworkSummaryResponse(
+public record ModGridSummaryResponse(
 		String accessId,
 		String displayName,
 		String dimension,

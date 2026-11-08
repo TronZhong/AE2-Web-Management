@@ -13,7 +13,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import com.ae2webmanagement.ae2webmanagementmod.AE2WebManagement;
 
 /**
- * C2S：接入方块 GUI 提交网络密码（{@code EditBox} 内容无法走 containerData 的
+ * C2S：接入方块 GUI 提交网格密码（{@code EditBox} 内容无法走 containerData 的
  * int 通道，故用自定义 payload（roadmap 已完成项：网格密码增强项））。
  *
  * <p>{@code password} 为空字符串表示「清除密码」；服务端处理器由 NeoForge

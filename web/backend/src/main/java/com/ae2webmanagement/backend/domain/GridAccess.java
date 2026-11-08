@@ -13,8 +13,8 @@ import jakarta.persistence.UniqueConstraint;
 /**
  * 账号维度的「已解锁网格」记录（契约 v0.3 网格访问控制，见 docs/contracts/web-api.md）。
  *
- * <p>一个账号成功通过某网络的密码校验（或该网络无密码时调用 unlock）后，
- * 写入一条记录；之后该账号访问此网络不再需要密码。状态持久化在 H2，
+ * <p>一个账号成功通过某网格的密码校验（或该网格无密码时调用 unlock）后，
+ * 写入一条记录；之后该账号访问此网格不再需要密码。状态持久化在 H2，
  * 登录会话过期重新登录后依然生效。</p>
  */
 @Entity
@@ -27,11 +27,11 @@ public class GridAccess {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	/** 解锁该网络的账号 ID（{@code accounts.id}）。 */
+	/** 解锁该网格的账号 ID（{@code accounts.id}）。 */
 	@Column(name = "account_id", nullable = false)
 	private Long accountId;
 
-	/** 网络接入 ID（模组身份表的 accessId，UUID 字符串）。 */
+	/** 网格接入 ID（模组身份表的 accessId，UUID 字符串）。 */
 	@Column(name = "access_id", nullable = false, length = 36)
 	private String accessId;
 
@@ -47,28 +47,28 @@ public class GridAccess {
 	}
 
 	/**
-	 * @return 解锁该网络的账号 ID
+	 * @return 解锁该网格的账号 ID
 	 */
 	public Long getAccountId() {
 		return this.accountId;
 	}
 
 	/**
-	 * @param accountId 解锁该网络的账号 ID
+	 * @param accountId 解锁该网格的账号 ID
 	 */
 	public void setAccountId(Long accountId) {
 		this.accountId = accountId;
 	}
 
 	/**
-	 * @return 网络接入 ID（UUID 字符串）
+	 * @return 网格接入 ID（UUID 字符串）
 	 */
 	public String getAccessId() {
 		return this.accessId;
 	}
 
 	/**
-	 * @param accessId 网络接入 ID（UUID 字符串）
+	 * @param accessId 网格接入 ID（UUID 字符串）
 	 */
 	public void setAccessId(String accessId) {
 		this.accessId = accessId;

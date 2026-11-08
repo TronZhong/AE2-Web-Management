@@ -32,19 +32,19 @@ import appeng.api.stacks.GenericStack;
 import appeng.blockentity.networking.ControllerBlockEntity;
 
 import com.ae2webmanagement.ae2webmanagementmod.Config;
-import com.ae2webmanagement.ae2webmanagementmod.data.NetworkIdentityStore;
+import com.ae2webmanagement.ae2webmanagementmod.data.GridIdentityStore;
 import com.ae2webmanagement.ae2webmanagementmod.data.SnapshotStore;
-import com.ae2webmanagement.ae2webmanagementmod.network.NetworkIdentity;
+import com.ae2webmanagement.ae2webmanagementmod.grid.GridIdentity;
 
 /**
- * 在主线程周期采集网络快照，并维护供 HTTP 层读取的线程安全缓存。
+ * 在主线程周期采集网格快照，并维护供 HTTP 层读取的线程安全缓存。
  */
 public final class SnapshotManager {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private final Map<UUID, Snapshot> cache = new ConcurrentHashMap<>();
-    private final Map<UUID, NetworkIdentity> identityCache = new ConcurrentHashMap<>();
+    private final Map<UUID, GridIdentity> identityCache = new ConcurrentHashMap<>();
     /** 密码哈希镜像（主线程写 / HTTP 线程读）：GUI 设置密码后立即更新，不等到下一采样周期。 */
     private final Map<UUID, String> passwordHashCache = new ConcurrentHashMap<>();
     private long nextSnapshotAtMillis;
@@ -55,7 +55,7 @@ public final class SnapshotManager {
         this.identityCache.clear();
         this.passwordHashCache.clear();
         ServerLevel overworld = server.overworld();
-        NetworkIdentityStore.get(overworld).getAll()
+        GridIdentityStore.get(overworld).getAll()
                 .forEach(identity -> {
                     this.identityCache.put(identity.accessId(), identity);
                     this.passwordHashCache.put(identity.accessId(), hashOf(identity));
@@ -75,11 +75,11 @@ public final class SnapshotManager {
         this.nextSnapshotAtMillis = now + Math.max(1, Config.SNAPSHOT_INTERVAL_SECONDS.get()) * 1000L;
 
         ServerLevel overworld = server.overworld();
-        NetworkIdentityStore identityStore = NetworkIdentityStore.get(overworld);
+        GridIdentityStore identityStore = GridIdentityStore.get(overworld);
         SnapshotStore snapshots = SnapshotStore.get(overworld);
 
-        Map<UUID, NetworkIdentity> latestIdentities = new HashMap<>();
-        for (NetworkIdentity identity : identityStore.getAll()) {
+        Map<UUID, GridIdentity> latestIdentities = new HashMap<>();
+        for (GridIdentity identity : identityStore.getAll()) {
             latestIdentities.put(identity.accessId(), identity);
             Snapshot previous = this.cache.get(identity.accessId());
             Snapshot current = capture(server, identity, previous);
@@ -109,19 +109,19 @@ public final class SnapshotManager {
         return Optional.ofNullable(this.cache.get(accessId));
     }
 
-    /** 获取全部网络最近快照的只读副本。 */
+    /** 获取全部网格最近快照的只读副本。 */
     public Collection<Snapshot> getAll() {
         return List.copyOf(this.cache.values());
     }
 
-    /** 获取全部网络身份的只读副本，供 HTTP 网络列表使用。 */
-    public Collection<NetworkIdentity> getIdentities() {
+    /** 获取全部网格身份的只读副本，供 HTTP 网格列表使用。 */
+    public Collection<GridIdentity> getIdentities() {
         return List.copyOf(this.identityCache.values());
     }
 
     /**
-     * @param accessId 网络接入 ID
-     * @return 该网络的密码哈希；未设密码或网络未知为空字符串（HTTP 线程可调用）
+     * @param accessId 网格接入 ID
+     * @return 该网格的密码哈希；未设密码或网格未知为空字符串（HTTP 线程可调用）
      */
     public String getPasswordHash(UUID accessId) {
         return this.passwordHashCache.getOrDefault(accessId, "");
@@ -130,7 +130,7 @@ public final class SnapshotManager {
     /**
      * GUI 设置/清除密码后由主线程立即同步，避免等待下一个采样周期。
      *
-     * @param accessId 网络接入 ID
+     * @param accessId 网格接入 ID
      * @param hash     新的密码哈希；清除密码传空字符串
      */
     public void updatePasswordHash(UUID accessId, String hash) {
@@ -139,37 +139,37 @@ public final class SnapshotManager {
 
     /**
      * GUI 改名后由主线程立即同步身份镜像缓存（含密码哈希），
-     * 让 HTTP 网络列表无需等待下一个采样周期即可展示新显示名。
+     * 让 HTTP 网格列表无需等待下一个采样周期即可展示新显示名。
      *
      * <p>对应 roadmap 已完成项（GUI 迭代）：接入方块 GUI 支持 displayName 改名。</p>
      *
      * @param identity 更新后的身份记录（displayName 已改）
      */
-    public void updateIdentity(NetworkIdentity identity) {
+    public void updateIdentity(GridIdentity identity) {
         this.identityCache.put(identity.accessId(), identity);
         this.passwordHashCache.put(identity.accessId(), hashOf(identity));
     }
 
     /**
-     * @param accessId 网络接入 ID
-     * @return 身份表是否存在该网络（HTTP 线程可调用）
+     * @param accessId 网格接入 ID
+     * @return 身份表是否存在该网格（HTTP 线程可调用）
      */
     public boolean hasIdentity(UUID accessId) {
         return this.identityCache.containsKey(accessId);
     }
 
     /** 取身份的密码哈希（null 归一为空串）。 */
-    private static String hashOf(NetworkIdentity identity) {
+    private static String hashOf(GridIdentity identity) {
         return identity.passwordHash() == null ? "" : identity.passwordHash();
     }
 
     /**
-     * 采集一个网络的当前状态。
+     * 采集一个网格的当前状态。
      *
-     * <p>先检查控制器所在区块和 AE2 网格是否在线；在线时读取网络库存缓存、
+     * <p>先检查控制器所在区块和 AE2 网格是否在线；在线时读取网格库存缓存、
      * 合成 CPU 状态和样板摘要，离线时保留上一次快照但把 {@code online} 置为 false。
      */
-    private Snapshot capture(MinecraftServer server, NetworkIdentity identity, Snapshot previous) {
+    private Snapshot capture(MinecraftServer server, GridIdentity identity, Snapshot previous) {
         ServerLevel level = server.getLevel(identity.controllerLevel());
         if (level == null || !level.isLoaded(identity.controllerPos())) {
             return offline(identity.accessId(), previous);
@@ -220,7 +220,7 @@ public final class SnapshotManager {
     }
 
     /**
-     * 采集一个网络的样板摘要，对应 docs/design.md §9 的
+     * 采集一个网格的样板摘要，对应 docs/design.md §9 的
      * {@code ICraftingProvider.getAvailablePatterns()} + {@code IPatternDetails}。
      *
      * <p>AE2 公开 API 没有“枚举全部样板”的入口，因此遍历网格节点逐一取
@@ -306,7 +306,7 @@ public final class SnapshotManager {
     }
 
     /**
-     * 生成本次网络离线时的快照。
+     * 生成本次网格离线时的快照。
      *
      * <p>如果此前没有快照，则使用空数据和时间戳 0；否则保留旧数据，
      * 只刷新在线标记，方便网页显示“数据截至”。

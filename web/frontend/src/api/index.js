@@ -1,6 +1,6 @@
 /**
  * 后端 Web API 客户端（前端唯一的网络出口，组件不得自行 fetch）。
- * 契约：docs/contracts/web-api.md（v0.2：认证端点 + 受保护的只读/命令端点）。
+ * 契约：docs/contracts/web-api.md（v0.5：认证端点 + 受保护的只读/命令端点）。
  * 默认使用 mock 数据源；设置 VITE_USE_MOCK=false 切换真实请求。
  */
 import * as mock from './mock/index.js'
@@ -21,7 +21,7 @@ export function onUnauthorized(handler) {
 
 /**
  * 统一响应处理：正常时返回 JSON；异常时把契约错误体 {"error": code}
- * 归一化为带机器可读码的 Error（如 network_not_found），供页面直接展示。
+ * 归一化为带机器可读码的 Error（如 grid_not_found），供页面直接展示。
  * 401 会额外触发 onUnauthorized 注册的回调。
  */
 async function unwrap(response) {
@@ -43,29 +43,29 @@ async function unwrap(response) {
   throw new Error(code)
 }
 
-/** GET /api/networks → { networks: NetworkSummary[] }，见契约「网络列表」。 */
-export async function fetchNetworks() {
+/** GET /api/grids → { grids: GridSummary[] }，见契约「网格列表」。 */
+export async function fetchGrids() {
   if (USE_MOCK) {
-    return mock.fetchNetworks()
+    return mock.fetchGrids()
   }
-  return unwrap(await fetch('/api/networks'))
+  return unwrap(await fetch('/api/grids'))
 }
 
 /**
- * GET /api/networks/{accessId}/snapshot → 快照对象，见契约「单网络快照」。
- * 网络不存在 / 从未采样时抛出 network_not_found / snapshot_not_found。
+ * GET /api/grids/{accessId}/snapshot → 快照对象，见契约「单网格快照」。
+ * 网格不存在 / 从未采样时抛出 grid_not_found / snapshot_not_found。
  */
 export async function fetchSnapshot(accessId) {
   if (USE_MOCK) {
     return mock.fetchSnapshot(accessId)
   }
-  return unwrap(await fetch(`/api/networks/${encodeURIComponent(accessId)}/snapshot`))
+  return unwrap(await fetch(`/api/grids/${encodeURIComponent(accessId)}/snapshot`))
 }
 
 /**
- * POST /api/networks/{accessId}/craft → 202 受理响应 {commandId, state, submittedAt}，
+ * POST /api/grids/{accessId}/craft → 202 受理响应 {commandId, state, submittedAt}，
  * 见契约「合成命令端点」。校验失败抛 missing_key_or_amount / invalid_amount / invalid_key。
- * @param accessId 网络接入 ID
+ * @param accessId 网格接入 ID
  * @param key      目标 AEKey JSON（复用快照 key 形状，不重命名）
  * @param amount   合成数量，必须为正整数
  */
@@ -74,7 +74,7 @@ export async function submitCraft(accessId, key, amount) {
     return mock.submitCraft(accessId, key, amount)
   }
   return unwrap(
-    await fetch(`/api/networks/${encodeURIComponent(accessId)}/craft`, {
+    await fetch(`/api/grids/${encodeURIComponent(accessId)}/craft`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify({ key, amount }),
@@ -83,28 +83,28 @@ export async function submitCraft(accessId, key, amount) {
 }
 
 /**
- * GET /api/networks/{accessId}/commands → { commands: CommandEntry[] }，
- * 见契约「合成命令端点」。模组返回该网络全量命令历史（按 submittedAt 升序）。
+ * GET /api/grids/{accessId}/commands → { commands: CommandEntry[] }，
+ * 见契约「合成命令端点」。模组返回该网格全量命令历史（按 submittedAt 升序）。
  */
 export async function fetchCommands(accessId) {
   if (USE_MOCK) {
     return mock.fetchCommands(accessId)
   }
-  return unwrap(await fetch(`/api/networks/${encodeURIComponent(accessId)}/commands`))
+  return unwrap(await fetch(`/api/grids/${encodeURIComponent(accessId)}/commands`))
 }
 
 /**
- * POST /api/networks/{accessId}/unlock → 204：解锁设有网格密码的网络（契约 v0.3）。
- * 密码不匹配抛 invalid_password；网络不存在抛 network_not_found；
+ * POST /api/grids/{accessId}/unlock → 204：解锁设有网格密码的网格（契约 v0.5）。
+ * 密码不匹配抛 invalid_password；网格不存在抛 grid_not_found；
  * 成功后解锁状态按账号持久记忆，访问 snapshot/craft/commands 不再需要密码。
- * @param accessId 网络接入 ID
- * @param password 网络密码（游戏内 GUI 设置的那个）
+ * @param accessId 网格接入 ID
+ * @param password 网格密码（游戏内 GUI 设置的那个）
  */
-export async function unlockNetwork(accessId, password) {
+export async function unlockGrid(accessId, password) {
   if (USE_MOCK) {
-    return mock.unlockNetwork(accessId, password)
+    return mock.unlockGrid(accessId, password)
   }
-  const response = await fetch(`/api/networks/${encodeURIComponent(accessId)}/unlock`, {
+  const response = await fetch(`/api/grids/${encodeURIComponent(accessId)}/unlock`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify({ password }),

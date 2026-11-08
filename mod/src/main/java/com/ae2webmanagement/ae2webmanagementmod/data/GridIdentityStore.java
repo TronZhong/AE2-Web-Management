@@ -20,20 +20,20 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 
 import com.ae2webmanagement.ae2webmanagementmod.grid.ControllerAnchor;
-import com.ae2webmanagement.ae2webmanagementmod.network.NetworkIdentity;
+import com.ae2webmanagement.ae2webmanagementmod.grid.GridIdentity;
 
 /**
- * 网络接入身份表（挂 Overworld 的 {@link SavedData}，对应 docs/design.md §4.1）。
+ * 网格接入身份表（挂 Overworld 的 {@link SavedData}，对应 docs/design.md §4.1）。
  *
  * <p>以 ME 控制器锚点（维度 + 坐标）为唯一键，一个锚点对应一条身份记录。
- * 多个 Access Block 接入同一控制器网络时共享同一身份。
+ * 多个 Access Block 接入同一控制器网格时共享同一身份。
  *
  * <h3>存储格式（NBT）</h3>
  * <pre>{@code
  * identities: [ {accessId, level, pos, token, displayName, createdAt, lastSeenAt, passwordHash}, … ]
  * }</pre>
  */
-public final class NetworkIdentityStore extends SavedData {
+public final class GridIdentityStore extends SavedData {
 
     private static final String SAVED_DATA_KEY = "ae2web_identities";
     private static final String KEY_IDENTITIES = "identities";
@@ -48,25 +48,25 @@ public final class NetworkIdentityStore extends SavedData {
     private static final String KEY_LAST_SEEN_AT = "lastSeenAt";
     private static final String KEY_PASSWORD_HASH = "passwordHash";
 
-    private final Map<UUID, NetworkIdentity> identities = new HashMap<>();
+    private final Map<UUID, GridIdentity> identities = new HashMap<>();
     private final Map<String, UUID> anchorToId = new HashMap<>();
 
-    public NetworkIdentityStore() {
+    public GridIdentityStore() {
     }
 
     /**
      * 获取存档级身份表。身份表始终挂载在 Overworld，不随接入方块所在维度分裂。
      */
-    public static NetworkIdentityStore get(ServerLevel level) {
+    public static GridIdentityStore get(ServerLevel level) {
         ServerLevel overworld = level.getServer().overworld();
         return overworld.getDataStorage().computeIfAbsent(
-                new SavedData.Factory<>(NetworkIdentityStore::new, NetworkIdentityStore::load),
+                new SavedData.Factory<>(GridIdentityStore::new, GridIdentityStore::load),
                 SAVED_DATA_KEY);
     }
 
     /** 从 NBT 加载已有数据。 */
-    public static NetworkIdentityStore load(CompoundTag tag, HolderLookup.Provider registries) {
-        NetworkIdentityStore store = new NetworkIdentityStore();
+    public static GridIdentityStore load(CompoundTag tag, HolderLookup.Provider registries) {
+        GridIdentityStore store = new GridIdentityStore();
         ListTag list = tag.getList(KEY_IDENTITIES, Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             CompoundTag entry = list.getCompound(i);
@@ -85,7 +85,7 @@ public final class NetworkIdentityStore extends SavedData {
             // 旧版本存档无 passwordHash 字段：getString 对缺失键返回空串 = 未设密码
             String passwordHash = entry.getString(KEY_PASSWORD_HASH);
 
-            NetworkIdentity identity = new NetworkIdentity(
+            GridIdentity identity = new GridIdentity(
                     accessId, levelKey, pos, token, displayName, createdAt, lastSeenAt, passwordHash);
             store.identities.put(accessId, identity);
             store.anchorToId.put(anchorKey(levelKey, pos), accessId);
@@ -97,7 +97,7 @@ public final class NetworkIdentityStore extends SavedData {
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         ListTag list = new ListTag();
-        for (NetworkIdentity id : identities.values()) {
+        for (GridIdentity id : identities.values()) {
             CompoundTag entry = new CompoundTag();
             entry.putUUID(KEY_ACCESS_ID, id.accessId());
             entry.putString(KEY_LEVEL, id.controllerLevel().location().toString());
@@ -133,9 +133,9 @@ public final class NetworkIdentityStore extends SavedData {
         long now = System.currentTimeMillis();
         UUID accessId = UUID.randomUUID();
         String token = UUID.randomUUID().toString().replace("-", "");
-        String displayName = "Network @ " + anchor.pos().toShortString();
+        String displayName = "Grid @ " + anchor.pos().toShortString();
 
-        NetworkIdentity identity = new NetworkIdentity(
+        GridIdentity identity = new GridIdentity(
                 accessId, anchor.levelKey(), anchor.pos(), token, displayName, now, now, "");
         identities.put(accessId, identity);
         anchorToId.put(key, accessId);
@@ -144,11 +144,11 @@ public final class NetworkIdentityStore extends SavedData {
     }
 
     /** 按 accessId 查找。 */
-    public Optional<NetworkIdentity> get(UUID accessId) {
+    public Optional<GridIdentity> get(UUID accessId) {
         return Optional.ofNullable(identities.get(accessId));
     }
 
-    /** 按控制器锚点查找已注册网络的 accessId（不创建新记录）。 */
+    /** 按控制器锚点查找已注册网格的 accessId（不创建新记录）。 */
     public Optional<UUID> findAccessId(ControllerAnchor anchor) {
         return Optional.ofNullable(anchorToId.get(anchorKey(anchor.levelKey(), anchor.pos())));
     }
@@ -156,17 +156,17 @@ public final class NetworkIdentityStore extends SavedData {
     /**
      * 设置或清除网格密码（主线程调用）。
      *
-     * @param accessId 网络接入 ID（须已注册）
+     * @param accessId 网格接入 ID（须已注册）
      * @param password 密码原文；{@code null} 表示清除密码（恢复公开）
-     * @return 更新后的身份记录；网络不存在时为空
+     * @return 更新后的身份记录；网格不存在时为空
      */
-    public Optional<NetworkIdentity> setPassword(UUID accessId, String password) {
-        NetworkIdentity identity = identities.get(accessId);
+    public Optional<GridIdentity> setPassword(UUID accessId, String password) {
+        GridIdentity identity = identities.get(accessId);
         if (identity == null) {
             return Optional.empty();
         }
         String hash = password == null ? "" : GridPasswords.hash(password);
-        NetworkIdentity updated = new NetworkIdentity(
+        GridIdentity updated = new GridIdentity(
                 identity.accessId(), identity.controllerLevel(), identity.controllerPos(),
                 identity.token(), identity.displayName(), identity.createdAt(), identity.lastSeenAt(), hash);
         identities.put(accessId, updated);
@@ -175,23 +175,23 @@ public final class NetworkIdentityStore extends SavedData {
     }
 
     /**
-     * 修改网络显示名（接入方块 GUI 改名，主线程调用）。
+     * 修改网格显示名（接入方块 GUI 改名，主线程调用）。
      *
      * <p>只改 {@code displayName}，其余字段（accessId / 锚点 / token / 密码哈希等）
      * 保持不变；写后标记 SavedData 脏以便存档。网页展示名来自本字段，
      * 改名后 {@link com.ae2webmanagement.ae2webmanagementmod.snapshot.SnapshotManager#updateIdentity}
      * 同步镜像缓存，让 HTTP 列表无需等待下一个采样周期即可看到新名。</p>
      *
-     * @param accessId    网络接入 ID（须已注册）
+     * @param accessId    网格接入 ID（须已注册）
      * @param newName     新显示名（非空；长度校验由调用方 {@code AccessBlockEntity} 负责）
-     * @return 更新后的身份记录；网络不存在时为空
+     * @return 更新后的身份记录；网格不存在时为空
      */
-    public Optional<NetworkIdentity> rename(UUID accessId, String newName) {
-        NetworkIdentity identity = identities.get(accessId);
+    public Optional<GridIdentity> rename(UUID accessId, String newName) {
+        GridIdentity identity = identities.get(accessId);
         if (identity == null) {
             return Optional.empty();
         }
-        NetworkIdentity updated = new NetworkIdentity(
+        GridIdentity updated = new GridIdentity(
                 identity.accessId(), identity.controllerLevel(), identity.controllerPos(),
                 identity.token(), newName, identity.createdAt(), identity.lastSeenAt(), identity.passwordHash());
         identities.put(accessId, updated);
@@ -200,7 +200,7 @@ public final class NetworkIdentityStore extends SavedData {
     }
 
     /** 全部身份（只读）。 */
-    public Collection<NetworkIdentity> getAll() {
+    public Collection<GridIdentity> getAll() {
         return Collections.unmodifiableCollection(identities.values());
     }
 
@@ -214,12 +214,12 @@ public final class NetworkIdentityStore extends SavedData {
     // ==================== 结果 ====================
 
     public sealed interface Result permits Created, AlreadyExists {
-        NetworkIdentity identity();
+        GridIdentity identity();
 
-        static Result created(NetworkIdentity id) { return new Created(id); }
-        static Result alreadyExists(NetworkIdentity id) { return new AlreadyExists(id); }
+        static Result created(GridIdentity id) { return new Created(id); }
+        static Result alreadyExists(GridIdentity id) { return new AlreadyExists(id); }
     }
 
-    public record Created(NetworkIdentity identity) implements Result {}
-    public record AlreadyExists(NetworkIdentity identity) implements Result {}
+    public record Created(GridIdentity identity) implements Result {}
+    public record AlreadyExists(GridIdentity identity) implements Result {}
 }

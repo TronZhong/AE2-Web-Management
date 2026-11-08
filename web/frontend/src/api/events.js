@@ -9,8 +9,8 @@ import { USE_MOCK } from './index.js'
 /**
  * 订阅后端实时事件流。
  * @param handlers 事件回调：{ onGridsUpdated, onGridSnapshotUpdated }
- *                 - onGridsUpdated(): 网络列表级变化（新增/移除/改名/改密）
- *                 - onGridSnapshotUpdated(accessId): 某网络快照被刷新
+ *                 - onGridsUpdated(): 网格列表级变化（新增/移除/改名/改密）
+ *                 - onGridSnapshotUpdated(accessId): 某网格快照被刷新
  * @returns 取消订阅函数（组件卸载时调用）；USE_MOCK 时返回 no-op
  */
 export function subscribeGridEvents({ onGridsUpdated, onGridSnapshotUpdated } = {}) {

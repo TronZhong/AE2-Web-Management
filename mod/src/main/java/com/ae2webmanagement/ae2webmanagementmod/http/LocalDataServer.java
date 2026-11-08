@@ -37,7 +37,7 @@ import com.ae2webmanagement.ae2webmanagementmod.Config;
 import com.ae2webmanagement.ae2webmanagementmod.command.CommandManager;
 import com.ae2webmanagement.ae2webmanagementmod.command.CraftCommand;
 import com.ae2webmanagement.ae2webmanagementmod.data.GridPasswords;
-import com.ae2webmanagement.ae2webmanagementmod.network.NetworkIdentity;
+import com.ae2webmanagement.ae2webmanagementmod.grid.GridIdentity;
 import com.ae2webmanagement.ae2webmanagementmod.snapshot.Snapshot;
 import com.ae2webmanagement.ae2webmanagementmod.snapshot.SnapshotManager;
 
@@ -150,19 +150,19 @@ public final class LocalDataServer {
         }
     }
 
-    /** 分发只读接口：健康检查、网络列表、单个网络快照和命令历史。 */
+    /** 分发只读接口：健康检查、网格列表、单个网格快照和命令历史。 */
     private void handleGet(HttpExchange exchange, String path) throws IOException {
         if ("/health".equals(path)) {
             sendJson(exchange, 200, Map.of("ok", true));
             return;
         }
-        if ("/networks".equals(path)) {
-            sendJson(exchange, 200, Map.of("networks", listNetworks()));
+        if ("/grids".equals(path)) {
+            sendJson(exchange, 200, Map.of("grids", listGrids()));
             return;
         }
 
         String[] parts = path.split("/");
-        if (parts.length == 4 && "networks".equals(parts[1])) {
+        if (parts.length == 4 && "grids".equals(parts[1])) {
             UUID accessId;
             try {
                 accessId = UUID.fromString(parts[2]);
@@ -188,7 +188,7 @@ public final class LocalDataServer {
      */
     private void handlePost(HttpExchange exchange, String path) throws IOException {
         String[] parts = path.split("/");
-        if (parts.length != 4 || !"networks".equals(parts[1])) {
+        if (parts.length != 4 || !"grids".equals(parts[1])) {
             sendError(exchange, 404, "not_found");
             return;
         }
@@ -216,12 +216,12 @@ public final class LocalDataServer {
     /**
      * 处理合成命令投递。
      *
-     * <p>只校验路径、网络、JSON 结构和基本数值；解析 AEKey 和访问 AE2
+     * <p>只校验路径、网格、JSON 结构和基本数值；解析 AEKey 和访问 AE2
      * 交给主线程的 {@link CommandManager} 处理。
      */
     private void handleCraft(HttpExchange exchange, UUID accessId) throws IOException {
-        if (!this.commands.hasNetwork(accessId)) {
-            sendError(exchange, 404, "network_not_found");
+        if (!this.commands.hasGrid(accessId)) {
+            sendError(exchange, 404, "grid_not_found");
             return;
         }
 
@@ -264,7 +264,7 @@ public final class LocalDataServer {
 
         Optional<CraftCommand> command = this.commands.submit(accessId, target, amount);
         if (command.isEmpty()) {
-            sendError(exchange, 404, "network_not_found");
+            sendError(exchange, 404, "grid_not_found");
             return;
         }
 
@@ -279,12 +279,12 @@ public final class LocalDataServer {
     /**
      * 处理网格密码校验（后端在账号「解锁网格」时转发调用）。
      *
-     * <p>未设密码的网络直接 204（公开）；密码哈希取自 SnapshotManager 的
-     * 镜像缓存（GUI 设密后主线程立即刷新）。网络未知 → 404。</p>
+     * <p>未设密码的网格直接 204（公开）；密码哈希取自 SnapshotManager 的
+     * 镜像缓存（GUI 设密后主线程立即刷新）。网格未知 → 404。</p>
      */
     private void handleVerifyPassword(HttpExchange exchange, UUID accessId) throws IOException {
         if (!this.snapshots.hasIdentity(accessId)) {
-            sendError(exchange, 404, "network_not_found");
+            sendError(exchange, 404, "grid_not_found");
             return;
         }
 
@@ -344,29 +344,29 @@ public final class LocalDataServer {
                 actual.getBytes(StandardCharsets.UTF_8));
     }
 
-    /** 组装网络列表：身份信息来自缓存，在线态和摘要来自最近快照。 */
-    private List<Map<String, Object>> listNetworks() {
-        List<Map<String, Object>> networks = new ArrayList<>();
-        for (NetworkIdentity identity : this.snapshots.getIdentities()) {
+    /** 组装网格列表：身份信息来自缓存，在线态和摘要来自最近快照。 */
+    private List<Map<String, Object>> listGrids() {
+        List<Map<String, Object>> grids = new ArrayList<>();
+        for (GridIdentity identity : this.snapshots.getIdentities()) {
             Optional<Snapshot> snapshot = this.snapshots.get(identity.accessId());
-            Map<String, Object> network = new LinkedHashMap<>();
-            network.put("accessId", identity.accessId().toString());
-            network.put("displayName", identity.displayName());
-            network.put("dimension", identity.controllerLevel().location().toString());
-            network.put("controllerX", identity.controllerPos().getX());
-            network.put("controllerY", identity.controllerPos().getY());
-            network.put("controllerZ", identity.controllerPos().getZ());
-            network.put("online", snapshot.map(Snapshot::online).orElse(false));
-            network.put("capturedAt", snapshot.map(Snapshot::capturedAt).orElse(0L));
-            network.put("inventoryEntries", snapshot.map(value -> value.inventory().size()).orElse(0));
-            network.put("cpuCount", snapshot.map(value -> value.craftingCpus().size()).orElse(0));
-            network.put("hasPassword", !this.snapshots.getPasswordHash(identity.accessId()).isEmpty());
-            networks.add(network);
+            Map<String, Object> grid = new LinkedHashMap<>();
+            grid.put("accessId", identity.accessId().toString());
+            grid.put("displayName", identity.displayName());
+            grid.put("dimension", identity.controllerLevel().location().toString());
+            grid.put("controllerX", identity.controllerPos().getX());
+            grid.put("controllerY", identity.controllerPos().getY());
+            grid.put("controllerZ", identity.controllerPos().getZ());
+            grid.put("online", snapshot.map(Snapshot::online).orElse(false));
+            grid.put("capturedAt", snapshot.map(Snapshot::capturedAt).orElse(0L));
+            grid.put("inventoryEntries", snapshot.map(value -> value.inventory().size()).orElse(0));
+            grid.put("cpuCount", snapshot.map(value -> value.craftingCpus().size()).orElse(0));
+            grid.put("hasPassword", !this.snapshots.getPasswordHash(identity.accessId()).isEmpty());
+            grids.add(grid);
         }
-        return networks;
+        return grids;
     }
 
-    /** 返回单个网络的库存与合成 CPU 快照。 */
+    /** 返回单个网格的库存与合成 CPU 快照。 */
     private void sendSnapshot(HttpExchange exchange, UUID accessId) throws IOException {
         Optional<Snapshot> snapshot = this.snapshots.get(accessId);
         if (snapshot.isEmpty()) {
@@ -435,10 +435,10 @@ public final class LocalDataServer {
         return result;
     }
 
-    /** 返回单个网络的全部命令历史和当前状态。 */
+    /** 返回单个网格的全部命令历史和当前状态。 */
     private void sendCommands(HttpExchange exchange, UUID accessId) throws IOException {
-        if (!this.commands.hasNetwork(accessId)) {
-            sendError(exchange, 404, "network_not_found");
+        if (!this.commands.hasGrid(accessId)) {
+            sendError(exchange, 404, "grid_not_found");
             return;
         }
 

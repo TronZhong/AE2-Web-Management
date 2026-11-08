@@ -24,7 +24,7 @@ import com.ae2webmanagement.ae2webmanagementmod.grid.ControllerAnchor;
  *   <li>{@code containerData[1]} —— 网格密码标记：1 = 已设密码，0 = 未设（公开）</li>
  * </ul>
  *
- * <p>按钮 ID 0 —— 「注册网络」。密码输入走 {@link GridPasswordPayload}；
+ * <p>按钮 ID 0 —— 「注册网格」。密码输入走 {@link GridPasswordPayload}；
  * displayName 改名走 {@link GridRenamePayload}；身份信息（accessId/displayName/
  * 控制器位置）经 {@link GridIdentityPayload} 推给客户端展示（字符串无法进
  * containerData，roadmap 已完成项：GUI 迭代）。</p>
@@ -159,7 +159,7 @@ public class AccessMenu extends AbstractContainerMenu {
     @Override
     public boolean clickMenuButton(Player player, int buttonId) {
         if (buttonId == BUTTON_REGISTER && be != null) {
-            be.tryRegisterNetwork();
+            be.tryRegisterGrid();
             // 注册后立刻刷新状态并把最新身份推给客户端（无需等下一 tick）
             this.lastSentIdentity = null;
             refreshStatusFromBlockEntity();

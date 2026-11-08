@@ -5,7 +5,7 @@ import tools.jackson.databind.JsonNode;
 /**
  * AEKey 通用条目：库存、样板输出等处共用的 {@code {key, amount}} 形状。
  *
- * <p>对应 docs/contracts/web-api.md「单网络快照」中 {@code inventory[]}、
+ * <p>对应 docs/contracts/web-api.md「单网格快照」中 {@code inventory[]}、
  * {@code patterns[].primaryOutput}、{@code patterns[].outputs}、
  * {@code inputs[].possibleInputs[]} 的元素类型（模组契约同构）。</p>
  *

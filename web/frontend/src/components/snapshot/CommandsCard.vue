@@ -1,6 +1,6 @@
 <script setup>
 /**
- * 合成命令卡：展示该网络的命令历史（POST /craft 受理后的状态跟踪）。
+ * 合成命令卡：展示该网格的命令历史（POST /craft 受理后的状态跟踪）。
  * 数据为模组全量历史（PENDING / SUBMITTED / FAILED），展示按提交时间倒序（最新在上）。
  * 命令由模组队列调度，前端只读展示，不提供取消操作（取消 API 为后续迭代）。
  */
@@ -37,7 +37,7 @@ function secondaryLine(command) {
   if (command.state === 'FAILED') {
     return { text: command.result || '未知原因', class: 'text-err' }
   }
-  return { text: '等待网络上线后提交', class: 'text-ink-faint' }
+  return { text: '等待网格上线后提交', class: 'text-ink-faint' }
 }
 
 /** 状态徽标元数据兜底：未知状态按中性灰展示。 */
@@ -93,7 +93,7 @@ function metaOf(state) {
         </div>
       </div>
       <p class="mt-3 font-mono text-[11px] text-ink-faint">
-        命令由模组队列调度：网络在线后提交给 AE2 · 倒序展示最新在上
+        命令由模组队列调度：网格在线后提交给 AE2 · 倒序展示最新在上
       </p>
     </template>
   </BaseCard>

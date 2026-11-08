@@ -12,7 +12,7 @@ import net.minecraft.nbt.CompoundTag;
  * 当时的库存重新模拟。{@code target} 保存 {@code AEKey#toTagGeneric} 生成的 NBT。
  *
  * @param id       命令 ID（用于向网页回传结果）
- * @param accessId 目标网络
+ * @param accessId 目标网格
  * @param target   要合成的物品种类（AEKey 通用 NBT）
  * @param amount   数量
  * @param state    队列状态

@@ -112,8 +112,8 @@ public final class CommandStore extends SavedData {
         return Collections.unmodifiableCollection(this.commands.values());
     }
 
-    /** 获取某个网络的命令，并按提交时间升序排列。 */
-    public List<CraftCommand> getForNetwork(UUID accessId) {
+    /** 获取某个网格的命令，并按提交时间升序排列。 */
+    public List<CraftCommand> getForGrid(UUID accessId) {
         List<CraftCommand> result = new ArrayList<>();
         for (CraftCommand command : this.commands.values()) {
             if (command.accessId().equals(accessId)) {

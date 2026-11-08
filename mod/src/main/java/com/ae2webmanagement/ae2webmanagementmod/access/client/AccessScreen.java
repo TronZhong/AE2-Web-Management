@@ -19,7 +19,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 /**
  * 「接入」方块的 GUI 屏幕（仅客户端加载）。
  *
- * <p>布局：标题 + 注册状态 + 网络身份信息（accessId/displayName/控制器位置，
+ * <p>布局：标题 + 注册状态 + 网格身份信息（accessId/displayName/控制器位置，
  * 由 {@link GridIdentityPayload} 服务端推送）+ 改名区（EditBox + 改名按钮）+
  * Register 按钮 + 网格密码区（EditBox 掩码显示、设置/清除按钮、密码状态）。
  * 注册状态与密码标记来自 menu containerData 服务端每 tick 实时同步；
@@ -115,7 +115,7 @@ public final class AccessScreen extends AbstractContainerScreen<AccessMenu> {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         super.render(guiGraphics, mouseX, mouseY, partialTick);
 
-        // 网络身份信息（服务端推送的字符串；未收到 payload 前显示占位）
+        // 网格身份信息（服务端推送的字符串；未收到 payload 前显示占位）
         GridIdentityPayload identity = this.menu.getClientIdentity();
         Component accessIdLine = Component.literal("accessId: " + truncated(
                 identity != null && !identity.accessId().isEmpty()
@@ -172,7 +172,7 @@ public final class AccessScreen extends AbstractContainerScreen<AccessMenu> {
         }
     }
 
-    /** 点击「清除密码」：发送空串，服务端据此恢复公开网络。 */
+    /** 点击「清除密码」：发送空串，服务端据此恢复公开网格。 */
     private void onClearPasswordPress(Button button) {
         sendPassword("");
         this.passwordBox.setValue("");

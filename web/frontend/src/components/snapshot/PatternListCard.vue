@@ -56,7 +56,7 @@ const filtered = computed(() => {
       </div>
     </template>
 
-    <EmptyState v-if="!patterns.length" text="该网络没有编码样板" />
+    <EmptyState v-if="!patterns.length" text="该网格没有编码样板" />
     <template v-else>
       <div
         class="grid"

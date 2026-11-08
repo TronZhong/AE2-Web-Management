@@ -11,10 +11,10 @@ import org.springframework.web.client.ResourceAccessException;
 
 import com.ae2webmanagement.backend.client.ModApiClient;
 import com.ae2webmanagement.backend.client.ModApiException;
-import com.ae2webmanagement.backend.dto.ModNetworkSummaryResponse;
+import com.ae2webmanagement.backend.dto.ModGridSummaryResponse;
 
 /**
- * 网格状态同步服务：每 2 秒拉取模组网络列表，与内存指纹比对，变化即通过
+ * 网格状态同步服务：每 2 秒拉取模组网格列表，与内存指纹比对，变化即通过
  * {@link RealtimeEventHub} 广播事件提示前端刷新。
  *
  * <p>对应 roadmap 已完成项（SSE 实时推送）：后端无缓存、每次请求直连模组，
@@ -22,7 +22,7 @@ import com.ae2webmanagement.backend.dto.ModNetworkSummaryResponse;
  * 事件形状只推变更提示（{@code grids-updated} / {@code grid-snapshot-updated}），
  * 前端收到后自行 refetch，契约保持简单。</p>
  *
- * <p><b>指纹口径</b>：只含模组侧状态——网络数量 + 每个网络的
+ * <p><b>指纹口径</b>：只含模组侧状态——网格数量 + 每个网格的
  * {@code accessId}/{@code online}/{@code capturedAt}/{@code hasPassword}/{@code displayName}；
  * <b>不含账号相关的 {@code unlocked}</b>（解锁状态属于账号维度，改密/解锁由
  * 业务端点响应，不通过 SSE 广播）。</p>
@@ -42,7 +42,7 @@ public class GridStateSyncService {
 
 	private final RealtimeEventHub eventHub;
 
-	/** 上次比对用的网络指纹：accessId → 模组侧状态（不含 unlocked）。 */
+	/** 上次比对用的网格指纹：accessId → 模组侧状态（不含 unlocked）。 */
 	private Map<String, GridFingerprint> previous = Map.of();
 
 	/** 是否已完成首次指纹建立（首次拉取只存指纹、不广播，避免启动即推送一次全量刷新）。 */
@@ -58,19 +58,19 @@ public class GridStateSyncService {
 	}
 
 	/**
-	 * 定时同步：拉取模组网络列表 → 计算指纹 → 与上次比对 → 变化即广播。
+	 * 定时同步：拉取模组网格列表 → 计算指纹 → 与上次比对 → 变化即广播。
 	 *
 	 * <p>模组不可达时不更新指纹、不广播（下游轮询兜底），避免反复刷错误日志。</p>
 	 */
 	@Scheduled(fixedDelay = POLL_INTERVAL_MS)
 	public void sync() {
 		try {
-			var response = this.modApiClient.listNetworks();
-			if (response == null || response.networks() == null) {
+			var response = this.modApiClient.listGrids();
+			if (response == null || response.grids() == null) {
 				return; // 防御：mock 或异常模组返回空，视作无可比对状态
 			}
 			Map<String, GridFingerprint> current = new HashMap<>();
-			for (ModNetworkSummaryResponse summary : response.networks()) {
+			for (ModGridSummaryResponse summary : response.grids()) {
 				current.put(summary.accessId(), new GridFingerprint(
 						Boolean.TRUE.equals(summary.hasPassword()),
 						summary.online(),
@@ -100,11 +100,11 @@ public class GridStateSyncService {
 	 * 对比新旧指纹并广播差异事件。
 	 *
 	 * <ul>
-	 *   <li>网络集合/数量变化，或某网络 {@code hasPassword}/{@code displayName}
-	 *       变化 → 广播 {@code {"type":"grids-updated"}}（前端刷新网络列表）；</li>
-	 *   <li>某网络 {@code online}/{@code capturedAt} 变化（快照被刷新）
+	 *   <li>网格集合/数量变化，或某网格 {@code hasPassword}/{@code displayName}
+	 *       变化 → 广播 {@code {"type":"grids-updated"}}（前端刷新网格列表）；</li>
+	 *   <li>某网格 {@code online}/{@code capturedAt} 变化（快照被刷新）
 	 *       → 广播 {@code {"type":"grid-snapshot-updated","accessId":...}}
-	 *       （详情页刷新该网络快照）。</li>
+	 *       （详情页刷新该网格快照）。</li>
 	 * </ul>
 	 *
 	 * @param current 本次拉取的指纹
@@ -115,7 +115,7 @@ public class GridStateSyncService {
 			GridFingerprint now = entry.getValue();
 			GridFingerprint before = this.previous.get(entry.getKey());
 			if (before == null) {
-				listChanged = true; // 新网络出现
+				listChanged = true; // 新网格出现
 			}
 			else if (before.hasPassword() != now.hasPassword()
 					|| !before.displayName().equals(now.displayName())) {
@@ -124,7 +124,7 @@ public class GridStateSyncService {
 			if (before == null
 					|| before.online() != now.online()
 					|| before.capturedAt() != now.capturedAt()) {
-				// 快照被刷新（在线态/采样时间变化）→ 推详情页刷新该网络
+				// 快照被刷新（在线态/采样时间变化）→ 推详情页刷新该网格
 				this.eventHub.broadcast(Map.of(
 						"type", "grid-snapshot-updated",
 						"accessId", entry.getKey()));
@@ -132,7 +132,7 @@ public class GridStateSyncService {
 		}
 		for (String accessId : this.previous.keySet()) {
 			if (!current.containsKey(accessId)) {
-				listChanged = true; // 网络被移除
+				listChanged = true; // 网格被移除
 				break;
 			}
 		}
@@ -142,7 +142,7 @@ public class GridStateSyncService {
 	}
 
 	/**
-	 * 单个网络的模组侧状态指纹（用于 SSE 变更比对）。
+	 * 单个网格的模组侧状态指纹（用于 SSE 变更比对）。
 	 *
 	 * @param hasPassword 是否设置了网格密码（模组侧口径，不含账号维度）
 	 * @param online      最近一次快照的在线态

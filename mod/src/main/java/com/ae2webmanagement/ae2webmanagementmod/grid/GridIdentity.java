@@ -1,4 +1,4 @@
-package com.ae2webmanagement.ae2webmanagementmod.network;
+package com.ae2webmanagement.ae2webmanagementmod.grid;
 
 import java.util.UUID;
 
@@ -7,9 +7,9 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
 /**
- * 一条「网络接入身份」，对应 docs/design.md §4.1。
+ * 一条「网格接入身份」，对应 docs/design.md §4.1。
  *
- * <p>以 ME 控制器为锚点（控制器维度 + 坐标）标识一个 AE2 网络，因为 AE2 网络本身没有持久 ID。
+ * <p>以 ME 控制器为锚点（控制器维度 + 坐标）标识一个 AE2 网格，因为 AE2 网格本身没有持久 ID。
  * 这些记录保存在 Minecraft 的 {@code SavedData}（挂 Overworld）里，而非某个方块自己的 NBT。
  *
  * @param accessId        存档内专属 ID（由模组生成）
@@ -20,9 +20,9 @@ import net.minecraft.world.level.Level;
  * @param createdAt       建档时间（epoch 毫秒）
  * @param lastSeenAt      最近一次在线时间（epoch 毫秒）
  * @param passwordHash    网格密码的 PBKDF2 哈希（{@code GridPasswords#hash} 格式）；
- *                        空字符串表示未设密码（公开网络）
+ *                        空字符串表示未设密码（公开网格）
  */
-public record NetworkIdentity(
+public record GridIdentity(
         UUID accessId,
         ResourceKey<Level> controllerLevel,
         BlockPos controllerPos,

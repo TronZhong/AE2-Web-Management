@@ -1,24 +1,24 @@
 /**
- * Mock 固定数据：按 contracts/web-api.md 的形状构造三个示例网络。
+ * Mock 固定数据：按 contracts/web-api.md 的形状构造三个示例网格。
  * 字段与模组端 LocalDataServer 的 JSON 完全一致（accessId 为固定 UUID）。
  */
 
-/** 模拟「3 小时前」的离线快照时间，体现离线网络「数据截至」效果。 */
+/** 模拟「3 小时前」的离线快照时间，体现离线网格「数据截至」效果。 */
 const STALE_TIME = Date.now() - 3 * 60 * 60 * 1000
 
 /**
  * Mock 网格密码表（仅 mock 演示用，真实密码校验在模组端）：
- * 「主基地 ME 网络」设有密码，解锁面板提示用。
+ * 「主基地 ME 网格」设有密码，解锁面板提示用。
  */
-export const NETWORK_PASSWORDS = {
+export const GRID_PASSWORDS = {
   '0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001': '1234',
 }
 
-/** 网络列表 fixture：online 等摘要字段与快照保持一致，由 mock 层推导。 */
-export const NETWORKS = [
+/** 网格列表 fixture：online 等摘要字段与快照保持一致，由 mock 层推导。 */
+export const GRIDS = [
   {
     accessId: '0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001',
-    displayName: '主基地 ME 网络',
+    displayName: '主基地 ME 网格',
     dimension: 'minecraft:overworld',
     controllerX: 128,
     controllerY: 64,
@@ -28,7 +28,7 @@ export const NETWORKS = [
   },
   {
     accessId: '0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a002',
-    displayName: '农场子网络',
+    displayName: '农场子网格',
     dimension: 'minecraft:overworld',
     controllerX: 512,
     controllerY: 70,
@@ -38,7 +38,7 @@ export const NETWORKS = [
   },
   {
     accessId: '0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a003',
-    displayName: '仓库网络',
+    displayName: '仓库网格',
     dimension: 'minecraft:the_nether',
     controllerX: -64,
     controllerY: 40,
@@ -75,7 +75,7 @@ function pattern(outputId, outputAmount, inputs) {
   }
 }
 
-/** 三个网络的完整快照，key 为 accessId；仓库网络为离线（保留最后快照）。 */
+/** 三个网格的完整快照，key 为 accessId；仓库网格为离线（保留最后快照）。 */
 export const SNAPSHOTS = {
   '0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001': {
     accessId: '0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001',

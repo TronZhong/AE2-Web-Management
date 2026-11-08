@@ -16,7 +16,7 @@ import org.springframework.web.client.RestClientResponseException;
 import com.ae2webmanagement.backend.dto.CommandListResponse;
 import com.ae2webmanagement.backend.dto.CraftAcceptedResponse;
 import com.ae2webmanagement.backend.dto.CraftRequest;
-import com.ae2webmanagement.backend.dto.ModNetworkListResponse;
+import com.ae2webmanagement.backend.dto.ModGridListResponse;
 import com.ae2webmanagement.backend.dto.SnapshotResponse;
 import com.ae2webmanagement.backend.dto.VerifyPasswordRequest;
 
@@ -31,9 +31,9 @@ import com.ae2webmanagement.backend.dto.VerifyPasswordRequest;
  *   <li>模组返回非 2xx 时抛出 {@link ModApiException}（携带 HTTP 状态 + 错误码，
  *       错误码取自模组错误体 {@code {"error":"code"}}）。</li>
  *   <li>连接失败 / 超时以 {@link ResourceAccessException} 原样抛出，
- *       由 {@code NetworkService} 翻译为 {@code 503 mod_unreachable}。</li>
+ *       由 {@code GridService} 翻译为 {@code 503 mod_unreachable}。</li>
  *   <li>顶层响应均为「数组包在对象字段里」的非泛型 record
- *       （{@code {networks:[...]}} / {@code {commands:[...]}}），按 class 反序列化即可，
+ *       （{@code {grids:[...]}} / {@code {commands:[...]}}），按 class 反序列化即可，
  *       无泛型擦除问题，无需 {@code ParameterizedTypeReference}。</li>
  * </ul>
  */
@@ -54,27 +54,27 @@ public class ModApiClient {
 	}
 
 	/**
-	 * 查询网络列表。
+	 * 查询网格列表。
 	 *
-	 * @return 模组 {@code GET /networks} 的响应（反序列化为模组侧 DTO，
+	 * @return 模组 {@code GET /grids} 的响应（反序列化为模组侧 DTO，
 	 *         含可空 {@code hasPassword} 以兼容旧版模组）
 	 */
-	public ModNetworkListResponse listNetworks() {
+	public ModGridListResponse listGrids() {
 		return call(() -> this.modRestClient.get()
-			.uri("/networks")
+			.uri("/grids")
 			.retrieve()
-			.body(ModNetworkListResponse.class));
+			.body(ModGridListResponse.class));
 	}
 
 	/**
-	 * 查询单个网络的完整快照。
+	 * 查询单个网格的完整快照。
 	 *
-	 * @param accessId 网络接入 ID（已由 service 校验为合法 UUID）
-	 * @return 模组 {@code GET /networks/{accessId}/snapshot} 的响应
+	 * @param accessId 网格接入 ID（已由 service 校验为合法 UUID）
+	 * @return 模组 {@code GET /grids/{accessId}/snapshot} 的响应
 	 */
 	public SnapshotResponse getSnapshot(UUID accessId) {
 		return call(() -> this.modRestClient.get()
-			.uri("/networks/{accessId}/snapshot", accessId)
+			.uri("/grids/{accessId}/snapshot", accessId)
 			.retrieve()
 			.body(SnapshotResponse.class));
 	}
@@ -82,13 +82,13 @@ public class ModApiClient {
 	/**
 	 * 投递合成命令。
 	 *
-	 * @param accessId 网络接入 ID（已由 service 校验为合法 UUID）
+	 * @param accessId 网格接入 ID（已由 service 校验为合法 UUID）
 	 * @param request  合成请求 {@code {key, amount}}，key 以 JsonNode 透传
-	 * @return 模组 {@code POST /networks/{accessId}/craft} 的 202 响应
+	 * @return 模组 {@code POST /grids/{accessId}/craft} 的 202 响应
 	 */
 	public CraftAcceptedResponse submitCraft(UUID accessId, CraftRequest request) {
 		return call(() -> this.modRestClient.post()
-			.uri("/networks/{accessId}/craft", accessId)
+			.uri("/grids/{accessId}/craft", accessId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.body(request)
 			.retrieve()
@@ -96,30 +96,30 @@ public class ModApiClient {
 	}
 
 	/**
-	 * 查询单个网络的合成命令历史与当前状态。
+	 * 查询单个网格的合成命令历史与当前状态。
 	 *
-	 * @param accessId 网络接入 ID（已由 service 校验为合法 UUID）
-	 * @return 模组 {@code GET /networks/{accessId}/commands} 的响应
+	 * @param accessId 网格接入 ID（已由 service 校验为合法 UUID）
+	 * @return 模组 {@code GET /grids/{accessId}/commands} 的响应
 	 */
 	public CommandListResponse getCommands(UUID accessId) {
 		return call(() -> this.modRestClient.get()
-			.uri("/networks/{accessId}/commands", accessId)
+			.uri("/grids/{accessId}/commands", accessId)
 			.retrieve()
 			.body(CommandListResponse.class));
 	}
 
 	/**
-	 * 校验网络访问密码（后端在账号「解锁网格」时转发调用）。
+	 * 校验网格访问密码（后端在账号「解锁网格」时转发调用）。
 	 *
-	 * <p>契约条目：docs/contracts/index.md「POST /networks/{accessId}/verify-password」；
+	 * <p>契约条目：docs/contracts/index.md「POST /grids/{accessId}/verify-password」；
 	 * 未设密码或密码匹配 → 204（无响应体），由调用方据此记录解锁。</p>
 	 *
-	 * @param accessId 网络接入 ID（已由 service 校验为合法 UUID）
+	 * @param accessId 网格接入 ID（已由 service 校验为合法 UUID）
 	 * @param password 用户输入的密码原文（仅本次请求体内出现，不落盘）
 	 */
 	public void verifyPassword(UUID accessId, String password) {
 		call(() -> this.modRestClient.post()
-			.uri("/networks/{accessId}/verify-password", accessId)
+			.uri("/grids/{accessId}/verify-password", accessId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.body(new VerifyPasswordRequest(password))
 			.retrieve()

@@ -37,8 +37,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.networking.ControllerBlockEntity;
 
 import com.ae2webmanagement.ae2webmanagementmod.data.CommandStore;
-import com.ae2webmanagement.ae2webmanagementmod.data.NetworkIdentityStore;
-import com.ae2webmanagement.ae2webmanagementmod.network.NetworkIdentity;
+import com.ae2webmanagement.ae2webmanagementmod.data.GridIdentityStore;
+import com.ae2webmanagement.ae2webmanagementmod.grid.GridIdentity;
 
 /**
  * 合成命令的线程边界与主线程调度器。
@@ -54,7 +54,7 @@ public final class CommandManager {
     private static final int MAX_INCOMING_PER_TICK = 100;
 
     private final Map<UUID, CraftCommand> cache = new ConcurrentHashMap<>();
-    private final Map<UUID, NetworkIdentity> identities = new ConcurrentHashMap<>();
+    private final Map<UUID, GridIdentity> identities = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<CraftCommand> incoming = new ConcurrentLinkedQueue<>();
     private final Map<UUID, PlanningJob> planning = new LinkedHashMap<>();
 
@@ -64,7 +64,7 @@ public final class CommandManager {
         this.planning.clear();
         this.cache.clear();
         this.identities.clear();
-        NetworkIdentityStore.get(server.overworld()).getAll()
+        GridIdentityStore.get(server.overworld()).getAll()
                 .forEach(identity -> this.identities.put(identity.accessId(), identity));
         CommandStore.get(server.overworld()).getAll()
                 .forEach(command -> this.cache.put(command.id(), command));
@@ -74,7 +74,7 @@ public final class CommandManager {
     /**
      * HTTP 线程入口：只做校验与入队，实际落盘发生在下一次主线程 tick。
      *
-     * @return 已受理命令；网络不存在或参数非法时为空
+     * @return 已受理命令；网格不存在或参数非法时为空
      */
     public Optional<CraftCommand> submit(UUID accessId, CompoundTag target, long amount) {
         if (!this.identities.containsKey(accessId) || target == null || target.isEmpty() || amount <= 0) {
@@ -95,7 +95,7 @@ public final class CommandManager {
         CommandStore store = CommandStore.get(server.overworld());
 
         // Overworld 身份表可能由 GUI 注册产生新记录；主线程 tick 时刷新 HTTP 层可用的索引。
-        NetworkIdentityStore.get(server.overworld()).getAll()
+        GridIdentityStore.get(server.overworld()).getAll()
                 .forEach(identity -> this.identities.put(identity.accessId(), identity));
 
         persistIncoming(store);
@@ -103,11 +103,11 @@ public final class CommandManager {
         completeCalculations(server, store);
     }
 
-    public boolean hasNetwork(UUID accessId) {
+    public boolean hasGrid(UUID accessId) {
         return this.identities.containsKey(accessId);
     }
 
-    /** 按提交时间升序返回某个网络的所有命令；数据来自运行时缓存，供 HTTP 查询使用。 */
+    /** 按提交时间升序返回某个网格的所有命令；数据来自运行时缓存，供 HTTP 查询使用。 */
     public List<CraftCommand> getCommands(UUID accessId) {
         return this.cache.values().stream()
                 .filter(command -> command.accessId().equals(accessId))
@@ -149,9 +149,9 @@ public final class CommandManager {
     }
 
     /**
-     * 扫描所有待处理命令，并为在线网络的命令启动 AE2 重算。
+     * 扫描所有待处理命令，并为在线网格的命令启动 AE2 重算。
      *
-     * <p>离线网络的命令保持 {@code PENDING}，等网络恢复后自动继续。
+     * <p>离线网格的命令保持 {@code PENDING}，等网格恢复后自动继续。
      */
     private void startPendingCalculations(MinecraftServer server, CommandStore store) {
         for (CraftCommand command : List.copyOf(store.getAll())) {
@@ -194,7 +194,7 @@ public final class CommandManager {
                     CalculationStrategy.REPORT_MISSING_ITEMS);
             this.planning.put(command.id(), new PlanningJob(future, System.currentTimeMillis()));
             update(store, command.withState(CommandState.PENDING, System.currentTimeMillis(), "simulating"));
-            LOGGER.info("[AE2Web] Started crafting calculation {} for network {}",
+            LOGGER.info("[AE2Web] Started crafting calculation {} for grid {}",
                     command.id(), command.accessId());
         } catch (RuntimeException exception) {
             LOGGER.warn("[AE2Web] Could not start crafting calculation {}", command.id(), exception);
@@ -281,14 +281,14 @@ public final class CommandManager {
     }
 
     /**
-     * 把 AE2 已生成的可执行计划提交给目标网络。
+     * 把 AE2 已生成的可执行计划提交给目标网格。
      *
      * <p>提交成功时记录 AE2 的 craftingId；拒绝或异常时把命令标记为失败。
      */
     private void submitPlan(MinecraftServer server, CommandStore store, CraftCommand command, ICraftingPlan plan) {
         Optional<CraftingContext> context = findContext(server, command.accessId());
         if (context.isEmpty()) {
-            fail(store, command, "network became offline before submission");
+            fail(store, command, "grid became offline before submission");
             return;
         }
 
@@ -302,7 +302,7 @@ public final class CommandManager {
                 update(store, command.withState(
                         CommandState.SUBMITTED, System.currentTimeMillis(),
                         "submitted to AE2; craftingId=" + craftingId));
-                LOGGER.info("[AE2Web] Submitted crafting command {} for network {} (craftingId={})",
+                LOGGER.info("[AE2Web] Submitted crafting command {} for grid {} (craftingId={})",
                         command.id(), command.accessId(), craftingId);
             } else {
                 String detail = result.errorDetail() == null ? "" : ": " + result.errorDetail();
@@ -317,12 +317,12 @@ public final class CommandManager {
     }
 
     /**
-     * 根据网络身份定位当前可用的 AE2 合成服务。
+     * 根据网格身份定位当前可用的 AE2 合成服务。
      *
      * <p>要求控制器所在区块已加载、网格在线、节点可用，且 crafting service 存在。
      */
     private Optional<CraftingContext> findContext(MinecraftServer server, UUID accessId) {
-        NetworkIdentity identity = this.identities.get(accessId);
+        GridIdentity identity = this.identities.get(accessId);
         if (identity == null) {
             return Optional.empty();
         }
@@ -388,7 +388,7 @@ public final class CommandManager {
             return ImmutableSet.of();
         }
 
-        /** 顶层合成产物由 AE2 的 CPU 完成时直接存入网络；此请求者不接收节点投料。 */
+        /** 顶层合成产物由 AE2 的 CPU 完成时直接存入网格；此请求者不接收节点投料。 */
         @Override
         public long insertCraftedItems(ICraftingLink link, AEKey what, long amount, Actionable mode) {
             return 0;
