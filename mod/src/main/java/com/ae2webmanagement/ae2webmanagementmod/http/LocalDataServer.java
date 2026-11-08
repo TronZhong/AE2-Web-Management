@@ -6,6 +6,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -38,6 +40,8 @@ import com.ae2webmanagement.ae2webmanagementmod.command.CommandManager;
 import com.ae2webmanagement.ae2webmanagementmod.command.CraftCommand;
 import com.ae2webmanagement.ae2webmanagementmod.data.GridPasswords;
 import com.ae2webmanagement.ae2webmanagementmod.grid.GridIdentity;
+import com.ae2webmanagement.ae2webmanagementmod.icon.IconExporter;
+import com.ae2webmanagement.ae2webmanagementmod.icon.IconPaths;
 import com.ae2webmanagement.ae2webmanagementmod.snapshot.Snapshot;
 import com.ae2webmanagement.ae2webmanagementmod.snapshot.SnapshotManager;
 
@@ -160,6 +164,10 @@ public final class LocalDataServer {
             sendJson(exchange, 200, Map.of("grids", listGrids()));
             return;
         }
+        if (path.startsWith("/icons/")) {
+            handleIcon(exchange, path.substring("/icons/".length()));
+            return;
+        }
 
         String[] parts = path.split("/");
         if (parts.length == 4 && "grids".equals(parts[1])) {
@@ -181,6 +189,72 @@ public final class LocalDataServer {
         }
 
         sendError(exchange, 404, "not_found");
+    }
+
+    /**
+     * 处理图标静态文件请求（只读磁盘，绝不现算）。
+     *
+     * <p>图标由客户端 {@code IconService} 离屏渲染成 16×16 PNG 写入
+     * {@code config/ae2webmanagement/icons/<ns>/<path>.png}；本端点只做
+     * 路径校验与文件回读，HTTP 线程永不接触 Minecraft 状态（docs/roadmap.md §5）。</p>
+     *
+     * <p>路径穿越防护：namespace/path 只允许 {@code [a-z0-9_.-]}，拼接根目录后
+     * {@code normalize} 并校验前缀，非法返回 400。缓存头与 JSON 端点的
+     * {@code no-store} 不同：图标一经渲染即静态，给一天浏览器缓存。</p>
+     *
+     * <p>缺失返回 404 并做惰性补齐：在快照缓存中查找对应 key 入队，
+     * 下一次请求大概率已渲染完成。</p>
+     *
+     * @param exchange    请求
+     * @param relativePath {@code /icons/} 之后的路径，形如 {@code minecraft/iron_block.png}
+     */
+    private void handleIcon(HttpExchange exchange, String relativePath) throws IOException {
+        String[] segments = relativePath.split("/");
+        if (segments.length != 2
+                || !isValidIconSegment(segments[0])
+                || !isValidIconSegment(segments[1])) {
+            sendError(exchange, 400, "invalid_icon_path");
+            return;
+        }
+        String namespace = segments[0];
+        String fileName = segments[1];
+        if (!fileName.endsWith(".png")) {
+            sendError(exchange, 400, "invalid_icon_path");
+            return;
+        }
+        String path = fileName.substring(0, fileName.length() - 4);
+        if (path.isEmpty() || !isValidIconSegment(path)) {
+            sendError(exchange, 400, "invalid_icon_path");
+            return;
+        }
+
+        Path base = IconPaths.root().normalize();
+        Path target = base.resolve(namespace).resolve(fileName).normalize();
+        if (!target.startsWith(base)) {
+            sendError(exchange, 400, "invalid_icon_path");
+            return;
+        }
+
+        if (!Files.isRegularFile(target)) {
+            // 缺失 → 404 + 惰性补齐：把对应 key 的完整 NBT 交给客户端 IconService 入队
+            this.snapshots.findKeyTagById(namespace + ":" + path)
+                    .ifPresent(IconExporter.Global.get()::request);
+            sendError(exchange, 404, "icon_not_found");
+            return;
+        }
+
+        byte[] bytes = Files.readAllBytes(target);
+        exchange.getResponseHeaders().set("Content-Type", "image/png");
+        exchange.getResponseHeaders().set("Cache-Control", "public, max-age=86400");
+        exchange.sendResponseHeaders(200, bytes.length);
+        try (OutputStream output = exchange.getResponseBody()) {
+            output.write(bytes);
+        }
+    }
+
+    /** 图标路径段只允许 {@code [a-z0-9_.-]}，杜绝路径穿越（配合 normalize + 前缀校验）。 */
+    private static boolean isValidIconSegment(String segment) {
+        return segment.matches("[a-z0-9_.-]+");
     }
 
     /**

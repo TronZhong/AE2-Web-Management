@@ -2,14 +2,14 @@
 
 > 文档首页：[`index.md`](index.md) › 设计
 
-本页只收录**待办迭代项**与**已识别的问题/隐患**，按优先级从高到低排列；已完成项已移除，完成情况与交接记录见 git 历史及各组件文档。与实现冲突时以代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.9`）。
+本页只收录**待办迭代项**与**已识别的问题/隐患**，按优先级从高到低排列；已完成项已移除，完成情况与交接记录见 git 历史及各组件文档。与实现冲突时以代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.10`）。
 
 ## 1. 优先级总览
 
 | 优先级 | 事项 | 类型 | 状态 |
 | --- | --- | --- | --- |
 | P1 | 物品中文名称（`nameKey`） | 待办 · UX | ✅ 已完成（0.0.9） |
-| P2 | 物品图标（客户端渲染导出） | 待办 · UX | 已拍板 |
+| P2 | 物品图标（客户端渲染导出） | 待办 · UX | 模组部分已完成（0.0.10）；后端/前端待办 |
 | P2 | 模组其他遗留（命令取消、`lastSeenAt`） | 待办 | 已拍板 |
 | P3 | 每网络配对令牌 | 隐患 · 安全 | 暂缓（实施前再确认场景） |
 | P3 | 语言表外部配置化（模块化加载） | 待办 · 工程 | 暂缓（出现第三方模组语言表需求再实施） |
@@ -23,7 +23,7 @@
 | 隐患 | 影响 | 处理 |
 | --- | --- | --- |
 | 服务端无多语言，物品名无中文 | 模组端 `getHoverName()` 恒为英文；前端只能英文友好名/占位，UX 差 | ✅ §4 已实施（0.0.9）：快照传 `nameKey` + 前端官方中文语言表 |
-| 前端物品无图标 | `ItemSlot.vue` 只有按 id 着色的占位方块 | §5 客户端渲染导出 |
+| 前端物品无图标 | `ItemSlot.vue` 只有按 id 着色的占位方块 | §5 客户端渲染导出（模组部分 0.0.10 已完成） |
 | PENDING 命令无法撤销 | 命令一直等待网络上线后自动提交，误发无法撤回，前端不敢提供取消按钮 | §6 命令取消 API |
 | `lastSeenAt` 不随快照回写 | 在线/离线判定与展示失实 | §6 快照循环回写 |
 | 授权仅网格密码，无按网络隔离 | 多玩家/对外部署权限粒度不足；token 语义暂无需求 | §7 暂缓，实施前确认场景 |
@@ -72,6 +72,13 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 
 ## 5. P2 · 物品图标
 
+> **模组部分已按下方「模组端」蓝图执行完毕（0.0.10）**：客户端 `IconService` 离屏渲染、
+> `LocalDataServer` 新增 `GET /icons/{namespace}/{path}.png` 静态文件服务（含路径穿越防护、
+> 一天缓存头、404 惰性补齐）、`Config` 新增 `iconExportEnabled` / `iconRenderPerFrame`，
+> 模组↔后端契约同步（见 [`docs/contracts/index.md`](contracts/index.md)）。渲染挂点经源码核实为
+> NeoForge 1.21.1 的 **`RenderFrameEvent.Post`**（该版本无 `RenderTickEvent`）。后端 `/api/icons`
+> 字节转发端点与前端 `iconUrl` 接线属后端/前端批次，未在本批实施。
+
 ### 现状与隐患
 
 前端 `ItemSlot.vue` 已预留 `iconUrl` prop 与 `pixelated` 渲染分支，当前用按 id 着色的方块占位；只差贴图来源。
@@ -91,7 +98,7 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 
 新增 `mod/.../client/icon/IconService`，仅在客户端侧初始化（`Minecraft.getInstance() != null`）。核心机制是「作业队列 + 每帧预算」，让任意规模的网络都只产生渐进式补齐、不产生单帧卡顿：
 
-- **作业队列 + 每帧预算**：HTTP 线程 / 快照观察只把 key 入队（`ConcurrentLinkedQueue`，只存 AEKey 或 NBT 串，不碰任何 Minecraft 状态）；客户端线程在帧间事件（如 NeoForge 1.21.1 的 `RenderTickEvent.Post`，实现时验证确切挂点）每帧最多消费 N 个（默认 2）。数万物品也只是几十秒后台渐进渲染，任何一帧不掉帧。
+- **作业队列 + 每帧预算**：HTTP 线程 / 快照观察只把 key 入队（`ConcurrentLinkedQueue`，只存 AEKey 或 NBT 串，不碰任何 Minecraft 状态）；客户端线程在帧间事件（**已验证挂点：NeoForge 1.21.1 的 `RenderFrameEvent.Post`**）每帧最多消费 N 个（默认 2）。数万物品也只是几十秒后台渐进渲染，任何一帧不掉帧。
 - **复用单个 `Framebuffer`**：一次性创建 16×16（如需更平滑可放大渲染再缩小）离屏画布全程复用，绑定后调 `ItemRenderer`（借游戏的物品渲染管线），画完 `NativeImage.downloadTexture` 读回像素并**立即恢复默认 framebuffer 与 `RenderSystem` 状态**（projection / blit offset / color / shader），避免污染下一帧。玩家画面完全不受影响（不截屏、不叠加）。
 - **去重**：内存 `Set<String>`（已入队）+ 磁盘存在性检查（已渲染）。已存在的 PNG 永不重渲染；快照循环只在出现**新 key** 时入队，不每 4 秒全量重扫。
 - **IO 下移**：读回像素后，PNG 编码（`NativeImage.writePng`）与文件写入交给单线程 daemon executor，渲染线程不碰磁盘。
@@ -118,13 +125,13 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 
 #### 配置与契约
 
-- 模组 `Config` 新增：`iconExportEnabled`（默认 true，弱机器/专用服务器可关）、`iconRenderPerFrame`（默认 2）。
-- 契约升级至 v0.7：`docs/contracts/index.md` / `web-api.md` 增加 `GET /api/icons/{namespace}/{path}.png`；实现前同步更新；动模组代码批次递增 `mod_version`。
+- 模组 `Config` 新增（0.0.10 已实现）：`iconExportEnabled`（默认 true，弱机器/专用服务器可关）、`iconRenderPerFrame`（默认 2）。
+- 契约升级至 v0.7：`docs/contracts/index.md`（模组侧 `GET /icons/{namespace}/{path}.png` 已随 0.0.10 落地）；后端 `GET /api/icons/{namespace}/{path}.png` 字节转发属后端批次，`web-api.md` 已记录 v0.7 规划状态。动模组代码批次递增 `mod_version`（0.0.9→0.0.10）。
 
 #### 取舍与边界
 
 - **NBT 变体图标**：缓存文件名 `<ns>/<path>.png` 忽略 NBT，第一个见到的变体决定图标（AE2 库存多为普通物品，可接受）。若需精确，可在文件名追加 tag 哈希（key 集合有界，代价可控）。先做 canonical-first。
-- **流体图标**：`ItemRenderer` 渲染不了流体，单独走 `FluidType.getStillTexture()` 贴图 blit 路径；其他 AEKey 类型跳过（前端占位）。
+- **流体图标**：`ItemRenderer` 渲染不了流体，单独走 `IClientFluidTypeExtensions.getStillTexture()`（NeoForge 1.21.1 的流体贴图客户端扩展，`FluidType` 本身已无该方法）贴图 blit 路径；其他 AEKey 类型跳过（前端占位）。
 - **缓存失效**：图标一经渲染即不可变；更换资源包后手动删 `config/ae2webmanagement/icons/` 或递增模组版本，`max-age` 保证一天内自愈。
 
 ### 备选（不推荐，仅记录理由）

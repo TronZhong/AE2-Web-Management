@@ -43,6 +43,9 @@
 | 快照采集与缓存 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/SnapshotManager.java` |
 | 样板摘要 record | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/Snapshot.java` |
 | 本地 HTTP API | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/http/LocalDataServer.java` |
+| 图标导出网关（公共侧） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/icon/IconExporter.java` |
+| 图标缓存目录 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/icon/IconPaths.java` |
+| 客户端图标离屏渲染 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/client/icon/IconService.java` |
 | 合成命令队列与调度 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/command/CommandManager.java` |
 | 合成命令持久化 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/CommandStore.java` |
 | 接入方块 GUI | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessMenu.java` |

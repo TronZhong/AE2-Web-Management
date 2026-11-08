@@ -31,6 +31,19 @@ public final class Config {
             .comment("How often (wall-clock seconds) the inventory/crafting snapshot is refreshed.")
             .defineInRange("snapshotIntervalSeconds", 4, 1, 3600);
 
+    /**
+     * 是否导出物品图标（客户端离屏渲染为 16×16 PNG，经本地 API {@code /icons} 提供）。
+     * 专用服务器无客户端渲染，此开关对服务端无影响；弱机器可关闭以省去渲染开销。
+     */
+    public static final ModConfigSpec.BooleanValue ICON_EXPORT_ENABLED = BUILDER
+            .comment("Export item icons by off-screen rendering on the client. Disable on dedicated servers or weak machines.")
+            .define("iconExportEnabled", true);
+
+    /** 每帧最多渲染的图标数量（作业队列渐进补齐，数值越大补齐越快、单帧开销越大）。 */
+    public static final ModConfigSpec.IntValue ICON_RENDER_PER_FRAME = BUILDER
+            .comment("Maximum number of item icons rendered per frame.")
+            .defineInRange("iconRenderPerFrame", 2, 1, 64);
+
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private Config() {

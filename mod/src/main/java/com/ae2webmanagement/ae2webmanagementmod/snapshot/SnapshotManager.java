@@ -18,6 +18,7 @@ import com.mojang.logging.LogUtils;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -116,6 +117,45 @@ public final class SnapshotManager {
     /** 获取全部网格最近快照的只读副本。 */
     public Collection<Snapshot> getAll() {
         return List.copyOf(this.cache.values());
+    }
+
+    /**
+     * 在全部缓存快照中查找第一个 NBT {@code id} 等于给定值的 stack key。
+     *
+     * <p>供本地 API 图标端点做「缺失惰性补齐」（docs/roadmap.md §5）：前端请求的
+     * 图标对应物一定出现在某份快照的库存或样板书里，把它的完整 AEKey NBT 交给
+     * 客户端 {@code IconService} 入队，下一次请求大概率已渲染完成。纯数据读取
+     * （不触碰世界对象），HTTP 线程可调用。</p>
+     *
+     * @param id 注册表 id，形如 {@code minecraft:iron_block}
+     * @return 命中的 key NBT 副本；未命中为空
+     */
+    public Optional<CompoundTag> findKeyTagById(String id) {
+        for (Snapshot snapshot : this.cache.values()) {
+            for (Snapshot.StackEntry entry : snapshot.inventory()) {
+                if (id.equals(entry.key().getString("id"))) {
+                    return Optional.of(entry.key().copy());
+                }
+            }
+            for (Snapshot.PatternEntry pattern : snapshot.patterns()) {
+                if (id.equals(pattern.primaryOutput().key().getString("id"))) {
+                    return Optional.of(pattern.primaryOutput().key().copy());
+                }
+                for (Snapshot.StackEntry output : pattern.outputs()) {
+                    if (id.equals(output.key().getString("id"))) {
+                        return Optional.of(output.key().copy());
+                    }
+                }
+                for (Snapshot.PatternEntry.PatternInputEntry input : pattern.inputs()) {
+                    for (Snapshot.StackEntry possible : input.possibleInputs()) {
+                        if (id.equals(possible.key().getString("id"))) {
+                            return Optional.of(possible.key().copy());
+                        }
+                    }
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     /** 获取全部网格身份的只读副本，供 HTTP 网格列表使用。 */

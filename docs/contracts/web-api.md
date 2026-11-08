@@ -13,6 +13,7 @@
 - **v0.4（2026-11）**：新增**实时事件端点** `GET /api/events`（SSE 推送，与 v0.3 完全向后兼容）：只推变更提示，前端收到后 refetch；轮询保留作兜底。
 - **v0.5（2026-11）**：**术语统一为 grid**（与模组 0.0.8、后端 `Grid*` 类同步）：URL `/api/networks`→`/api/grids`、JSON key `networks`→`grids`、错误码 `network_locked`→`grid_locked`、`network_not_found`→`grid_not_found`。仅术语改名，字段值与 `accessId` 不变。
 - **v0.6（2026-11）**：**物品中文名称**（与模组 0.0.9、roadmap.md §4 同步）：快照 `inventory[]` / `patterns[]` 各 stack 条目新增**可选** `nameKey`（物品翻译键，前端查中文语言表）；旧版模组/旧快照无该字段，Web 响应省略（向后兼容）。
+- **v0.7（规划，后端待实施）**：新增 `GET /api/icons/{namespace}/{path}.png` 图标转发端点——对模组 `GET /icons/{namespace}/{path}.png`（模组 0.0.10 已就绪，见 [模组↔后端契约](index.md)）做纯字节透传（透传 `Content-Type: image/png` 与 `Cache-Control`）。实施时同步本页只读端点表。
 
 ## 通用约定
 

@@ -15,7 +15,7 @@
 | Gradle 插件 | NeoGradle ModDev 2.0.148 |
 | 映射 | Parchment `2024.11.17`（MC 1.21.1） |
 | Java | 21 |
-| 版本 | `0.0.9` |
+| 版本 | `0.0.10` |
 | mod_id / 包名 | `ae2webmanagement` / `com.ae2webmanagement.ae2webmanagementmod` |
 
 ## 目录结构与源码映射
@@ -54,7 +54,12 @@
 | [`../../mod/src/main/java/.../data/CommandStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/CommandStore.java) | Overworld 命令表（`ae2web_commands.dat`） |
 | [`../../mod/src/main/java/.../data/GridPasswords.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/GridPasswords.java) | 网格密码 PBKDF2 哈希工具（纯 JDK；`pbkdf2:<迭代>:<盐B64>:<哈希B64>`，上限 64 字符） |
 | **`http/`** — 本地数据 API | |
-| [`../../mod/src/main/java/.../http/LocalDataServer.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/http/LocalDataServer.java) | 仅回环绑定；`/health`、`/grids` 网格/快照查询（含 `hasPassword`）、合成命令投递与查询、`verify-password` 密码校验 |
+| [`../../mod/src/main/java/.../http/LocalDataServer.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/http/LocalDataServer.java) | 仅回环绑定；`/health`、`/grids` 网格/快照查询（含 `hasPassword`）、合成命令投递与查询、`verify-password` 密码校验、`/icons` 图标静态文件服务（只读磁盘，含路径穿越防护与 404 惰性补齐） |
+| **`icon/`** — 图标导出（公共侧） | |
+| [`../../mod/src/main/java/.../icon/IconPaths.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/icon/IconPaths.java) | 图标缓存根目录（`config/ae2webmanagement/icons`），服务端与客户端共用 |
+| [`../../mod/src/main/java/.../icon/IconExporter.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/icon/IconExporter.java) | 图标导出网关：客户端注册实现，专用服务器保持 no-op；HTTP 线程经它做 404 惰性补齐 |
+| **`client/icon/`** — 客户端图标渲染 | |
+| [`../../mod/src/main/java/.../client/icon/IconService.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/client/icon/IconService.java) | 仅客户端：作业队列 + 每帧预算的离屏渲染（16×16 PNG，复用单个 FBO），物品借 `ItemRenderer`、流体走 `IClientFluidTypeExtensions` 贴图 blit，IO 写盘走单线程 daemon executor；渲染挂点为 `RenderFrameEvent.Post` |
 | **配置/元数据** | |
 | [`../../mod/src/main/templates/META-INF/neoforge.mods.toml`](../../mod/src/main/templates/META-INF/neoforge.mods.toml) | 模组元数据模板，含 AE2 `required` 依赖 |
 | [`../../mod/src/main/resources/assets/ae2webmanagement/lang/en_us.json`](../../mod/src/main/resources/assets/ae2webmanagement/lang/en_us.json) | 语言文件（含方块名、GUI 文案与配置项翻译） |
@@ -67,12 +72,12 @@
 | `minecraft_version` | `1.21.1` | 目标 MC 版本 |
 | `neo_version` | `21.1.265` | 必须与 MC 版本一致 |
 | `ae2_version` | `19.2.18` | AE2 依赖版本（`build.gradle` 引用） |
-| `mod_version` | `0.0.9` | 每次提交递增补丁号 |
+| `mod_version` | `0.0.10` | 每次提交递增补丁号 |
 | `mod_id` | `ae2webmanagement` | 必须与主类 `MODID` 一致 |
 | `mod_name` | `AE2 Web Management` | 展示名 |
 | `mod_group_id` | `com.ae2webmanagement.ae2webmanagementmod` | 应与源码基础包一致 |
 
-> 运行时配置（`Config.java`）：`httpBindAddress`（默认 127.0.0.1）、`httpPort`（默认 8090）、`sharedSecret`（默认空 = 关闭校验）、`snapshotIntervalSeconds`（默认 4）。
+> 运行时配置（`Config.java`）：`httpBindAddress`（默认 127.0.0.1）、`httpPort`（默认 8090）、`sharedSecret`（默认空 = 关闭校验）、`snapshotIntervalSeconds`（默认 4）、`iconExportEnabled`（默认 true，客户端离屏渲染开关，专用服务器/弱机器可关）、`iconRenderPerFrame`（默认 2，每帧最多渲染的图标数）。
 
 ## 构建
 
@@ -99,7 +104,7 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 - [x] **术语统一为 grid（0.0.8）**：`network/` 包改名 `grid/`（`GridIdentity` / `GridIdentityStore`）、本地数据口端点 `/networks`→`/grids`、JSON key `networks`→`grids`、错误码 `network_not_found`→`grid_not_found`；默认显示名由 `"Network @ ..."` 改为 `"Grid @ ..."`。`SavedData` 文件名（`ae2web_identities.dat`）与 NBT、`accessId` 均不变。
 
 - [x] **`nameKey` 字段（`roadmap.md` §4，0.0.9）**：快照 stack 条目附带物品翻译键（物品取 `Item#getDescriptionId()`、流体取 `FluidType#getDescriptionId()`，其余 AEKey 类型从显示名组件提取）；`SnapshotStore` NBT 与 HTTP JSON 透传，旧存档/旧快照无该字段时按「可选」处理。服务端无多语言，不能直接出中文名，由前端按翻译键查中文语言表。
-- [ ] **物品图标导出（`roadmap.md` §5，细化方案含性能设计）**：客户端离屏渲染已见物品为 16×16 PNG 并经本地 API 提供给后端；专用服务器无客户端、图标回退占位。
+- [x] **物品图标导出 · 模组部分（`roadmap.md` §5，0.0.10）**：客户端 `IconService` 离屏渲染已见物品/流体为 16×16 PNG 写入 `config/ae2webmanagement/icons/`；本地 API 新增 `GET /icons/{namespace}/{path}.png` 静态服务（路径穿越防护、`public, max-age=86400` 缓存头、404 惰性补齐）；渲染挂点为已验证的 `RenderFrameEvent.Post`，专用服务器无客户端、图标端点 404。后端 `/api/icons` 转发与前端 `iconUrl` 接线待后端/前端批次实施。
 - [ ] **命令取消 API 与 `lastSeenAt` 回写（`roadmap.md` §6）**：PENDING 命令目前无法撤销；`lastSeenAt` 尚未随快照回写。
 
 > 实现顺序与完整方案见 [技术设计](../design.md)：锚点身份（控制器 + `SavedData`）→ 注册器方块 → 4 秒快照循环 → 命令队列 → 本地 127.0.0.1 数据口。
