@@ -52,7 +52,7 @@ import com.ae2webmanagement.ae2webmanagementmod.snapshot.Snapshot;
  *       （{@link ConcurrentLinkedQueue}，不碰 Minecraft 状态）；渲染线程在每帧
  *       渲染完成后（{@code RenderFrameEvent.Post}，实现时已验证的挂点）每帧最多
  *       消费 {@code iconRenderPerFrame} 个，任意规模网络都只渐进补齐、不掉帧。</li>
- *   <li><b>复用单个 FBO</b>：16×16 {@link TextureTarget} 全程复用，绑定后借
+ *   <li><b>复用单个 FBO</b>：64×64 {@link TextureTarget} 全程复用，绑定后借
  *       {@code ItemRenderer}（经 {@link GuiGraphics}）画完，读回像素并立即恢复
  *       默认 framebuffer 与 RenderSystem 状态，不污染下一帧。</li>
  *   <li><b>去重</b>：内存 {@code Set<String>}（已入队）+ 磁盘存在性检查（已渲染），
@@ -69,10 +69,10 @@ import com.ae2webmanagement.ae2webmanagementmod.snapshot.Snapshot;
 public final class IconService implements IconExporter {
 
     /** 导出图标边长（像素）。 */
-    public static final int ICON_SIZE = 16;
+    public static final int ICON_SIZE = 64;
 
-    /** 每多少帧观察一次快照缓存，把新增 key 入队（对应 roadmap 的「每 20 tick」）。 */
-    private static final int OBSERVE_EVERY_FRAMES = 20;
+    /** 每多少帧观察一次快照缓存，把新增 key 入队（对应 roadmap 的「每 40 tick」）。 */
+    private static final int OBSERVE_EVERY_FRAMES = 40;
 
     private static final Logger LOGGER = LogUtils.getLogger();
 

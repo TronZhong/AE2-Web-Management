@@ -100,15 +100,15 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 新增 `mod/.../client/icon/IconService`，仅在客户端侧初始化（`Minecraft.getInstance() != null`）。核心机制是「作业队列 + 每帧预算」，让任意规模的网络都只产生渐进式补齐、不产生单帧卡顿：
 
 - **作业队列 + 每帧预算**：HTTP 线程 / 快照观察只把 key 入队（`ConcurrentLinkedQueue`，只存 AEKey 或 NBT 串，不碰任何 Minecraft 状态）；客户端线程在帧间事件（**已验证挂点：NeoForge 1.21.1 的 `RenderFrameEvent.Post`**）每帧最多消费 N 个（默认 2）。数万物品也只是几十秒后台渐进渲染，任何一帧不掉帧。
-- **复用单个 `Framebuffer`**：一次性创建 16×16（如需更平滑可放大渲染再缩小）离屏画布全程复用，绑定后调 `ItemRenderer`（借游戏的物品渲染管线），画完 `NativeImage.downloadTexture` 读回像素并**立即恢复默认 framebuffer 与 `RenderSystem` 状态**（projection / blit offset / color / shader），避免污染下一帧。玩家画面完全不受影响（不截屏、不叠加）。
+- **复用单个 `Framebuffer`**：一次性创建 64×64（如需更平滑可放大渲染再缩小）离屏画布全程复用，绑定后调 `ItemRenderer`（借游戏的物品渲染管线），画完 `NativeImage.downloadTexture` 读回像素并**立即恢复默认 framebuffer 与 `RenderSystem` 状态**（projection / blit offset / color / shader），避免污染下一帧。玩家画面完全不受影响（不截屏、不叠加）。
 - **去重**：内存 `Set<String>`（已入队）+ 磁盘存在性检查（已渲染）。已存在的 PNG 永不重渲染；快照循环只在出现**新 key** 时入队，不每 4 秒全量重扫。
 - **IO 下移**：读回像素后，PNG 编码（`NativeImage.writePng`）与文件写入交给单线程 daemon executor，渲染线程不碰磁盘。
-- **快照 key 来源与节流**：单人模式（integrated server）下 `AE2WebManagement.SNAPSHOT_MANAGER` 是同一 JVM 的共享静态，客户端线程直接读其缓存；观察节流（如每 20 tick 一次或仅 key 集合变化时），只 diff 出新增 key。
+- **快照 key 来源与节流**：单人模式（integrated server）下 `AE2WebManagement.SNAPSHOT_MANAGER` 是同一 JVM 的共享静态，客户端线程直接读其缓存；观察节流（如每 40 tick 一次或仅 key 集合变化时），只 diff 出新增 key。
 - **专用服务器（dedicated）**：无客户端 → `IconService` 不激活、零开销、不崩溃；`/icons` 一律 404，前端落回占位方块。特性天然服务于「自建单人存档 + Web 面板」用法，文档需写明该边界。
 
 #### `LocalDataServer`：静态文件服务（绝不现算）
 
-- `GET /icons/{namespace}/{path}.png` 命中磁盘直接回读字节（16×16 PNG 数百字节，单线程 HTTP executor 无压力）。
+- `GET /icons/{namespace}/{path}.png` 命中磁盘直接回读字节（64×64 PNG 数百字节，单线程 HTTP executor 无压力）。
 - **路径穿越防护**：namespace/path 只允许 `[a-z0-9_.-]`，拼接根目录后 `normalize` 并校验前缀，非法 400/404。
 - **缓存头**（与 JSON 端点的 `no-store` 不同）：`Content-Type: image/png` + `Cache-Control: public, max-age=86400`（图标一经渲染即静态，一天后浏览器自然重验证）。
 - **缺失 → 404 + 惰性补齐**：文件不存在时返回 404，同时把 key 入队，下一次请求大概率已渲染完成；前端 404 时回退占位方块并重试。
