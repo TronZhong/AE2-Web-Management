@@ -9,7 +9,7 @@
 | 优先级 | 事项 | 类型 | 状态 |
 | --- | --- | --- | --- |
 | P1 | 物品中文名称（`nameKey`） | 待办 · UX | ✅ 已完成（0.0.9） |
-| P2 | 物品图标（客户端渲染导出） | 待办 · UX | 模组部分已完成（0.0.10）；后端/前端待办 |
+| P2 | 物品图标（客户端渲染导出） | 待办 · UX | ✅ 已完成（模组 0.0.10 + 后端/前端，契约 v0.7） |
 | P2 | 模组其他遗留（命令取消、`lastSeenAt`） | 待办 | 已拍板 |
 | P3 | 每网络配对令牌 | 隐患 · 安全 | 暂缓（实施前再确认场景） |
 | P3 | 语言表外部配置化（模块化加载） | 待办 · 工程 | 暂缓（出现第三方模组语言表需求再实施） |
@@ -23,7 +23,7 @@
 | 隐患 | 影响 | 处理 |
 | --- | --- | --- |
 | 服务端无多语言，物品名无中文 | 模组端 `getHoverName()` 恒为英文；前端只能英文友好名/占位，UX 差 | ✅ §4 已实施（0.0.9）：快照传 `nameKey` + 前端官方中文语言表 |
-| 前端物品无图标 | `ItemSlot.vue` 只有按 id 着色的占位方块 | §5 客户端渲染导出（模组部分 0.0.10 已完成） |
+| 前端物品无图标 | `ItemSlot.vue` 只有按 id 着色的占位方块 | ✅ §5 已实施（模组 0.0.10 + 后端/前端 v0.7）：`/api/icons` 字节转发 + `ItemSlot` 懒加载贴图，失败/未渲染回退占位方块 |
 | PENDING 命令无法撤销 | 命令一直等待网络上线后自动提交，误发无法撤回，前端不敢提供取消按钮 | §6 命令取消 API |
 | `lastSeenAt` 不随快照回写 | 在线/离线判定与展示失实 | §6 快照循环回写 |
 | 授权仅网格密码，无按网络隔离 | 多玩家/对外部署权限粒度不足；token 语义暂无需求 | §7 暂缓，实施前确认场景 |
@@ -70,18 +70,19 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 
 前端按 id 启发式拼翻译键（`block.<ns>.<path>` / `item.<ns>.<path>` 双尝试）+ 语言表查询。vanilla 几乎全对、模组物品大多遵循约定，但存在反例；仅作过渡与回退，最终以模组 `nameKey` 为准。
 
-## 5. P2 · 物品图标
+## 5. P2 · 物品图标 ✅ 已完成（模组 0.0.10 + 后端/前端 v0.7）
 
-> **模组部分已按下方「模组端」蓝图执行完毕（0.0.10）**：客户端 `IconService` 离屏渲染、
+> **已按下方「细化方案」全链路实施完毕**：模组客户端 `IconService` 离屏渲染、
 > `LocalDataServer` 新增 `GET /icons/{namespace}/{path}.png` 静态文件服务（含路径穿越防护、
-> 一天缓存头、404 惰性补齐）、`Config` 新增 `iconExportEnabled` / `iconRenderPerFrame`，
-> 模组↔后端契约同步（见 [`docs/contracts/index.md`](contracts/index.md)）。渲染挂点经源码核实为
-> NeoForge 1.21.1 的 **`RenderFrameEvent.Post`**（该版本无 `RenderTickEvent`）。后端 `/api/icons`
-> 字节转发端点与前端 `iconUrl` 接线属后端/前端批次，未在本批实施。
+> 一天缓存头、404 惰性补齐）、`Config` 新增 `iconExportEnabled` / `iconRenderPerFrame`（模组 0.0.10，
+> 渲染挂点经源码核实为 NeoForge 1.21.1 的 **`RenderFrameEvent.Post`**，该版本无 `RenderTickEvent`）；
+> 后端 `GET /api/icons/{namespace}/{path}.png` 纯字节转发（`ModApiClient.fetchIcon` 不做 JSON 解析、
+> `IconController` 校验字符集后透传 `Content-Type` 与 `Cache-Control`）与前端 `iconUrlOf()` +
+> `ItemSlot` 懒加载/失败回退接线（契约 v0.7）。实现记录见 git 历史。
 
-### 现状与隐患
+### 现状与隐患（实施前）
 
-前端 `ItemSlot.vue` 已预留 `iconUrl` prop 与 `pixelated` 渲染分支，当前用按 id 着色的方块占位；只差贴图来源。
+前端 `ItemSlot.vue` 已预留 `iconUrl` prop 与 `pixelated` 渲染分支，此前用按 id 着色的方块占位；只差贴图来源。
 
 ### 决策：模组客户端渲染导出（契合"模组是数据出口"架构）
 
@@ -126,7 +127,7 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 #### 配置与契约
 
 - 模组 `Config` 新增（0.0.10 已实现）：`iconExportEnabled`（默认 true，弱机器/专用服务器可关）、`iconRenderPerFrame`（默认 2）。
-- 契约升级至 v0.7：`docs/contracts/index.md`（模组侧 `GET /icons/{namespace}/{path}.png` 已随 0.0.10 落地）；后端 `GET /api/icons/{namespace}/{path}.png` 字节转发属后端批次，`web-api.md` 已记录 v0.7 规划状态。动模组代码批次递增 `mod_version`（0.0.9→0.0.10）。
+- 契约升级至 v0.7（已实施）：`docs/contracts/index.md` 记录模组侧 `GET /icons/{namespace}/{path}.png`（0.0.10 落地）；`docs/contracts/web-api.md`「图标转发端点」记录后端 `GET /api/icons/{namespace}/{path}.png` 字节转发（本批落地）。模组代码未再改动，`mod_version` 保持 `0.0.10`。
 
 #### 取舍与边界
 

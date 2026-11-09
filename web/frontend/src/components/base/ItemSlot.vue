@@ -3,11 +3,12 @@
  * 物品格子：MC 风格槽位，供库存/样板/计划合成弹窗复用。
  * - hover 通过 useItemTooltip 单例在全局固定层显示名称/id/数量，
  *   并携带响应式取值函数，数据刷新（如 mock 漂移、真实库存变化）时提示跟随最新值；
- * - 图标当前用按 id 稳定着色的「方块」占位，iconUrl 传入后切换为贴图
- *   （贴图资源就绪时的接入点，pixelated 渲染保持像素风）；
+ * - iconUrl 传入时渲染模组客户端渲染导出的 16×16 PNG 贴图（roadmap.md §5，
+ *   经后端 /api/icons 字节转发；loading="lazy" 且失败回退占位方块并有限重试，
+ *   配合模组端 404 惰性补齐渐进出现），为空时用按 id 着色的「方块」占位；
  * - 数量 > 1 时右下角显示紧凑角标（MC 样式白字黑影）。
  */
-import { computed, onBeforeUnmount } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { formatCompact, keyId } from '../../lib/format.js'
 import { displayName } from '../../lib/itemName.js'
@@ -19,6 +20,62 @@ const props = defineProps({
   /** 物品贴图 URL；为空时使用方块占位。 */
   iconUrl: { type: String, default: '' },
 })
+
+/** 图标重试参数：模组 404 表示图标尚未渲染（已惰性入队），稍后重试大概率命中。 */
+const ICON_RETRY_DELAY_MS = 5000
+const ICON_RETRY_LIMIT = 2
+
+/** 图标加载失败标记：true 时回退占位方块。 */
+const iconFailed = ref(false)
+
+/** 已发出的图标重试次数；重试 URL 追加 ?retry=N 绕开任何被缓存的失败响应。 */
+const iconRetry = ref(0)
+
+/** 图标重试定时器（组件卸载 / URL 变化时清理）。 */
+let iconRetryTimer = null
+
+/** 清掉待执行的重试定时器。 */
+function clearIconRetryTimer() {
+  if (iconRetryTimer) {
+    clearTimeout(iconRetryTimer)
+    iconRetryTimer = null
+  }
+}
+
+/** 实际下发的图标地址：失败期间为空串（渲染占位方块），重试时附加序号参数。 */
+const iconSrc = computed(() => {
+  if (!props.iconUrl || iconFailed.value) {
+    return ''
+  }
+  return iconRetry.value ? `${props.iconUrl}?retry=${iconRetry.value}` : props.iconUrl
+})
+
+/**
+ * img @error：先回退占位方块，再按有界次数安排重试（防止专用服务器等
+ * 图标恒 404 的场景无限重试）。iconUrl 变化时重置全部重试状态。
+ */
+function onIconError() {
+  clearIconRetryTimer()
+  iconFailed.value = true
+  if (iconRetry.value >= ICON_RETRY_LIMIT || !props.iconUrl) {
+    return
+  }
+  iconRetry.value += 1
+  iconRetryTimer = setTimeout(() => {
+    iconRetryTimer = null
+    iconFailed.value = false
+  }, ICON_RETRY_DELAY_MS)
+}
+
+// iconUrl 变化（数据刷新 / 复用格子换物品）时重置失败与重试计数，重新走一次加载。
+watch(
+  () => props.iconUrl,
+  () => {
+    clearIconRetryTimer()
+    iconFailed.value = false
+    iconRetry.value = 0
+  },
+)
 
 /** 由 id 计算稳定色相：同一物品永远同色，便于视觉区分。 */
 function hueOf(id) {
@@ -54,8 +111,9 @@ function onEnter(event) {
   showTooltip({ ...info.value, source: sourceGetter }, event)
 }
 
-/** 卸载时若提示仍指向本格子（如虚拟滚动窗口移出），立即隐藏避免悬挂。 */
+/** 卸载时若提示仍指向本格子（如虚拟滚动窗口移出），立即隐藏避免悬挂；并清掉图标重试定时器。 */
 onBeforeUnmount(() => {
+  clearIconRetryTimer()
   if (tooltipState.source === sourceGetter) {
     hideTooltip()
   }
@@ -73,10 +131,12 @@ const tooltipState = useItemTooltip()
   >
     <div class="absolute inset-0 flex items-center justify-center">
       <img
-        v-if="iconUrl"
-        :src="iconUrl"
+        v-if="iconSrc"
+        :src="iconSrc"
         :alt="displayName(item)"
+        loading="lazy"
         class="size-8 rounded-[3px] [image-rendering:pixelated]"
+        @error="onIconError"
       />
       <div v-else class="size-8 rounded-[3px]" :style="blockStyle"></div>
     </div>

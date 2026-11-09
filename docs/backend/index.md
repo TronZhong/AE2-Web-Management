@@ -25,14 +25,15 @@
 | `.../backend/config/ModClientConfig.java` | 组装访问模组的 `RestClient` bean（带 `X-Shared-Secret` 头；连接 2s / 读取 5s 超时） |
 | `.../backend/config/CorsConfig.java` | 全局 CORS（`allowCredentials(true)` 以便跨域携带 satoken Cookie） |
 | `.../backend/config/SaTokenConfig.java` | Sa-Token 登录拦截器：拦截 `/api/**`、放行 `/api/auth/login`；`app.auth.enabled=false` 关闭（仅测试切片） |
-| `.../backend/client/ModApiClient.java` | 访问模组的唯一入口：`listGrids` / `getSnapshot` / `submitCraft` / `getCommands` / `verifyPassword`（v0.3 密码校验）；非 2xx 抛 `ModApiException` |
+| `.../backend/client/ModApiClient.java` | 访问模组的唯一入口：`listGrids` / `getSnapshot` / `submitCraft` / `getCommands` / `verifyPassword`（v0.3 密码校验）/ `fetchIcon`（v0.7 图标字节转发，不做 JSON 解析）；非 2xx 抛 `ModApiException` |
 | `.../backend/client/ModApiException.java` | 模组调用链路的统一业务异常（HTTP 状态码 + 机器可读错误码） |
 | `.../backend/service/GridService.java` | 用例编排与错误翻译（accessId 校验、`mod_unreachable` / `mod_unavailable`、其余错误码透传）；网格访问控制：`listGrids` 计算 `unlocked`、`ensureAccessible` 锁定检查（`403 grid_locked`）、`unlock` 编排（模组校验通过后写解锁记录） |
 | `.../backend/service/AuthService.java` | 账号认证用例：登录（BCrypt 校验 + Sa-Token 会话）、注销、`/me`、`currentAccountId`（访问控制取账号 ID）；`ApplicationRunner` 首次启动引导建号 |
 | `.../backend/controller/GridController.java` | `GET /api/grids`（含 `hasPassword`/`unlocked`）、`GET /api/grids/{accessId}/snapshot`、`POST /api/grids/{accessId}/unlock`（v0.3） |
+| `.../backend/controller/IconController.java` | `GET /api/icons/{namespace}/{path}.png`（契约 v0.7）：图标纯字节转发——校验路径字符集后直连 `ModApiClient.fetchIcon`，透传 `image/png` 与一天缓存头；不经 service 业务层，错误兜底见 `GlobalExceptionHandler` |
 | `.../backend/controller/CraftController.java` | `POST /api/grids/{accessId}/craft`（校验请求体）、`GET /api/grids/{accessId}/commands` |
 | `.../backend/controller/AuthController.java` | `POST /api/auth/login`（唯一免认证端点）、`POST /api/auth/logout`、`GET /api/auth/me` |
-| `.../backend/controller/GlobalExceptionHandler.java` | 全局异常兜底：统一输出 `{"error":"code"}`；`NotLoginException` → 401 `unauthorized` |
+| `.../backend/controller/GlobalExceptionHandler.java` | 全局异常兜底：统一输出 `{"error":"code"}`；`NotLoginException` → 401 `unauthorized`；`ResourceAccessException` → 503 `mod_unreachable`（服务不经 service 的直接转发路径，如图标端点） |
 | `.../backend/controller/RealtimeController.java` | `GET /api/events`（SSE 实时事件，Sa-Token Cookie 认证；长超时 + 心跳；事件形状见 docs/contracts/web-api.md「实时事件」） |
 | `.../backend/service/RealtimeEventHub.java` | SSE emitter 集合管理：注册 / 移除 / 广播 / 定时心跳 |
 | `.../backend/service/GridStateSyncService.java` | 每 2s 拉模组网格列表与内存指纹比对，变化即经 `RealtimeEventHub` 广播（指纹只含模组侧状态，不含账号 `unlocked`） |
@@ -78,10 +79,11 @@ cd .\web\backend
 - [x] **P1 只读转发 + P2 合成命令转发已实现**：`/api/grids`、`/api/grids/{id}/snapshot`、`/api/grids/{id}/craft`、`/api/grids/{id}/commands` 均透传模组响应；错误翻译见 `GridService`，兜底见 `GlobalExceptionHandler`。
 - [x] **P3 账号认证已实现**（Sa-Token `1.46.0` spring-boot4-starter，兼容 Spring Boot 4.1 已实测）：登录/注销/`/me` 端点 + 拦截器保护 `/api/**`；H2 账户表（`domain` / `repository`）；首次启动引导建号；`satoken` Cookie 会话。
 - [x] **网格密码访问控制已实现**（契约 v0.3）：网格摘要计算 `unlocked`；snapshot/craft/commands 转发前锁定检查（`403 grid_locked`）；`POST /api/grids/{id}/unlock`（模组 `verify-password` 204 后按账号写 `account_grid_access`，密码不匹配透传 `401 invalid_password`）；密码清除时撤销该网格解锁记录；旧版模组（无 `hasPassword` 字段）按公开网格处理。
-- [x] 测试：`ModApiClientTests`（MockRestServiceServer，含 verify-password 与旧模组兼容）、`ModClientConfigTests`（超时）、`GridServiceTests`（错误翻译 + 访问控制）、`GridControllerTests` / `CraftControllerTests` / `RealtimeControllerTests`（MockMvc 字段对齐，切片关闭拦截器）、`AuthFlowTests`（全上下文认证闭环）、`GridAccessFlowTests`（全上下文解锁闭环：403 → 401 → 204 → unlocked → snapshot 放行）、`GridStateSyncServiceTests`（指纹比对与事件广播）。
+- [x] 测试：`ModApiClientTests`（MockRestServiceServer，含 verify-password 与旧模组兼容、fetchIcon 字节转发）、`ModClientConfigTests`（超时）、`GridServiceTests`（错误翻译 + 访问控制）、`GridControllerTests` / `CraftControllerTests` / `IconControllerTests`（MockMvc 字段对齐，切片关闭拦截器）/ `RealtimeControllerTests`、`AuthFlowTests`（全上下文认证闭环）、`GridAccessFlowTests`（全上下文解锁闭环：403 → 401 → 204 → unlocked → snapshot 放行）、`GridStateSyncServiceTests`（指纹比对与事件广播）。
 - [x] **实时推送（SSE）已实现**（roadmap 已完成项）：`GET /api/events` 订阅实时事件；`GridStateSyncService` 每 2s 拉模组列表比对指纹，变化即广播 `grids-updated` / `grid-snapshot-updated`（只含模组侧状态，不含账号 `unlocked`）；前端收到后 refetch，轮询保留作兜底。
 - [x] **术语统一为 grid（契约 v0.5，模组 0.0.8）**：`NetworkController`→`GridController`、`NetworkService`→`GridService`、`Network*Response`→`Grid*Response`、`ModNetwork*`→`ModGrid*`、`ModApiClient.listNetworks`→`listGrids`；URL `/api/networks`→`/api/grids`；错误码 `network_locked`→`grid_locked`、`network_not_found`→`grid_not_found`。仅术语改名，`accessId` 与字段值不变。
 - [x] **物品中文名称透传（契约 v0.6，模组 0.0.9，roadmap.md §4）**：`StackEntry` DTO 新增可选 `nameKey`（模组快照 JSON 同名字段透传，`JsonNode key` 不变）；`@JsonInclude(NON_NULL)` 省略 null，旧版模组/旧快照无该字段时 Web 响应仍然省略（向后兼容）。
+- [x] **物品图标转发（契约 v0.7，模组 0.0.10，roadmap.md §5）**：`GET /api/icons/{namespace}/{path}.png`——`IconController` 校验路径字符集（`[a-z0-9_.-]`，非法 400 `invalid_icon_path`）后经 `ModApiClient.fetchIcon` 纯字节转发模组 `GET /icons/...`（不做 JSON 解析、不自建缓存、不做 per-network 访问控制），响应透传 `image/png` + `Cache-Control: public, max-age=86400`；模组 404 `icon_not_found`（未渲染，惰性补齐中）原样透传；`GlobalExceptionHandler` 兜底翻译 `ResourceAccessException` → 503 `mod_unreachable`。
 - [ ] 暂无改密 / 注册 / 多账号管理端点（个人自用场景，roadmap 未列入待办）。
 
 ## 相关文档

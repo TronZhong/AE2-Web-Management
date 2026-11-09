@@ -292,6 +292,51 @@ class ModApiClientTests {
 		this.server.verify();
 	}
 
+	/** 正常响应：GET /icons/{ns}/{file}.png 以 byte[] 原样读回（纯字节代理，不做 JSON 解析）。 */
+	@Test
+	void fetchIconReturnsRawBytes() {
+		byte[] png = new byte[] { (byte) 0x89, 'P', 'N', 'G', 0x00, 0x01 };
+		this.server.expect(requestTo(BASE_URL + "/icons/minecraft/iron_block.png"))
+			.andExpect(method(HttpMethod.GET))
+			.andExpect(header("X-Shared-Secret", "test-secret"))
+			.andRespond(withSuccess(png, MediaType.IMAGE_PNG));
+
+		byte[] bytes = this.client.fetchIcon("minecraft", "iron_block.png");
+
+		assertThat(bytes).isEqualTo(png);
+		this.server.verify();
+	}
+
+	/** 错误透传：模组 404 icon_not_found（图标未渲染，惰性补齐中）→ ModApiException(404, icon_not_found)。 */
+	@Test
+	void fetchIconNotFoundPassesThrough() {
+		this.server.expect(requestTo(BASE_URL + "/icons/ae2/controller.png"))
+			.andRespond(withStatus(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON)
+				.body("{\"error\":\"icon_not_found\"}"));
+
+		assertThatThrownBy(() -> this.client.fetchIcon("ae2", "controller.png"))
+			.isInstanceOfSatisfying(ModApiException.class, e -> {
+				assertThat(e.status()).isEqualTo(404);
+				assertThat(e.code()).isEqualTo("icon_not_found");
+			});
+		this.server.verify();
+	}
+
+	/** 错误透传：模组 400 invalid_icon_path（非法路径段）→ ModApiException(400, invalid_icon_path)。 */
+	@Test
+	void fetchIconInvalidPathPassesThrough() {
+		this.server.expect(requestTo(BASE_URL + "/icons/minecraft/UPPER.png"))
+			.andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
+				.body("{\"error\":\"invalid_icon_path\"}"));
+
+		assertThatThrownBy(() -> this.client.fetchIcon("minecraft", "UPPER.png"))
+			.isInstanceOfSatisfying(ModApiException.class, e -> {
+				assertThat(e.status()).isEqualTo(400);
+				assertThat(e.code()).isEqualTo("invalid_icon_path");
+			});
+		this.server.verify();
+	}
+
 	/** 构造 AEKey JSON 的便捷方法（模拟快照里透传的 key）。 */
 	private static JsonNode key(String json) {
 		try {

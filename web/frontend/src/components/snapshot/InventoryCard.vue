@@ -9,6 +9,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import BaseCard from '../base/BaseCard.vue'
 import EmptyState from '../base/EmptyState.vue'
 import ItemSlot from '../base/ItemSlot.vue'
+import { iconUrlOf } from '../../api/index.js'
 import { keyId } from '../../lib/format.js'
 import { displayName } from '../../lib/itemName.js'
 
@@ -119,7 +120,7 @@ function onScroll(event) {
             :style="{ top: row.index * PITCH + 'px', gap: GAP + 'px' }"
           >
             <div v-for="entry in row.items" :key="keyId(entry.key)" class="size-12">
-              <ItemSlot :item="entry" />
+              <ItemSlot :item="entry" :icon-url="iconUrlOf(entry.key)" />
             </div>
           </div>
         </div>

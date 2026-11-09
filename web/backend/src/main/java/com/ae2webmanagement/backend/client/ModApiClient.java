@@ -127,6 +127,27 @@ public class ModApiClient {
 	}
 
 	/**
+	 * 按字节转发模组图标静态文件（契约条目：docs/contracts/index.md
+	 * 「GET /icons/{namespace}/{path}.png」，模组 0.0.10 起提供）。
+	 *
+	 * <p>纯字节代理：成功响应体以 {@code byte[]} 原样读回，<b>不做任何 JSON 解析</b>、
+	 * 不进 service 业务层（docs/roadmap.md §5）；错误响应仍按模组契约解析
+	 * {@code {"error":"code"}}（如 404 icon_not_found / 400 invalid_icon_path）。
+	 * 连接失败 / 超时以 {@link ResourceAccessException} 原样抛出，由
+	 * {@code GlobalExceptionHandler} 兜底翻译为 {@code 503 mod_unreachable}。</p>
+	 *
+	 * @param namespace 图标命名空间段（如 {@code minecraft}，已由 controller 校验字符集）
+	 * @param fileName  图标文件名段（如 {@code iron_block.png}，已由 controller 校验字符集）
+	 * @return PNG 文件字节（16×16 图标，数百字节量级）
+	 */
+	public byte[] fetchIcon(String namespace, String fileName) {
+		return call(() -> this.modRestClient.get()
+			.uri("/icons/{namespace}/{fileName}", namespace, fileName)
+			.retrieve()
+			.body(byte[].class));
+	}
+
+	/**
 	 * 统一执行一次对模组的 HTTP 调用并做异常归类。
 	 *
 	 * <p>非 2xx → {@link #toModApiException(RestClientResponseException)}；

@@ -158,7 +158,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 
 ## 相关文档
 
-- [后续迭代路线](roadmap.md)（认证语义、中文名称、图标等已拍板待实施项）
+- [后续迭代路线](roadmap.md)（认证语义、中文名称、图标等已拍板并实施；剩余为模组遗留与暂缓项）
 - [架构总览](architecture.md)
 - [模组](mod/index.md) · [后端](backend/index.md) · [数据契约](contracts/index.md)
 - [定位指南与源码映射](navigation.md)

@@ -1,6 +1,6 @@
 /**
  * 后端 Web API 客户端（前端唯一的网络出口，组件不得自行 fetch）。
- * 契约：docs/contracts/web-api.md（v0.5：认证端点 + 受保护的只读/命令端点）。
+ * 契约：docs/contracts/web-api.md（v0.7：认证端点 + 受保护的只读/命令端点 + 图标转发）。
  * 默认使用 mock 数据源；设置 VITE_USE_MOCK=false 切换真实请求。
  */
 import * as mock from './mock/index.js'
@@ -114,6 +114,41 @@ export async function unlockGrid(accessId, password) {
     return null
   }
   return unwrap(response)
+}
+
+/**
+ * 由 AEKey JSON 构造物品图标 URL（契约 v0.7「图标转发端点」）：
+ * {@code key.id}（如 {@code "minecraft:iron_block"}）→ {@code /api/icons/minecraft/iron_block.png}。
+ *
+ * <p>仅在 id 两段都匹配模组路径字符集 {@code [a-z0-9_.-]} 时生成（与模组
+ * {@code GET /icons} 的校验一致，避免必然 404/400 的请求）；非物品 key
+ * （无字符串 id）、异常 id 或 mock 模式（无图标来源）返回空串，组件回退
+ * 占位方块。同一物品多条库存共用同一 URL，浏览器按 URL 去重，每图标一次下载。</p>
+ *
+ * @param key AEKey JSON（复用快照 key 形状，不重命名）
+ * @returns 图标 URL 或空串
+ */
+export function iconUrlOf(key) {
+  if (USE_MOCK) {
+    return ''
+  }
+  const id = typeof key?.id === 'string' ? key.id : ''
+  const sep = id.indexOf(':')
+  if (sep <= 0 || sep === id.length - 1) {
+    return ''
+  }
+  const namespace = id.slice(0, sep)
+  const path = id.slice(sep + 1)
+  const segment = /^[a-z0-9_.-]+$/
+  if (
+    !segment.test(namespace) ||
+    !segment.test(path) ||
+    namespace === '.' || namespace === '..' ||
+    path === '.' || path === '..'
+  ) {
+    return ''
+  }
+  return `/api/icons/${namespace}/${path}.png`
 }
 
 /**

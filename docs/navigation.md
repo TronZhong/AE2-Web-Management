@@ -31,7 +31,9 @@
 | 后端实时推送（SSE 事件枢纽） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/RealtimeEventHub.java` |
 | 后端实时推送（指纹轮询与广播） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/GridStateSyncService.java` |
 | 后端实时事件端点 | `web/backend/src/main/java/com/ae2webmanagement/backend/controller/RealtimeController.java` |
-| 后端错误码翻译（mod_unreachable / mod_unavailable） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/GridService.java` |
+| 后端错误码翻译（mod_unreachable / mod_unavailable） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/GridService.java`（直连转发路径的兜底在 `controller/GlobalExceptionHandler.java`） |
+| 后端物品图标转发端点 | `web/backend/src/main/java/com/ae2webmanagement/backend/controller/IconController.java` |
+| 前端图标 URL 构造 | `web/frontend/src/api/index.js`（`iconUrlOf()`） |
 | 后端 Web 端点（/api/**） | `web/backend/src/main/java/com/ae2webmanagement/backend/controller/` |
 | 后端契约 DTO | `web/backend/src/main/java/com/ae2webmanagement/backend/dto/` |
 | 后端 CORS、模组 RestClient（2s/5s 超时） | `web/backend/src/main/java/com/ae2webmanagement/backend/config/` |

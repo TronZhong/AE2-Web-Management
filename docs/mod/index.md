@@ -104,7 +104,7 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 - [x] **术语统一为 grid（0.0.8）**：`network/` 包改名 `grid/`（`GridIdentity` / `GridIdentityStore`）、本地数据口端点 `/networks`→`/grids`、JSON key `networks`→`grids`、错误码 `network_not_found`→`grid_not_found`；默认显示名由 `"Network @ ..."` 改为 `"Grid @ ..."`。`SavedData` 文件名（`ae2web_identities.dat`）与 NBT、`accessId` 均不变。
 
 - [x] **`nameKey` 字段（`roadmap.md` §4，0.0.9）**：快照 stack 条目附带物品翻译键（物品取 `Item#getDescriptionId()`、流体取 `FluidType#getDescriptionId()`，其余 AEKey 类型从显示名组件提取）；`SnapshotStore` NBT 与 HTTP JSON 透传，旧存档/旧快照无该字段时按「可选」处理。服务端无多语言，不能直接出中文名，由前端按翻译键查中文语言表。
-- [x] **物品图标导出 · 模组部分（`roadmap.md` §5，0.0.10）**：客户端 `IconService` 离屏渲染已见物品/流体为 16×16 PNG 写入 `config/ae2webmanagement/icons/`；本地 API 新增 `GET /icons/{namespace}/{path}.png` 静态服务（路径穿越防护、`public, max-age=86400` 缓存头、404 惰性补齐）；渲染挂点为已验证的 `RenderFrameEvent.Post`，专用服务器无客户端、图标端点 404。后端 `/api/icons` 转发与前端 `iconUrl` 接线待后端/前端批次实施。
+- [x] **物品图标导出 · 模组部分（`roadmap.md` §5，0.0.10）**：客户端 `IconService` 离屏渲染已见物品/流体为 16×16 PNG 写入 `config/ae2webmanagement/icons/`；本地 API 新增 `GET /icons/{namespace}/{path}.png` 静态服务（路径穿越防护、`public, max-age=86400` 缓存头、404 惰性补齐）；渲染挂点为已验证的 `RenderFrameEvent.Post`，专用服务器无客户端、图标端点 404。后端 `/api/icons` 转发与前端 `iconUrl` 接线已于后端/前端批次完成（契约 v0.7，见 [`../backend/index.md`](../backend/index.md) 与 [`../frontend/index.md`](../frontend/index.md)）。
 - [ ] **命令取消 API 与 `lastSeenAt` 回写（`roadmap.md` §6）**：PENDING 命令目前无法撤销；`lastSeenAt` 尚未随快照回写。
 
 > 实现顺序与完整方案见 [技术设计](../design.md)：锚点身份（控制器 + `SavedData`）→ 注册器方块 → 4 秒快照循环 → 命令队列 → 本地 127.0.0.1 数据口。
@@ -112,7 +112,7 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 ## 相关文档
 
 - [技术设计](../design.md)（定稿方案）
-- [后续迭代路线](../roadmap.md)（GUI 迭代、`nameKey`、图标导出等待实施项）
+- [后续迭代路线](../roadmap.md)（GUI 迭代、`nameKey`、图标导出已实施项）
 - [架构总览](../architecture.md)（线程安全、缓存、存档 ID 等设计约束）
 - [数据契约](../contracts/index.md)
 - [后端](../backend/index.md)

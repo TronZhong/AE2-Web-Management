@@ -10,6 +10,7 @@ import BaseCard from '../base/BaseCard.vue'
 import EmptyState from '../base/EmptyState.vue'
 import ItemSlot from '../base/ItemSlot.vue'
 import StatusBadge from '../base/StatusBadge.vue'
+import { iconUrlOf } from '../../api/index.js'
 import { formatAmount, formatTime, keyId } from '../../lib/format.js'
 import { displayName } from '../../lib/itemName.js'
 
@@ -69,7 +70,7 @@ function metaOf(state) {
           class="flex items-center gap-3 rounded-md px-1 py-1.5"
         >
           <div class="size-10 shrink-0">
-            <ItemSlot :item="{ key: command.target, amount: command.amount }" />
+            <ItemSlot :item="{ key: command.target, amount: command.amount }" :icon-url="iconUrlOf(command.target)" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-baseline gap-2">

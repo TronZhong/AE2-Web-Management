@@ -13,7 +13,7 @@
 - **v0.4（2026-11）**：新增**实时事件端点** `GET /api/events`（SSE 推送，与 v0.3 完全向后兼容）：只推变更提示，前端收到后 refetch；轮询保留作兜底。
 - **v0.5（2026-11）**：**术语统一为 grid**（与模组 0.0.8、后端 `Grid*` 类同步）：URL `/api/networks`→`/api/grids`、JSON key `networks`→`grids`、错误码 `network_locked`→`grid_locked`、`network_not_found`→`grid_not_found`。仅术语改名，字段值与 `accessId` 不变。
 - **v0.6（2026-11）**：**物品中文名称**（与模组 0.0.9、roadmap.md §4 同步）：快照 `inventory[]` / `patterns[]` 各 stack 条目新增**可选** `nameKey`（物品翻译键，前端查中文语言表）；旧版模组/旧快照无该字段，Web 响应省略（向后兼容）。
-- **v0.7（规划，后端待实施）**：新增 `GET /api/icons/{namespace}/{path}.png` 图标转发端点——对模组 `GET /icons/{namespace}/{path}.png`（模组 0.0.10 已就绪，见 [模组↔后端契约](index.md)）做纯字节透传（透传 `Content-Type: image/png` 与 `Cache-Control`）。实施时同步本页只读端点表。
+- **v0.7（2026-11）**：新增 `GET /api/icons/{namespace}/{path}.png` 图标转发端点——对模组 `GET /icons/{namespace}/{path}.png`（模组 0.0.10，见 [模组↔后端契约](index.md)）做纯字节透传（透传 `Content-Type: image/png` 与 `Cache-Control`，后端不自建缓存）。仅要求登录，不做 per-network 访问控制；模组不可达 503、图标未渲染 404，前端 `@error` 回退占位方块并有限重试。见「图标转发端点」。
 
 ## 通用约定
 
@@ -24,7 +24,9 @@
   - `mod_unreachable`（503）：后端无法连接模组本地 API（游戏未启动 / 数据口未开启 / 超时）；
   - `mod_unavailable`（503）：模组拒绝了后端的共享密钥（`X-Shared-Secret` 不匹配，需检查后端 `app.mod.shared-secret` 配置）；
   - `invalid_password`（401，v0.3）：网格密码校验失败；
-  - `grid_locked`（403，v0.3）：网格设有密码且当前账号未解锁，snapshot / craft / commands 拒绝访问。
+  - `grid_locked`（403，v0.3）：网格设有密码且当前账号未解锁，snapshot / craft / commands 拒绝访问；
+  - `invalid_icon_path`（400，v0.7）：图标路径段不合法（仅允许 `[a-z0-9_.-]`）；
+  - `icon_not_found`（404，v0.7）：图标尚未渲染（模组惰性补齐中，重试即可）。
 - `amount` 以 JSON number 透传（Java 侧为 long；超过 2^53 的值理论上丢精度，实际库存量达不到）。
 - **用户认证（账号制，v0.2 起）**：密码是**后端账号密码**，与 Minecraft/AE2 无关；登录后可见全部已注册网格。
   - 会话凭证：登录成功后，后端通过响应头 `Set-Cookie` 下发 `satoken` Cookie（HttpOnly），并在响应体返回 token 值；后续请求**同源自动携带 Cookie**，非 Cookie 客户端可用请求头 `satoken: <tokenValue>` 等价传递。
@@ -123,6 +125,26 @@
 | `inputs[].multiplier` | number | 槽位倍率；实际需求量 = `possibleInputs[i].amount × multiplier` |
 
 > 各 stack 条目的 `nameKey`（可选，v0.6）同 `inventory[]`：物品翻译键，前端查中文语言表（roadmap.md §4）。
+
+## 图标转发端点（v0.7）
+
+### `GET /api/icons/{namespace}/{path}.png`
+
+物品/流体图标（16×16 PNG），对模组 `GET /icons/{namespace}/{path}.png` 做纯字节透传。
+`namespace`/`path` 来自快照 key 的 `id`（如 `minecraft:iron_block` →
+`/api/icons/minecraft/iron_block.png`），前端由 `id` 构造 URL（`api/index.js` 的
+`iconUrlOf()`）。
+
+| 行为 | 说明 |
+| --- | --- |
+| 成功 `200` | `Content-Type: image/png` + `Cache-Control: public, max-age=86400`（图标一经渲染即静态，浏览器缓存承担去重，后端不自建缓存） |
+| `404 icon_not_found` | 图标尚未渲染——模组端已惰性把 key 入队（客户端后台渲染），前端 `@error` 回退占位方块并有限重试，下一次请求大概率命中 |
+| `400 invalid_icon_path` | 路径段不合法（后端转发前校验 `[a-z0-9_.-]`，与模组一致；模组侧另有 normalize + 前缀校验兜底路径穿越） |
+| `503 mod_unreachable` / `mod_unavailable` | 游戏未启动 / 共享密钥不匹配；前端同 404 处理 |
+| `401 unauthorized` | 未登录（该端点仅要求登录，不做 per-network 访问控制） |
+
+> 边界：**专用服务器（dedicated）**无客户端渲染，图标一律 404，前端恒为占位方块；
+> 图标按 `<ns>/<path>.png` 缓存，忽略 NBT 变体（第一个见到的变体决定图标，roadmap.md §5）。
 
 ## 合成命令端点
 

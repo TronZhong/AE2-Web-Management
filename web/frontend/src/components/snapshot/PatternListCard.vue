@@ -10,6 +10,7 @@ import BaseCard from '../base/BaseCard.vue'
 import EmptyState from '../base/EmptyState.vue'
 import ItemSlot from '../base/ItemSlot.vue'
 import CraftPlanModal from './CraftPlanModal.vue'
+import { iconUrlOf } from '../../api/index.js'
 import { keyId } from '../../lib/format.js'
 import { displayName } from '../../lib/itemName.js'
 
@@ -71,7 +72,7 @@ const filtered = computed(() => {
           :title="displayName(pattern.primaryOutput)"
           @click="selected = pattern"
         >
-          <ItemSlot :item="pattern.primaryOutput" />
+          <ItemSlot :item="pattern.primaryOutput" :icon-url="iconUrlOf(pattern.primaryOutput.key)" />
         </button>
       </div>
       <p class="mt-3 font-mono text-[11px] text-ink-faint">

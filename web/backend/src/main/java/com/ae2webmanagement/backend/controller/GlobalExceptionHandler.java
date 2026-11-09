@@ -11,6 +11,7 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import cn.dev33.satoken.exception.NotLoginException;
@@ -97,6 +98,24 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(NoResourceFoundException.class)
 	ResponseEntity<Map<String, String>> handleNoResource(NoResourceFoundException e) {
 		return error(HttpStatus.NOT_FOUND, "not_found");
+	}
+
+	/**
+	 * 连接模组失败 / 超时的兜底翻译：{@code 503 {"error":"mod_unreachable"}}。
+	 *
+	 * <p>常规转发链路里该异常已由 {@code GridService} 捕获翻译，到不了这里；
+	 * 本兜底服务于不经 service 的直接转发路径（契约 v0.7 图标端点
+	 * {@code IconController} 直连 {@code ModApiClient}），避免落进
+	 * {@code 500 internal_error}。前端对图标 404/503 均 {@code @error}
+	 * 回退占位方块。</p>
+	 *
+	 * @param e 连接失败 / 读取超时异常
+	 * @return {@code 503 {"error":"mod_unreachable"}}
+	 */
+	@ExceptionHandler(ResourceAccessException.class)
+	ResponseEntity<Map<String, String>> handleModUnreachable(ResourceAccessException e) {
+		log.warn("无法连接模组本地 API（游戏未启动或模组数据口未开启）：{}", e.getMessage());
+		return error(HttpStatus.SERVICE_UNAVAILABLE, "mod_unreachable");
 	}
 
 	/**

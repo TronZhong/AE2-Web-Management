@@ -26,7 +26,7 @@
 | **`router/`** | |
 | [`../../web/frontend/src/router/index.js`](../../web/frontend/src/router/index.js) | 路由表：选择页与详情页（懒加载、`props: true` 传 accessId） |
 | **`api/`** — 后端调用层（组件唯一网络出口） | |
-| [`../../web/frontend/src/api/index.js`](../../web/frontend/src/api/index.js) | `login` / `logout` / `fetchMe`（认证）+ `fetchGrids` / `fetchSnapshot` / `submitCraft` / `fetchCommands` / `unlockGrid`（v0.3 解锁）；`USE_MOCK` 开关、契约错误码归一化、`onUnauthorized` 401 统一回调 |
+| [`../../web/frontend/src/api/index.js`](../../web/frontend/src/api/index.js) | `login` / `logout` / `fetchMe`（认证）+ `fetchGrids` / `fetchSnapshot` / `submitCraft` / `fetchCommands` / `unlockGrid`（v0.3 解锁）+ `iconUrlOf`（v0.7 图标 URL 构造）；`USE_MOCK` 开关、契约错误码归一化、`onUnauthorized` 401 统一回调 |
 | [`../../web/frontend/src/api/events.js`](../../web/frontend/src/api/events.js) | SSE 实时事件订阅（`EventSource` 连 `/api/events`；`USE_MOCK` 时 no-op）：`grids-updated` → 刷新列表，`grid-snapshot-updated` → 刷新对应网格；断线由浏览器自动重连，轮询兜底 |
 | [`../../web/frontend/src/api/mock/fixtures.js`](../../web/frontend/src/api/mock/fixtures.js) | 三个示例网格（两在线一离线）的列表与快照固定数据；`GRID_PASSWORDS` 演示密码表（主基地网格 `1234`） |
 | [`../../web/frontend/src/api/mock/index.js`](../../web/frontend/src/api/mock/index.js) | mock 读取：模拟延迟；在线快照推进 `capturedAt` 并少量漂移数量；命令队列模拟（在线网格 PENDING 延时转 SUBMITTED，离线保持排队）；网格密码模拟（锁定网格 snapshot/craft/commands 抛 `grid_locked`，`unlockGrid` 按会话记住解锁）；mock 登录接受任意非空凭证 |
@@ -49,7 +49,7 @@
 | [`../../web/frontend/src/components/base/StatusBadge.vue`](../../web/frontend/src/components/base/StatusBadge.vue) | 状态徽标（ok/err/accent/neutral 四变体） |
 | [`../../web/frontend/src/components/base/BaseButton.vue`](../../web/frontend/src/components/base/BaseButton.vue) | 按钮（primary/ghost） |
 | [`../../web/frontend/src/components/base/EmptyState.vue`](../../web/frontend/src/components/base/EmptyState.vue) | 空状态占位 |
-| [`../../web/frontend/src/components/base/ItemSlot.vue`](../../web/frontend/src/components/base/ItemSlot.vue) | MC 风格物品格：hover 走全局提示层（数量跟随数据刷新）；贴图 URL 预留，当前按 id 稳定着色的方块占位 |
+| [`../../web/frontend/src/components/base/ItemSlot.vue`](../../web/frontend/src/components/base/ItemSlot.vue) | MC 风格物品格：hover 走全局提示层（数量跟随数据刷新）；`iconUrl` 渲染模组导出的 16×16 PNG（`loading="lazy"`，`@error` 回退按 id 着色的方块占位并有限重试） |
 | [`../../web/frontend/src/components/base/ItemTooltip.vue`](../../web/frontend/src/components/base/ItemTooltip.vue) | 跟随鼠标的 MC 风格 tooltip（teleport 到 body，按缩放系数换算坐标） |
 | **`components/grid/`** — 选择页组件 | |
 | [`../../web/frontend/src/components/grid/GridCard.vue`](../../web/frontend/src/components/grid/GridCard.vue) | 网格卡片：名称、在线徽标、锁定徽标（v0.3 `hasPassword && !unlocked`）、控制器位置、快照摘要、进入/解锁按钮 |
@@ -80,7 +80,7 @@
 - [x] 实时推送接入（roadmap 已完成项）：`src/api/events.js` 用 EventSource 订阅 `/api/events`，选页/详情页收到事件立即刷新；**5s/10s 轮询保留作兜底**（SSE 断线/未登录自动降级，EventSource 浏览器自带重连）。
 - [x] 术语统一为 grid（契约 v0.5，模组 0.0.8）：`fetchNetworks`→`fetchGrids`、`unlockNetwork`→`unlockGrid`、`useNetworks`→`useGrids`（读 `data.grids`）、路由 `/networks/:accessId`→`/grids/:accessId`、mock 常量 `NETWORKS`/`NETWORK_PASSWORDS`→`GRIDS`/`GRID_PASSWORDS`、错误码 `network_locked`/`network_not_found`→`grid_locked`/`grid_not_found`；组件 props `network`→`grid`。
 - [x] 物品中文名（契约 v0.6，roadmap.md §4 已完成）：`src/lib/itemName.js` 引入，快照条目按模组 `nameKey` 查官方中文语言表（minecraft/ae2，`src/data/lang/`），查不到回退 id 启发式与英文友好名；库存/样板/命令/计划合成各组件与 mock fixtures 已接线。
-- [ ] 物品贴图接入 `ItemSlot` 的 `iconUrl`（当前为方块占位；来源定为模组客户端渲染导出，见 [`roadmap.md`](../roadmap.md) §5）。
+- [x] 物品贴图接入（契约 v0.7，roadmap.md §5 已完成）：`api/index.js` 的 `iconUrlOf()` 按 key id 构造 `/api/icons/{ns}/{path}.png`（id 段不满足模组字符集或 mock 模式返回空串），库存/样板/命令/计划合成各组件传入 `ItemSlot` 的 `iconUrl`；`loading="lazy"` + `@error` 回退占位方块，5s 后有界重试 2 次（配合模组 404 惰性补齐渐进出现），iconUrl 变化时重试状态归零。专用服务器（图标恒 404）与 mock 模式下保持占位方块。
 
 ## 约定
 
@@ -103,6 +103,6 @@ npm run build  # 生产构建
 
 - [架构总览](../architecture.md)
 - [Web API 契约](../contracts/web-api.md)
-- [后续迭代路线](../roadmap.md)（craft 接线、认证、中文名已实施，图标等待实施）
+- [后续迭代路线](../roadmap.md)（craft 接线、认证、中文名、物品贴图已实施）
 - [后端](../backend/index.md)
 - [数据契约](../contracts/index.md)

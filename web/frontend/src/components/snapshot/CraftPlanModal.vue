@@ -9,7 +9,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import BaseButton from '../base/BaseButton.vue'
 import ItemSlot from '../base/ItemSlot.vue'
-import { submitCraft } from '../../api/index.js'
+import { iconUrlOf, submitCraft } from '../../api/index.js'
 import { formatAmount, formatTime, keyId } from '../../lib/format.js'
 import { displayName } from '../../lib/itemName.js'
 
@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
         <div class="space-y-4 p-4">
           <div class="flex items-center gap-3">
             <div class="size-12 shrink-0">
-              <ItemSlot :item="pattern.primaryOutput" />
+              <ItemSlot :item="pattern.primaryOutput" :icon-url="iconUrlOf(pattern.primaryOutput.key)" />
             </div>
             <div class="min-w-0">
               <p class="truncate text-sm text-ink">{{ displayName(pattern.primaryOutput) }}</p>
@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
               </span>
               <div class="flex flex-wrap gap-1.5">
                 <div v-for="candidate in line.candidates" :key="keyId(candidate.key)" class="size-12">
-                  <ItemSlot :item="candidate" />
+                  <ItemSlot :item="candidate" :icon-url="iconUrlOf(candidate.key)" />
                 </div>
               </div>
             </div>
