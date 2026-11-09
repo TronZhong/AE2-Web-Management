@@ -460,7 +460,7 @@ public final class LocalDataServer {
         List<Map<String, Object>> cpus = new ArrayList<>();
         for (Snapshot.CpuEntry cpu : value.craftingCpus()) {
             Map<String, Object> cpuJson = new LinkedHashMap<>();
-            cpuJson.put("name", cpu.name());
+            // CPU 无法命名：不传 name，前端按列表序号以「#N」展示（与游戏内一致）
             cpuJson.put("busy", cpu.busy());
             cpuJson.put("availableStorage", cpu.availableStorage());
             cpuJson.put("coProcessors", cpu.coProcessors());

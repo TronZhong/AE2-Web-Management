@@ -140,8 +140,8 @@ export const SNAPSHOTS = {
       stack('ae2:charged_certus_quartz_crystal', 118),
     ],
     craftingCpus: [
-      { name: '', busy: false, availableStorage: 16384, coProcessors: 0 },
-      { name: '并行核', busy: true, availableStorage: 1024, coProcessors: 16 },
+      { busy: true, availableStorage: 1024, coProcessors: 16 },
+      { busy: false, availableStorage: 16384, coProcessors: 0 },
     ],
     patterns: [
       pattern('minecraft:crafting_table', 1, [input([['minecraft:oak_planks', 1]], 4)]),
@@ -171,7 +171,7 @@ export const SNAPSHOTS = {
       stack('minecraft:bone_meal', 88),
       stack('minecraft:egg', 12),
     ],
-    craftingCpus: [{ name: '农场 CPU', busy: true, availableStorage: 512, coProcessors: 4 }],
+    craftingCpus: [{ busy: true, availableStorage: 512, coProcessors: 4 }],
     patterns: [
       pattern('minecraft:bread', 1, [input([['minecraft:wheat', 3]], 1)]),
       pattern('minecraft:hay_block', 1, [input([['minecraft:wheat', 9]], 1)]),
@@ -189,7 +189,7 @@ export const SNAPSHOTS = {
       stack('minecraft:stick', 64),
       stack('minecraft:torch', 128),
     ],
-    craftingCpus: [{ name: '', busy: false, availableStorage: 8192, coProcessors: 0 }],
+    craftingCpus: [{ busy: false, availableStorage: 8192, coProcessors: 0 }],
     patterns: [
       pattern('minecraft:chest', 1, [input([['minecraft:oak_planks', 1]], 8)]),
       pattern('minecraft:stick', 4, [input([['minecraft:oak_planks', 2]], 1)]),

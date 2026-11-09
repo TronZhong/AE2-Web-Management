@@ -89,7 +89,7 @@ class GridControllerTests {
 		when(this.gridService.getSnapshot(ACCESS_ID, 42L)).thenReturn(new SnapshotResponse(
 				ACCESS_ID, 1760000000000L, true,
 				List.of(new StackEntry(mapper.readTree("{\"id\":\"minecraft:stone\"}"), 12844, "block.minecraft.stone")),
-				List.of(new CpuEntry("", false, 16384, 0)),
+				List.of(new CpuEntry(false, 16384, 0)),
 				List.of(new PatternEntry(
 						new StackEntry(mapper.readTree("{\"id\":\"minecraft:stick\"}"), 4, "item.minecraft.stick"),
 						// 无 nameKey 的条目：模拟旧版模组快照，验证 Web 响应省略该字段
@@ -105,7 +105,8 @@ class GridControllerTests {
 			.andExpect(jsonPath("$.inventory[0].key.id").value("minecraft:stone"))
 			.andExpect(jsonPath("$.inventory[0].amount").value(12844))
 			.andExpect(jsonPath("$.inventory[0].nameKey").value("block.minecraft.stone"))
-			.andExpect(jsonPath("$.craftingCpus[0].name").value(""))
+			// 契约 v0.8：craftingCpus[] 无 name 字段（CPU 无法命名，前端按序号 #N 显示）
+			.andExpect(jsonPath("$.craftingCpus[0].name").doesNotExist())
 			.andExpect(jsonPath("$.craftingCpus[0].busy").value(false))
 			.andExpect(jsonPath("$.craftingCpus[0].availableStorage").value(16384))
 			.andExpect(jsonPath("$.craftingCpus[0].coProcessors").value(0))

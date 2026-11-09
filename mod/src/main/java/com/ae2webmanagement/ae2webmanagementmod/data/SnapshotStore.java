@@ -43,7 +43,6 @@ public final class SnapshotStore extends SavedData {
     private static final String KEY_INPUTS = "inputs";
     private static final String KEY_POSSIBLE_INPUTS = "possibleInputs";
     private static final String KEY_MULTIPLIER = "multiplier";
-    private static final String KEY_CPU_NAME = "name";
     private static final String KEY_CPU_BUSY = "busy";
     private static final String KEY_CPU_STORAGE = "availableStorage";
     private static final String KEY_CPU_COPROCESSORS = "coProcessors";
@@ -86,8 +85,8 @@ public final class SnapshotStore extends SavedData {
             List<Snapshot.CpuEntry> cpus = new ArrayList<>(cpuTag.size());
             for (int j = 0; j < cpuTag.size(); j++) {
                 CompoundTag cpu = cpuTag.getCompound(j);
+                // 0.0.12 起 CPU 不再携带 name；旧存档残留的 name 键读取时直接忽略
                 cpus.add(new Snapshot.CpuEntry(
-                        cpu.getString(KEY_CPU_NAME),
                         cpu.getBoolean(KEY_CPU_BUSY),
                         cpu.getLong(KEY_CPU_STORAGE),
                         cpu.getInt(KEY_CPU_COPROCESSORS)));
@@ -120,7 +119,6 @@ public final class SnapshotStore extends SavedData {
             ListTag cpuTag = new ListTag();
             for (Snapshot.CpuEntry cpu : snapshot.craftingCpus()) {
                 CompoundTag cpuEntry = new CompoundTag();
-                cpuEntry.putString(KEY_CPU_NAME, cpu.name());
                 cpuEntry.putBoolean(KEY_CPU_BUSY, cpu.busy());
                 cpuEntry.putLong(KEY_CPU_STORAGE, cpu.availableStorage());
                 cpuEntry.putInt(KEY_CPU_COPROCESSORS, cpu.coProcessors());

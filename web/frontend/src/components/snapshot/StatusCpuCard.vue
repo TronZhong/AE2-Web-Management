@@ -2,6 +2,7 @@
 /**
  * 状态 + 合成 CPU 合并卡：上半部分为快照总体状态（在线态、数据截至、
  * 控制器、统计、accessId），下半部分逐个 CPU 展示忙闲/存储/协处理器。
+ * AE2 合成 CPU 无法命名，与游戏内 GUI 一致按列表序号显示为「#N」。
  */
 import BaseCard from '../base/BaseCard.vue'
 import EmptyState from '../base/EmptyState.vue'
@@ -57,9 +58,7 @@ defineProps({
           class="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
         >
           <div class="min-w-0">
-            <p class="truncate text-xs text-ink" :class="{ 'italic text-ink-faint': !cpu.name }">
-              {{ cpu.name || '未命名 CPU' }}
-            </p>
+            <p class="font-mono text-xs text-ink">#{{ index + 1 }}</p>
             <p class="mt-0.5 font-mono text-[10px] text-ink-faint">
               存储 {{ formatStorage(cpu.availableStorage) }} · 协处理器 ×{{ cpu.coProcessors }}
             </p>

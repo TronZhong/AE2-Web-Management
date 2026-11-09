@@ -15,7 +15,7 @@
 | Gradle 插件 | NeoGradle ModDev 2.0.148 |
 | 映射 | Parchment `2024.11.17`（MC 1.21.1） |
 | Java | 21 |
-| 版本 | `0.0.10` |
+| 版本 | `0.0.12` |
 | mod_id / 包名 | `ae2webmanagement` / `com.ae2webmanagement.ae2webmanagementmod` |
 
 ## 目录结构与源码映射
@@ -72,7 +72,7 @@
 | `minecraft_version` | `1.21.1` | 目标 MC 版本 |
 | `neo_version` | `21.1.265` | 必须与 MC 版本一致 |
 | `ae2_version` | `19.2.18` | AE2 依赖版本（`build.gradle` 引用） |
-| `mod_version` | `0.0.11` | 每次提交递增补丁号 |
+| `mod_version` | `0.0.12` | 每次提交递增补丁号 |
 | `mod_id` | `ae2webmanagement` | 必须与主类 `MODID` 一致 |
 | `mod_name` | `AE2 Web Management` | 展示名 |
 | `mod_group_id` | `com.ae2webmanagement.ae2webmanagementmod` | 应与源码基础包一致 |
@@ -106,6 +106,7 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 - [x] **`nameKey` 字段（`roadmap.md` §4，0.0.9）**：快照 stack 条目附带物品翻译键（物品取 `Item#getDescriptionId()`、流体取 `FluidType#getDescriptionId()`，其余 AEKey 类型从显示名组件提取）；`SnapshotStore` NBT 与 HTTP JSON 透传，旧存档/旧快照无该字段时按「可选」处理。服务端无多语言，不能直接出中文名，由前端按翻译键查中文语言表。
 - [x] **物品图标导出 · 模组部分（`roadmap.md` §5，0.0.10）**：客户端 `IconService` 离屏渲染已见物品/流体为 16×16 PNG 写入 `config/ae2webmanagement/icons/`；本地 API 新增 `GET /icons/{namespace}/{path}.png` 静态服务（路径穿越防护、`public, max-age=86400` 缓存头、404 惰性补齐）；渲染挂点为已验证的 `RenderFrameEvent.Post`，专用服务器无客户端、图标端点 404。后端 `/api/icons` 转发与前端 `iconUrl` 接线已于后端/前端批次完成（契约 v0.7，见 [`../backend/index.md`](../backend/index.md) 与 [`../frontend/index.md`](../frontend/index.md)）。
 - [x] **图标分辨率 64×64（0.0.11）**：`IconService` 将正交投影固定在 16×16 GUI 单位逻辑画布（原版物品格尺寸），FBO/NativeImage 按 64×64 像素铺设，1 GUI 单位采样 4 像素——修复「仅调大 `ICON_SIZE` 后物品只占画布左上角 1/4」的投影错位；平面贴图最近邻放大 4×，3D 物品获得 4× SSAA。分辨率编入缓存路径（`icons/64x64/`），调整 `IconPaths.ICON_RESOLUTION` 后旧分辨率缓存自动失效。
+- [x] **CPU 序号显示（0.0.12）**：AE2 合成 CPU 无法命名，快照 `craftingCpus[]` 移除 `name` 字段（`CpuEntry` / `SavedData` NBT / HTTP JSON 同步移除；旧存档残留 `name` 键读取时忽略）；采集时按游戏内 `CraftingCPUCycler` 同序排序（协处理器↓、存储↓），网页按列表序号显示 `#N`、与游戏内编号一致。
 - [ ] **命令取消 API 与 `lastSeenAt` 回写（`roadmap.md` §6）**：PENDING 命令目前无法撤销；`lastSeenAt` 尚未随快照回写。
 
 > 实现顺序与完整方案见 [技术设计](../design.md)：锚点身份（控制器 + `SavedData`）→ 注册器方块 → 4 秒快照循环 → 命令队列 → 本地 127.0.0.1 数据口。

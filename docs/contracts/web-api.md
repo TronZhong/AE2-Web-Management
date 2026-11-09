@@ -14,6 +14,7 @@
 - **v0.5（2026-11）**：**术语统一为 grid**（与模组 0.0.8、后端 `Grid*` 类同步）：URL `/api/networks`→`/api/grids`、JSON key `networks`→`grids`、错误码 `network_locked`→`grid_locked`、`network_not_found`→`grid_not_found`。仅术语改名，字段值与 `accessId` 不变。
 - **v0.6（2026-11）**：**物品中文名称**（与模组 0.0.9、roadmap.md §4 同步）：快照 `inventory[]` / `patterns[]` 各 stack 条目新增**可选** `nameKey`（物品翻译键，前端查中文语言表）；旧版模组/旧快照无该字段，Web 响应省略（向后兼容）。
 - **v0.7（2026-11）**：新增 `GET /api/icons/{namespace}/{path}.png` 图标转发端点——对模组 `GET /icons/{namespace}/{path}.png`（模组 0.0.10，见 [模组↔后端契约](index.md)）做纯字节透传（透传 `Content-Type: image/png` 与 `Cache-Control`，后端不自建缓存）。仅要求登录，不做 per-network 访问控制；模组不可达 503、图标未渲染 404，前端 `@error` 回退占位方块并有限重试。见「图标转发端点」。
+- **v0.8（2026-11）**：**移除 `craftingCpus[].name`**——AE2 合成 CPU 无法命名，前端与游戏内 GUI 一致按列表序号显示 `#N`（模组 0.0.12 同步移除传输与持久化字段；`craftingCpus[]` 现按协处理器多者→存储大者排序，`#N` 与游戏内未命名 CPU 编号一致）。
 
 ## 通用约定
 
@@ -109,10 +110,13 @@
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `name` | string | CPU 名称；空字符串表示未命名 |
 | `busy` | boolean | 是否正在执行合成任务 |
 | `availableStorage` | number (long) | 剩余可存储字节数 |
 | `coProcessors` | number | 协处理器数量 |
+
+> AE2 合成 CPU **无法命名**（v0.8 起不传输 `name`）：前端按列表顺序显示
+> `#1`、`#2`…（与游戏内未命名 CPU 的编号一致，模组 0.0.12 起；列表按
+> 协处理器数量降序、剩余存储降序排序，与游戏内 CPU 列表同序）。
 
 `patterns[]`（口径：AE2 `IPatternDetails`，**不含**可发射物品，见 `docs/design.md` §7）：
 

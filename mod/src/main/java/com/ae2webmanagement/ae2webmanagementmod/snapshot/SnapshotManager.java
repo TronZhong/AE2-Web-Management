@@ -249,11 +249,15 @@ public final class SnapshotManager {
         List<Snapshot.CpuEntry> cpus = new ArrayList<>();
         for (ICraftingCPU cpu : crafting.getCpus()) {
             cpus.add(new Snapshot.CpuEntry(
-                    cpuName(cpu),
                     cpu.isBusy(),
                     cpu.getAvailableStorage(),
                     cpu.getCoProcessors()));
         }
+        // 与游戏内 CPU 列表（AE2 CraftingCPUCycler）同序：协处理器多者优先、存储大者优先。
+        // 网页端按列表序号以「#N」展示未命名 CPU，编号由此与游戏内保持一致。
+        cpus.sort(Comparator.comparingLong(Snapshot.CpuEntry::coProcessors)
+                .thenComparingLong(Snapshot.CpuEntry::availableStorage)
+                .reversed());
 
         return new Snapshot(
                 identity.accessId(),
@@ -375,15 +379,6 @@ public final class SnapshotManager {
             entries.add(toStackEntry(stack, level));
         }
         return entries;
-    }
-
-    /**
-     * AE2 的 {@link ICraftingCPU#getName()} 允许返回 {@code null}：
-     * 未命名 CPU 的名称不会自动生成。快照契约统一用空字符串表示未命名。
-     */
-    private static String cpuName(ICraftingCPU cpu) {
-        Component name = cpu.getName();
-        return name == null ? "" : name.getString();
     }
 
     /**

@@ -44,9 +44,14 @@ public record Snapshot(
         }
     }
 
-    /** 一个合成 CPU 的公开状态。 */
+    /**
+     * 一个合成 CPU 的公开状态。
+     *
+     * <p>AE2 的合成 CPU 没有持久身份，名称是玩家可选设置（不设即无名称），
+     * 因此不携带名称字段；网页端与游戏内 GUI 一致，按列表顺序以「#序号」展示
+     * （序号规则见 {@code SnapshotManager} 采集时的排序说明）。</p>
+     */
     public record CpuEntry(
-            String name,
             boolean busy,
             long availableStorage,
             int coProcessors) {
