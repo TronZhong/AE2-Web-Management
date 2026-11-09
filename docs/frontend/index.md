@@ -49,7 +49,7 @@
 | [`../../web/frontend/src/components/base/StatusBadge.vue`](../../web/frontend/src/components/base/StatusBadge.vue) | 状态徽标（ok/err/accent/neutral 四变体） |
 | [`../../web/frontend/src/components/base/BaseButton.vue`](../../web/frontend/src/components/base/BaseButton.vue) | 按钮（primary/ghost） |
 | [`../../web/frontend/src/components/base/EmptyState.vue`](../../web/frontend/src/components/base/EmptyState.vue) | 空状态占位 |
-| [`../../web/frontend/src/components/base/ItemSlot.vue`](../../web/frontend/src/components/base/ItemSlot.vue) | MC 风格物品格：hover 走全局提示层（数量跟随数据刷新）；`iconUrl` 渲染模组导出的 16×16 PNG（`loading="lazy"`，`@error` 回退按 id 着色的方块占位并有限重试） |
+| [`../../web/frontend/src/components/base/ItemSlot.vue`](../../web/frontend/src/components/base/ItemSlot.vue) | MC 风格物品格：hover 走全局提示层（数量跟随数据刷新）；`iconUrl` 渲染模组导出的 64×64 PNG（`loading="lazy"`，`@error` 回退按 id 着色的方块占位并有限重试） |
 | [`../../web/frontend/src/components/base/ItemTooltip.vue`](../../web/frontend/src/components/base/ItemTooltip.vue) | 跟随鼠标的 MC 风格 tooltip（teleport 到 body，按缩放系数换算坐标） |
 | **`components/grid/`** — 选择页组件 | |
 | [`../../web/frontend/src/components/grid/GridCard.vue`](../../web/frontend/src/components/grid/GridCard.vue) | 网格卡片：名称、在线徽标、锁定徽标（v0.3 `hasPassword && !unlocked`）、控制器位置、快照摘要、进入/解锁按钮 |

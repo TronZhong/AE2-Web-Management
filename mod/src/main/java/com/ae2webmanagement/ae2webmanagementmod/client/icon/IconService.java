@@ -52,9 +52,11 @@ import com.ae2webmanagement.ae2webmanagementmod.snapshot.Snapshot;
  *       （{@link ConcurrentLinkedQueue}，不碰 Minecraft 状态）；渲染线程在每帧
  *       渲染完成后（{@code RenderFrameEvent.Post}，实现时已验证的挂点）每帧最多
  *       消费 {@code iconRenderPerFrame} 个，任意规模网络都只渐进补齐、不掉帧。</li>
- *   <li><b>复用单个 FBO</b>：64×64 {@link TextureTarget} 全程复用，绑定后借
- *       {@code ItemRenderer}（经 {@link GuiGraphics}）画完，读回像素并立即恢复
- *       默认 framebuffer 与 RenderSystem 状态，不污染下一帧。</li>
+ *   <li><b>复用单个 FBO + 4× 超采样</b>：64×64 {@link TextureTarget} 全程复用，
+ *       正交投影保持 16×16 GUI 单位逻辑画布（与原版物品格同构，物品铺满画布），
+ *       1 GUI 单位采样 4 像素——平面贴图最近邻放大 4×，3D 物品获得 4× SSAA；
+ *       绑定后借 {@code ItemRenderer}（经 {@link GuiGraphics}）画完，读回像素并
+ *       立即恢复默认 framebuffer 与 RenderSystem 状态，不污染下一帧。</li>
  *   <li><b>去重</b>：内存 {@code Set<String>}（已入队）+ 磁盘存在性检查（已渲染），
  *       已存在的 PNG 永不重渲染。</li>
  *   <li><b>IO 下移</b>：读回像素后的 PNG 编码与文件写入交给单线程 daemon executor，
@@ -68,8 +70,19 @@ import com.ae2webmanagement.ae2webmanagementmod.snapshot.Snapshot;
 @OnlyIn(Dist.CLIENT)
 public final class IconService implements IconExporter {
 
-    /** 导出图标边长（像素）。 */
-    public static final int ICON_SIZE = 64;
+    /**
+     * 导出图标边长（像素），唯一来源为 {@link IconPaths#ICON_RESOLUTION}；
+     * 逻辑画布为 {@link #DRAW_UNITS}² GUI 单位，等效于 {@code ICON_SIZE / DRAW_UNITS}× 超采样。
+     */
+    public static final int ICON_SIZE = IconPaths.ICON_RESOLUTION;
+
+    /**
+     * 逻辑绘制空间边长（GUI 单位）：与原版物品格一致，物品恒占 16×16 GUI 单位。
+     * 正交投影按此尺寸铺设、FBO 按 {@link #ICON_SIZE} 像素铺设，二者之比即超采样倍率
+     * （当前 1 GUI 单位 → 4 像素），保证图标铺满整幅 PNG 且 3D 物品获得等倍 SSAA。
+     * 调整 {@link #ICON_SIZE} 时本值保持 16 不变（原版物品格逻辑尺寸），超采样倍率随之变化。
+     */
+    private static final int DRAW_UNITS = 16;
 
     /** 每多少帧观察一次快照缓存，把新增 key 入队（对应 roadmap 的「每 40 tick」）。 */
     private static final int OBSERVE_EVERY_FRAMES = 40;
@@ -248,20 +261,22 @@ public final class IconService implements IconExporter {
     /**
      * 在复用 FBO 上执行一次离屏绘制并读回像素。
      *
-     * <p>完整复刻游戏 GUI 的投影与模型视图设置（GUI ortho + Z 偏移），保证
-     * 图标与物品栏观感一致；绘制完成后立即恢复默认 framebuffer 与
-     * RenderSystem 状态（projection / model view / blend），不污染下一帧。</p>
+     * <p>完整复刻游戏 GUI 的投影与模型视图设置（GUI ortho + Z 偏移），但正交投影
+     * 按 {@link #DRAW_UNITS}（16 GUI 单位）铺设、FBO 按 {@link #ICON_SIZE}（64 像素）
+     * 铺设，二者之比即 4× 超采样：物品在 16 单位逻辑画布上铺满整幅 64×64 像素输出；
+     * 绘制完成后立即恢复默认 framebuffer 与 RenderSystem 状态（projection /
+     * model view / blend），不污染下一帧。</p>
      *
      * @param minecraft 客户端实例
-     * @param draw      实际绘制动作（写入 16×16 画布）
-     * @return 读回的像素；绘制失败（异常被上层捕获）或无法读回时为 null
+     * @param draw      实际绘制动作（写入 {@link #DRAW_UNITS}² GUI 单位逻辑画布）
+     * @return 读回的像素（{@link #ICON_SIZE}²）；绘制失败（异常被上层捕获）或无法读回时为 null
      */
     private NativeImage renderToImage(Minecraft minecraft, Consumer<GuiGraphics> draw) {
         ensureFbo();
 
         RenderSystem.backupProjectionMatrix();
         RenderSystem.setProjectionMatrix(
-                new Matrix4f().setOrtho(0.0F, ICON_SIZE, ICON_SIZE, 0.0F, 1000.0F, 21000.0F),
+                new Matrix4f().setOrtho(0.0F, DRAW_UNITS, DRAW_UNITS, 0.0F, 1000.0F, 21000.0F),
                 VertexSorting.ORTHOGRAPHIC_Z);
         Matrix4fStack modelView = RenderSystem.getModelViewStack();
         modelView.pushMatrix();
@@ -298,7 +313,8 @@ public final class IconService implements IconExporter {
 
     /**
      * 流体图标：按 {@code IClientFluidTypeExtensions.getStillTexture()} 贴图
-     * blit 整幅 16×16，并施加流体的 {@code getTintColor()} 染色。
+     * blit 整幅 16×16 GUI 单位（超采样后铺满 64×64 像素输出），
+     * 并施加流体的 {@code getTintColor()} 染色。
      *
      * @param gfx   离屏绘制上下文
      * @param fluid 要绘制的流体
@@ -315,7 +331,7 @@ public final class IconService implements IconExporter {
         float green = FastColor.ARGB32.green(tint) / 255.0F;
         float blue = FastColor.ARGB32.blue(tint) / 255.0F;
         gfx.setColor(red, green, blue, alpha);
-        gfx.blit(still, 0, 0, 0.0F, 0.0F, ICON_SIZE, ICON_SIZE, 16, 16);
+        gfx.blit(still, 0, 0, 0.0F, 0.0F, DRAW_UNITS, DRAW_UNITS, 16, 16);
         gfx.setColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 

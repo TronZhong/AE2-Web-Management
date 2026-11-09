@@ -86,7 +86,7 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 
 ### 决策：模组客户端渲染导出（契合"模组是数据出口"架构）
 
-1. 模组客户端（`AE2WebManagementClient`）遍历快照中出现过的物品 key，用 `Minecraft.getInstance().getItemRenderer()` 离屏渲染 16×16 PNG，缓存到 `config/ae2webmanagement/icons/<namespace>/<path>.png`（方块物品得到真实物品栏 3D 图标）；
+1. 模组客户端（`AE2WebManagementClient`）遍历快照中出现过的物品 key，用 `Minecraft.getInstance().getItemRenderer()` 离屏渲染 64×64 PNG（0.0.11 起；16×16 GUI 单位逻辑画布 4× 超采样），缓存到 `config/ae2webmanagement/icons/<分辨率>/<namespace>/<path>.png`（方块物品得到真实物品栏 3D 图标）；
 2. `LocalDataServer` 增加 `GET /icons/{namespace}/{path}.png`（仅回环，与现有 API 同级）；
 3. 后端增加图标转发端点（如 `GET /api/icons/{namespace}/{path}.png`，可不做 per-network）；
 4. 前端把 `iconUrl` 接到该地址，实现前同步更新契约文档。
@@ -133,7 +133,7 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 
 - **NBT 变体图标**：缓存文件名 `<ns>/<path>.png` 忽略 NBT，第一个见到的变体决定图标（AE2 库存多为普通物品，可接受）。若需精确，可在文件名追加 tag 哈希（key 集合有界，代价可控）。先做 canonical-first。
 - **流体图标**：`ItemRenderer` 渲染不了流体，单独走 `IClientFluidTypeExtensions.getStillTexture()`（NeoForge 1.21.1 的流体贴图客户端扩展，`FluidType` 本身已无该方法）贴图 blit 路径；其他 AEKey 类型跳过（前端占位）。
-- **缓存失效**：图标一经渲染即不可变；更换资源包后手动删 `config/ae2webmanagement/icons/` 或递增模组版本，`max-age` 保证一天内自愈。
+- **缓存失效**：图标一经渲染即不可变；分辨率编入缓存目录（0.0.11 起 `icons/<分辨率>/`），调整 `IconPaths.ICON_RESOLUTION` 后旧缓存自动失效、新目录惰性重渲染；更换资源包仍需手动删 `config/ae2webmanagement/icons/`，`max-age` 保证一天内自愈。
 
 ### 备选（不推荐，仅记录理由）
 

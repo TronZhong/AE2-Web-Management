@@ -130,7 +130,7 @@
 
 ### `GET /api/icons/{namespace}/{path}.png`
 
-物品/流体图标（16×16 PNG），对模组 `GET /icons/{namespace}/{path}.png` 做纯字节透传。
+物品/流体图标（64×64 PNG，客户端离屏渲染产物），对模组 `GET /icons/{namespace}/{path}.png` 做纯字节透传。
 `namespace`/`path` 来自快照 key 的 `id`（如 `minecraft:iron_block` →
 `/api/icons/minecraft/iron_block.png`），前端由 `id` 构造 URL（`api/index.js` 的
 `iconUrlOf()`）。
