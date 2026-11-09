@@ -1,6 +1,8 @@
 <script setup>
 /**
- * 网格详情页：状态 / 合成 CPU / 库存 / 样板 / 合成命令五类卡片。
+ * 网格详情页：状态·CPU·命令合并卡 / 样板 / 库存三类卡片。
+ * 首行合并卡与样板卡横向对半分（合并卡内 CPU 在上、命令在下，两列表各最多 5 条滚动；
+ * 样板格子区桌面端拉伸填满与合并卡等高、超出滚动）；库存卡整行、视口固定高度滚动。
  * 快照与命令列表各 5s 轮询；离线网格照常进入，展示最后快照并给出提示条。
  * 样板卡内提交合成后通过 submitted 事件立即刷新命令列表。
  * 锁定网格（契约 v0.5：快照返回 grid_locked）以解锁门面板替代内容，
@@ -15,7 +17,6 @@ import { useGrids } from '../composables/useGrids.js'
 import { usePolling } from '../composables/usePolling.js'
 import { useSnapshot } from '../composables/useSnapshot.js'
 import UnlockGate from '../components/grid/UnlockGate.vue'
-import CommandsCard from '../components/snapshot/CommandsCard.vue'
 import InventoryCard from '../components/snapshot/InventoryCard.vue'
 import PatternListCard from '../components/snapshot/PatternListCard.vue'
 import StatusCpuCard from '../components/snapshot/StatusCpuCard.vue'
@@ -107,9 +108,12 @@ function onUnlocked() {
         </p>
 
         <div class="grid gap-4 lg:grid-cols-2">
-          <StatusCpuCard :snapshot="snapshot" :grid="grid" />
-          <PatternListCard :access-id="accessId" :patterns="snapshot.patterns" @submitted="refreshCommands(accessId)" />
-          <CommandsCard :commands="commands" :error="commandsError" />
+          <StatusCpuCard :snapshot="snapshot" :grid="grid" :commands="commands" :commands-error="commandsError" />
+          <PatternListCard
+            :access-id="accessId"
+            :patterns="snapshot.patterns"
+            @submitted="refreshCommands(accessId)"
+          />
           <InventoryCard class="lg:col-span-2" :items="snapshot.inventory" />
         </div>
       </template>

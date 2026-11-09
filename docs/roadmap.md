@@ -2,7 +2,7 @@
 
 > 文档首页：[`index.md`](index.md) › 设计
 
-本页只收录**待办迭代项**与**已识别的问题/隐患**，按优先级从高到低排列；已完成项已移除，完成情况与交接记录见 git 历史及各组件文档。与实现冲突时以代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.10`）。
+本页只收录**待办迭代项**与**已识别的问题/隐患**，按优先级从高到低排列；已完成项已移除，完成情况与交接记录见 git 历史及各组件文档。与实现冲突时以代码为准并回写修正。动手实现某一节前，先按仓库规范同步受影响的契约与组件文档；动模组代码的批次统一把 `mod_version` 递增（当前 `0.0.12`）。
 
 ## 1. 优先级总览
 
@@ -11,10 +11,12 @@
 | P1 | 物品中文名称（`nameKey`） | 待办 · UX | ✅ 已完成（0.0.9） |
 | P2 | 物品图标（客户端渲染导出） | 待办 · UX | ✅ 已完成（模组 0.0.10 + 后端/前端，契约 v0.7） |
 | P2 | 模组其他遗留（命令取消、`lastSeenAt`） | 待办 | 已拍板 |
+| P2 | 附魔属性展示（方案 A：前端解析 `key.components`） | 待办 · UX | 已拍板 |
+| P3 | 前端小改进（列表排序 + 回到顶部） | 待办 · UX | 已拍板（小改动） |
 | P3 | 每网络配对令牌 | 隐患 · 安全 | 暂缓（实施前再确认场景） |
 | P3 | 语言表外部配置化（模块化加载） | 待办 · 工程 | 暂缓（出现第三方模组语言表需求再实施） |
 
-> P1–P2 各节都动模组代码，可按批次合并提交，每批一个主题、`mod_version` 递增 1。
+> 历史已完成的 P1–P2 各节均动过模组代码，按批次合并提交，每批一个主题、`mod_version` 递增 1；新拍板的 §7 / §10 为**纯前端批次**，不动模组与契约。
 
 ## 2. 问题与隐患清单
 
@@ -24,9 +26,11 @@
 | --- | --- | --- |
 | 服务端无多语言，物品名无中文 | 模组端 `getHoverName()` 恒为英文；前端只能英文友好名/占位，UX 差 | ✅ §4 已实施（0.0.9）：快照传 `nameKey` + 前端官方中文语言表 |
 | 前端物品无图标 | `ItemSlot.vue` 只有按 id 着色的占位方块 | ✅ §5 已实施（模组 0.0.10 + 后端/前端 v0.7）：`/api/icons` 字节转发 + `ItemSlot` 懒加载贴图，失败/未渲染回退占位方块 |
+| 附魔书等组件物品只显示基础名称 | 锋利 V 附魔书与普通附魔书在网页上无法区分；附魔数据已在 `key.components` 中随快照传输，仅前端未解析（§7 已核实链路） | §7 方案 A |
+| 库存条目 `:key` 只用物品 id | 同 id 不同组件（附魔书 / 改名 / 不同耐久）撞 Vue key，虚拟滚动复用有渲染错乱风险 | §7 一并修复（id + 组件摘要） |
 | PENDING 命令无法撤销 | 命令一直等待网络上线后自动提交，误发无法撤回，前端不敢提供取消按钮 | §6 命令取消 API |
 | `lastSeenAt` 不随快照回写 | 在线/离线判定与展示失实 | §6 快照循环回写 |
-| 授权仅网格密码，无按网络隔离 | 多玩家/对外部署权限粒度不足；token 语义暂无需求 | §7 暂缓，实施前确认场景 |
+| 授权仅网格密码，无按网络隔离 | 多玩家/对外部署权限粒度不足；token 语义暂无需求 | §8 暂缓，实施前确认场景 |
 | 模组无自动化测试 | CI 只构建模组，游戏内行为靠手动复现，回归风险高 | 后续补 NeoForge GameTest |
 
 ## 3. P1 · 术语统一为 grid ✅ 已完成（0.0.8）
@@ -145,14 +149,63 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 - **命令删除/取消 API**：`DELETE /grids/{accessId}/commands/{commandId}`。当前 PENDING 命令无法撤销、会一直等网络上线后自动提交；有了它前端命令列表才敢提供取消按钮。实现前更新契约文档。
 - **`lastSeenAt` 随快照回写**：design.md §4.1 已标注，快照循环 `tick` 时更新身份表。
 
-## 7. P3 · 每网络配对令牌（暂缓）
+## 7. P2 · 附魔属性展示（方案 A：前端解析 `key.components`）
+
+> 已拍板方案 A。目标：附魔书等组件物品在网页可读出附魔明细（如「锋利 V」），并顺带修复库存条目撞 key 隐患。纯前端批次，零契约 / 模组 / 后端改动。
+
+### 现状（2026-11 已核实）
+
+- **附魔数据已随快照传输**：模组采集用 `AEKey.toTagGeneric()`（`SnapshotManager.capture` → `stack.getKey().toTagGeneric(registryAccess)`）；对物品即 `AEItemKey.CODEC` = Minecraft 1.21.1 的 ItemStack **完整组件序列化**（经 javap 反编译 AE2 19.2.18 核实，且 `AEItemKey` 的相等性判断就是 `isSameItemSameComponents`——组件本身是物品身份的一部分）；`LocalDataServer.toJson()` 以 `NbtOps → JsonOps` 无损转 JSON。契约 `docs/contracts/web-api.md` 的 `key` 字段本就注明「含组件时附加字段」——该口子正是为此类场景预留。
+- 锋利 V 附魔书在前端实际收到的 key 预期形状：
+
+```json
+{
+  "id": "minecraft:enchanted_book",
+  "count": 1,
+  "components": {
+    "minecraft:stored_enchantments": {
+      "levels": { "minecraft:sharpness": 5 },
+      "show_in_tooltip": 1
+    }
+  }
+}
+```
+
+- **显示缺口在展示层**：`nameKeyOf()` 恒取 `item.minecraft.enchanted_book` → 前端只显示「附魔书」。名称不带附魔与游戏 / AE2 终端行为一致（游戏内附魔明细也是 tooltip 行而非名称），属前端未解析组件，不是数据丢失。
+- **注意点**：附魔书用 `minecraft:stored_enchantments` 组件，普通附魔工具 / 武器是 `minecraft:enchantments`，两者结构相同（`levels` map + `show_in_tooltip`），解析时要都处理。
+- **语言表缺口**：`src/data/lang/minecraft.zh_cn.json` 子集只保留 `block.*` / `item.*` / `fluid_type.*`（2822 键），`enchantment.*` 为 0 键，附魔中文名无处可查。
+- **已识别 bug**：`InventoryCard.vue` 条目 `:key="keyId(entry.key)"` 只取 id——同 id 不同组件的两本附魔书（改名、不同耐久同理）会撞 Vue key，虚拟滚动复用有渲染错乱风险；`PatternListCard.vue` 以 `keyId + ':' + index` 规避（样板列表按 key 排序稳定，index 方案可用，可不动）。
+
+### 决策：方案 A——模组传原始身份，前端解析展示（与 `nameKey` 同哲学）
+
+| 改动点 | 内容 |
+| --- | --- |
+| `src/lib/` 组件解析（新增 `lib/components.js` 或并入 `itemName.js`） | 读 `key.components["minecraft:stored_enchantments"]` / `["minecraft:enchantments"]` 的 `levels`，产出 `[{id, lvl}]`；组件缺失 / 形状不符 / 解析异常一律返回空数组，优雅降级为现状 |
+| 语言表子集 | `minecraft.zh_cn.json` 扩充 `enchantment.*`（含 `enchantment.level.1`~`enchantment.level.10` 罗马数字键）；`ae2.zh_cn.json` 同步扩充 AE2 附魔键；等级 >10 或键缺失兜底直接显示数字 |
+| tooltip（`ItemSlot.vue` / `useItemTooltip.js` / `ItemTooltip.vue`） | 名称下新增附魔行（仿 AE2：青 / 灰紫色「锋利 V」），多附魔多行 |
+| 搜索 | `InventoryCard` / `PatternListCard` 关键字过滤顺带匹配附魔名（中 / 英文），搜「锋利」可命中对应附魔书 |
+| 撞 key 修复 | `InventoryCard` 条目 key 改为「id + 组件摘要」（组件 JSON 序列化或简单哈希）；无组件物品退化为纯 id，行为不变 |
+| 契约 / 文档 | 零契约改动（数据本就在 `key` 内）；`docs/frontend/index.md` 源码映射与已完成项同步；`contracts/` 不动 |
+
+### 边界与决策点（实施时定）
+
+- **显示位置**：推荐**仅 tooltip**（仿 AE2 / 原版，名称仍为「附魔书」）；备选名称后缀「附魔书（锋利 V）」——列表可读性更好但名称变长。
+- **覆盖范围**：本期只解析附魔类组件；药水效果、旗帜图案、成书页面等复杂组件**不做**（tooltip 生成复杂度高），需要时再评估方案 B。
+- **`show_in_tooltip: 0`**：跟随原版语义隐藏附魔行；注意 JsonOps 转换后为数字 `1` / `0` 而非布尔。
+- **实施前快照确认**：对真实快照（模组口 `127.0.0.1:8090/grids` 免登录）确认 `components` 在位；旧存档残留快照等下一个采样周期即可。
+
+### 备选（不采纳，仅记录理由）
+
+**方案 B（模组结构化抽取 + 契约 v0.9）**：模组从组件提取 `enchantments:[{id,lvl}]`（或更通用的 `tooltipLines`）随快照 NBT / HTTP 透传。前端不依赖组件格式、未来其他组件可统一入口；但需动模组 + `SnapshotStore` NBT + 契约 + 前端，工程量大，且与 `key` 内已有数据重复传输。当前目标方案 A 已达成，B 仅在未来要系统化展示多类组件时重启。
+
+## 8. P3 · 每网络配对令牌（暂缓）
 
 - 适用场景：多玩家 / 对外部署，需要按网络隔离授权；网格密码已覆盖个人自用与小型多人场景，随机 token 语义暂无需求。
 - 若实施：`AccessScreen` 展示已注册网络的 `accessId` + token（一键复制），token 字符串同步需要新的通道（`AccessMenu` 仍为 `SimpleContainerData(2)`，只能传 int，token 需自定义 payload，可复用 `GridPasswordPayload` / `GridIdentityPayload` 的模式）；「重置 token」按钮 + 后端侧同步失效。
 - token 流向约定：模组 `/grids` 可把 token 输出给后端（模组口仅 127.0.0.1 + 共享密钥可达，泄漏面可控），由**后端持有并校验，不下发给前端**。
 - displayName 改名已在 GUI 迭代中实现（模组 0.0.7），token 展示如再实施可与后续 GUI 改动同批提交。
 
-## 8. P3 · 语言表外部配置化（模块化加载，暂缓）
+## 9. P3 · 语言表外部配置化（模块化加载，暂缓）
 
 - 现状：`src/data/lang/` 的 `zh_cn.json` 由 `itemName.js` **构建期静态 import** 合并进 `ZH_TABLE`；新增第三方模组语言表需改源码 import 并重新构建，不够"放入即用"。
 - 目标：语言表改为外部配置式——文件放进指定目录即可被加载，不触碰源码。
@@ -162,6 +215,35 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
   3. 维持现状（源码 import）。
 - 兼容注意：`nameKey` 查表语义与「查表 → 启发式 → 英文友好名」回退链保持不变，仅"表从哪来"变化。
 - 优先级：低。当前仅 minecraft/ae2 两张官方表，源码 import 成本可接受；待第三方模组语言表需求出现再实施。
+
+## 10. P3 · 前端小改进（列表排序 + 回到顶部）
+
+> 已拍板。两个互相独立的小改动，均为纯前端批次，零契约改动；建议拆两批提交（每批一个主题）。
+
+### 现状
+
+- 库存卡（`InventoryCard.vue`）与样板卡（`PatternListCard.vue`）只有关键字过滤、**无排序**；物品种类多时只能靠搜索定位，浏览无固定顺序。
+- 可滚动区域（库存 480px 固定视口、样板 440px / flex-1、CPU 列表 91px、命令列表 126px）滚下去之后没有回到顶部的入口。
+
+### 决策 1：列表排序（复刻 AE2 终端语义）
+
+AE2 终端排序为 `SortOrder{NAME, AMOUNT, MOD} × SortDir{ASC, DESC}`（经 javap 反编译 AE2 19.2.18 核实：`appeng.api.config.SortOrder`、`appeng.client.gui.me.common.KeySorters`——NAME 按 `AEKey.getDisplayName().getString()` **本地化名**排，AMOUNT 在 `Repo.updateView()` 内按存量排，MOD 按模组来源排）。Java 实现不可直接复用，把语义搬到前端：
+
+| 卡 | 排序项 | 说明 |
+| --- | --- | --- |
+| 库存卡 | 名称 / 数量 × 升 / 降 | 名称按 `displayName()` 中文名 `localeCompare('zh')`（拼音序，体验优于码点序）；数量按 `entry.amount`，同数量回退名称序 |
+| 样板卡 | 名称 × 升 / 降 | `primaryOutput.amount` 是单次输出量（通常恒 1），数量排序无意义，不做 |
+| 控件 | 卡片右上角搜索框旁 | 循环切换按钮或小下拉（默认名称升序）；实现在现有 `filtered` computed 末尾追加排序即可，虚拟滚动 `rowCount / visibleRows` 逻辑不动 |
+
+### 决策 2：回到顶部（方向感知）
+
+- 行为：**向上滚动**（往回看）时在滚动容器右下角浮现「回到顶部」小图标；**向下滚动即隐藏**；点击平滑回顶（`viewport.scrollTo({top: 0, behavior: 'smooth'})`）。
+- 实现：可复用组合式函数 `useBackToTop(viewportRef)`（记录上次 scrollTop 判断滚动方向，到顶后自动隐藏）+ `BackToTopButton.vue`（绝对定位于滚动容器内，样式沿用设计令牌）。
+- 接入范围：只接**库存、样板**两个大视口；CPU（91px）/ 命令（126px）列表视口仅两行余，回顶成本极低，不加图标避免视觉噪音（后续有反馈再放开）。
+
+### 改动范围
+
+仅 `web/frontend`（两张卡 + 新增组合式函数与按钮组件），零契约改动；完成后同步 `docs/frontend/index.md` 源码映射与本节状态。
 
 ## 相关文档
 

@@ -100,7 +100,7 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 - [x] **命令队列**：HTTP 只入队，主线程持久化并用 AE2 异步重算后提交。
 - [x] **后端代理**：Spring Boot 已把本机 API 的网格列表 / 快照 / 合成命令转发给网页（`web/backend/`，见 [后端](../backend/index.md)）。
 - [x] **网格密码（0.0.6）**：游戏内 GUI 设密（PBKDF2 哈希入身份表）、`verify-password` 校验端点、C2S payload 通道；旧版后端/前端可无缝忽略。
-- [x] **GUI 迭代（0.0.7）**：接入方块 GUI 状态实时刷新（`containerData` 随 `broadcastChanges` 每 tick 同步，网格变化无需重开菜单）、展示 accessId/displayName/控制器位置（S2C `GridIdentityPayload`）、displayName 可改名（C2S `GridRenamePayload` + `GridIdentityStore.rename` + 身份镜像缓存即时刷新）；`token` 展示/复制未做（配对令牌方案暂缓，见 [`roadmap.md`](../roadmap.md) §7）。
+- [x] **GUI 迭代（0.0.7）**：接入方块 GUI 状态实时刷新（`containerData` 随 `broadcastChanges` 每 tick 同步，网格变化无需重开菜单）、展示 accessId/displayName/控制器位置（S2C `GridIdentityPayload`）、displayName 可改名（C2S `GridRenamePayload` + `GridIdentityStore.rename` + 身份镜像缓存即时刷新）；`token` 展示/复制未做（配对令牌方案暂缓，见 [`roadmap.md`](../roadmap.md) §8）。
 - [x] **术语统一为 grid（0.0.8）**：`network/` 包改名 `grid/`（`GridIdentity` / `GridIdentityStore`）、本地数据口端点 `/networks`→`/grids`、JSON key `networks`→`grids`、错误码 `network_not_found`→`grid_not_found`；默认显示名由 `"Network @ ..."` 改为 `"Grid @ ..."`。`SavedData` 文件名（`ae2web_identities.dat`）与 NBT、`accessId` 均不变。
 
 - [x] **`nameKey` 字段（`roadmap.md` §4，0.0.9）**：快照 stack 条目附带物品翻译键（物品取 `Item#getDescriptionId()`、流体取 `FluidType#getDescriptionId()`，其余 AEKey 类型从显示名组件提取）；`SnapshotStore` NBT 与 HTTP JSON 透传，旧存档/旧快照无该字段时按「可选」处理。服务端无多语言，不能直接出中文名，由前端按翻译键查中文语言表。

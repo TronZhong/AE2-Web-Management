@@ -51,7 +51,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 | --- | --- | --- |
 | `accessId` | UUID | 存档内专属标识（由模组生成） |
 | `controllerKey` | `ResourceKey<Level>` + `BlockPos` | 锚点：ME 控制器的维度 + 坐标 |
-| `token` | String | 网页访问令牌（生成时随机，后端持有；当前闲置，语义保留给 roadmap §7 的配对令牌方案） |
+| `token` | String | 网页访问令牌（生成时随机，后端持有；当前闲置，语义保留给 roadmap §8 的配对令牌方案） |
 | `displayName` | String | 显示名（注册时默认 `"Grid @ x,y,z"`，0.0.7 起可在接入方块 GUI 改名） |
 | `createdAt` / `lastSeenAt` | long（时间戳） | 建档时间 / 最近一次在线时间；`lastSeenAt` 当前尚未随快照回写 |
 | `passwordHash` | String | 网格密码的 PBKDF2 哈希（`pbkdf2:<迭代>:<盐B64>:<哈希B64>`，0.0.6 新增）；空串 = 未设密码（公开网络）。明文只在游戏内 GUI 与 HTTP 校验请求体出现，不出模组 |

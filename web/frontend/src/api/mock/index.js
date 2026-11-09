@@ -152,7 +152,9 @@ export async function submitCraft(accessId, key, amount) {
     throw new Error('invalid_key')
   }
   const history = ensureHistory(accessId)
-  const command = makeCommand(accessId, structuredClone(key), amount, 'PENDING', Date.now(), null)
+  // key 可能携带 Vue 响应式代理（ref 深层 reactive 化），structuredClone 无法克隆 Proxy，
+  // 先经 JSON 往返退化为普通对象（AEKey 为纯 JSON 数据，无损）
+  const command = makeCommand(accessId, JSON.parse(JSON.stringify(key)), amount, 'PENDING', Date.now(), null)
   history.push(command)
   return { commandId: command.commandId, state: command.state, submittedAt: command.submittedAt }
 }
