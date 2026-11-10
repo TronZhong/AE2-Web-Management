@@ -45,6 +45,8 @@ export const GRIDS = [
     controllerZ: 128,
     online: false,
     hasPassword: false,
+    // 契约 v0.10：最近一次在线时间（离线网格展示「最后在线」；在线网格由 mock 层推导为当前时间）
+    lastSeenAt: STALE_TIME,
   },
 ]
 

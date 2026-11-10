@@ -124,6 +124,8 @@ export async function fetchGrids() {
       return {
         ...grid,
         capturedAt,
+        // 契约 v0.10：在线网格恒「刚刚在线」；离线网格用 fixture 的最后在线时间
+        lastSeenAt: grid.online ? now : (grid.lastSeenAt ?? snapshot.capturedAt),
         inventoryEntries: snapshot.inventory.length,
         cpuCount: snapshot.craftingCpus.length,
         unlocked: isUnlocked(grid),

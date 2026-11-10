@@ -16,6 +16,7 @@
 - **物品图标（模组 0.0.10 + 后端/前端，契约 v0.7；0.0.11 分辨率升级 64×64）**：模组 `GET /icons/{namespace}/{path}.png` 图标静态文件端点（64×64 PNG，客户端离屏渲染产物（16×16 GUI 单位逻辑画布 4× 超采样），只读磁盘不现算；路径段仅允许 `[a-z0-9_.-]`，缺失 404 + 惰性补齐）；后端 `GET /api/icons/{namespace}/{path}.png` 纯字节转发（透传 `Content-Type` 与 `Cache-Control`，仅要求登录，不自建缓存）；前端 `iconUrlOf()` 按 key id 构造 URL，`ItemSlot` 懒加载 + 失败回退占位方块并有限重试。详见 [web-api.md](web-api.md)「图标转发端点」。
 - **CPU 名称字段移除（模组 0.0.12，Web 契约 v0.8）**：AE2 合成 CPU 无法命名，快照 `craftingCpus[]` 不再携带 `name`——模组采集 / `SavedData` NBT / HTTP JSON、后端 DTO 透传、前端展示全链路同步移除；网页按列表序号显示 `#N`，模组按游戏内同序（协处理器↓、存储↓）排序，编号与游戏内未命名 CPU 一致。
 - **命令记录删除与历史自动清理（模组 0.0.13，Web 契约 v0.9）**：新增 `DELETE /grids/{accessId}/commands/{commandId}`——**物理删除**命令记录：删除 `PENDING` 记录即撤销（不会提交给 AE2，含取消在途计算），删除 `SUBMITTED`/`FAILED` 记录仅清理历史（不影响 AE2 已受理的任务）。删除在模组主线程原子执行（与模拟/提交串行化，杜绝「已删命令仍被提交」的竞态），响应即最终结果。另：每个网格自动保留最近 `commandHistoryLimit`（模组配置，默认 50）条终态记录，超出删除最旧；`PENDING` 不参与自动清理。详见下方「合成命令 API」。
+- **`lastSeenAt` 随快照回写（模组 0.0.14，Web 契约 v0.10）**：快照循环对**在线**网格回写身份表 `lastSeenAt`（离线轮不更新），该字段由「建档时间」变为可信的「最近一次在线时间」，随 `SavedData` 持久化、跨重启正确；`GET /grids` 摘要新增 `lastSeenAt` 字段，旧版模组（<0.0.14）无该字段时后端省略（向后兼容）。
 - 完整 schema、JSON Schema/OpenAPI 仍待定义；字段变更前先更新本页。
 - 目录：`contracts/`（当前以文档形式维护初版 API 形状）。
 
@@ -32,9 +33,11 @@
 | 端点 | 用途 |
 | --- | --- |
 | `GET /health` | 健康检查，返回 `{"ok":true}` |
-| `GET /grids` | 网格列表，含 `accessId`、显示名、控制器维度/坐标、在线态、快照摘要和 `hasPassword` |
+| `GET /grids` | 网格列表，含 `accessId`、显示名、控制器维度/坐标、在线态、快照摘要、`hasPassword` 与 `lastSeenAt`（0.0.14 起） |
 | `GET /grids/{accessId}/snapshot` | 单网格快照，含 `inventory`、`craftingCpus` 和 `patterns` |
 | `GET /icons/{namespace}/{path}.png` | 物品/流体图标静态文件（64×64 PNG，模组 0.0.11 起；16 GUI 单位逻辑画布 4× 超采样）。`namespace`/`path` 来自快照 key 的 `id`（如 `minecraft/iron_block.png`），仅允许 `[a-z0-9_.-]`；文件缺失返回 `404 {"error":"icon_not_found"}` 并惰性补齐（客户端后台渲染，下一次请求大概率命中）；非法路径段返回 `400 {"error":"invalid_icon_path"}`。响应 `Content-Type: image/png` + `Cache-Control: public, max-age=86400`（图标一经渲染即静态） |
+
+`GET /grids` 摘要中的 `lastSeenAt`（0.0.14 起）为该网格**最近一次在线时间**（epoch 毫秒）：快照循环发现网格在线时回写身份表，离线轮保持不变；网格从未在线过时等于建档时间。旧版模组无该字段，响应省略。
 
 快照中的 `inventory[].key` 是 AE2 `AEKey` 通用 NBT 转换后的 JSON；`amount` 为 long。
 `inventory[]` / `patterns[]` 的每个 stack 条目（`primaryOutput`、`outputs[]`、`inputs[].possibleInputs[]`）均可能携带**可选** `nameKey`：物品翻译键（如 `block.minecraft.stone` / `item.ae2.controller`，取自 `Item#getDescriptionId()`；流体为 `fluid_type.*`），供前端查中文语言表（roadmap.md §4）。无翻译键时字段省略（旧版模组 / 自定义名称物品）。

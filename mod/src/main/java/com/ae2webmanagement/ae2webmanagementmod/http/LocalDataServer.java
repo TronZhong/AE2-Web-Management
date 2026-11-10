@@ -483,6 +483,8 @@ public final class LocalDataServer {
             grid.put("inventoryEntries", snapshot.map(value -> value.inventory().size()).orElse(0));
             grid.put("cpuCount", snapshot.map(value -> value.craftingCpus().size()).orElse(0));
             grid.put("hasPassword", !this.snapshots.getPasswordHash(identity.accessId()).isEmpty());
+            // 最近一次在线时间（0.0.14 起随快照循环回写，契约 v0.10）
+            grid.put("lastSeenAt", identity.lastSeenAt());
             grids.add(grid);
         }
         return grids;

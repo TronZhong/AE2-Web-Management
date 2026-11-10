@@ -85,11 +85,20 @@ public final class SnapshotManager {
 
         Map<UUID, GridIdentity> latestIdentities = new HashMap<>();
         for (GridIdentity identity : identityStore.getAll()) {
-            latestIdentities.put(identity.accessId(), identity);
             Snapshot previous = this.cache.get(identity.accessId());
             Snapshot current = capture(server, identity, previous);
             this.cache.put(identity.accessId(), current);
             snapshots.put(current);
+
+            // 快照循环回写身份表 lastSeenAt（docs/design.md §4.1）：仅在线轮更新，
+            // 保持「最近一次在线时间」语义；返回的新记录覆盖进镜像缓存，
+            // 避免镜像里残留旧值（HTTP 网格列表按镜像输出该字段）。
+            GridIdentity effective = identity;
+            if (current.online()) {
+                effective = identityStore.touchLastSeen(identity.accessId(), current.capturedAt())
+                        .orElse(identity);
+            }
+            latestIdentities.put(effective.accessId(), effective);
 
             if (previous == null) {
                 LOGGER.info("[AE2Web] Captured startup snapshot for {}: online={}, inventory={}, cpus={}",

@@ -11,7 +11,7 @@
 | P1 | 物品中文名称（`nameKey`） | 待办 · UX | ✅ 已完成（0.0.9） |
 | P2 | 物品图标（客户端渲染导出） | 待办 · UX | ✅ 已完成（模组 0.0.10 + 后端/前端，契约 v0.7） |
 | P2 | 命令记录删除与历史自动清理 | 待办 | ✅ 已完成（0.0.13，契约 v0.9） |
-| P2 | `lastSeenAt` 随快照回写 | 待办 | 已拍板 |
+| P2 | `lastSeenAt` 随快照回写 | 待办 | ✅ 已完成（0.0.14，契约 v0.10） |
 | P2 | 附魔属性展示（方案 A：前端解析 `key.components`） | 待办 · UX | 已拍板 |
 | P3 | 前端小改进（列表排序 + 回到顶部） | 待办 · UX | 已拍板（小改动） |
 | P3 | 每网络配对令牌 | 隐患 · 安全 | 暂缓（实施前再确认场景） |
@@ -30,7 +30,7 @@
 | 附魔书等组件物品只显示基础名称 | 锋利 V 附魔书与普通附魔书在网页上无法区分；附魔数据已在 `key.components` 中随快照传输，仅前端未解析（§7 已核实链路） | §7 方案 A |
 | 库存条目 `:key` 只用物品 id | 同 id 不同组件（附魔书 / 改名 / 不同耐久）撞 Vue key，虚拟滚动复用有渲染错乱风险 | §7 一并修复（id + 组件摘要） |
 | PENDING 命令无法撤销 | 命令一直等待网络上线后自动提交，误发无法撤回，前端不敢提供取消按钮 | ✅ §6 已实施（0.0.13）：DELETE 删除 PENDING 记录即撤销 |
-| `lastSeenAt` 不随快照回写 | 在线/离线判定与展示失实 | §6 快照循环回写 |
+| `lastSeenAt` 不随快照回写 | 在线/离线判定与展示失实 | ✅ §6 已实施（0.0.14）：快照循环在线轮回写并随 `GET /grids` 暴露 |
 | 授权仅网格密码，无按网络隔离 | 多玩家/对外部署权限粒度不足；token 语义暂无需求 | §8 暂缓，实施前确认场景 |
 | 模组无自动化测试 | CI 只构建模组，游戏内行为靠手动复现，回归风险高 | 后续补 NeoForge GameTest |
 
@@ -145,11 +145,14 @@ AE2 代码层把"网络"称为 `IGrid`/`Grid`（design.md §9）。对外契约�
 - 前端静态贴图包（构建期从 jar 抽 PNG）：vanilla 方块只有平面贴图、观感打折，modded 需手工维护；
 - 第三方贴图 CDN：只覆盖 vanilla、依赖外网，不可控。
 
-## 6. P2 · 模组其他遗留
+## 6. P2 · 模组其他遗留 ✅ 已完成
+
+> 两项均已按拍板方案实施完毕，实现记录见 git 历史：命令删除为模组 0.0.13 + 契约 v0.9，`lastSeenAt` 回写为模组 0.0.14 + 契约 v0.10。
 
 - **命令记录删除/撤销与历史自动清理** ✅ 已完成（0.0.13，契约 v0.9）
   > 已按拍板方案实施完毕：`DELETE /grids/{accessId}/commands/{commandId}` **物理删除**记录（不引入 CANCELLED 状态）——删 PENDING 即撤销（主线程原子执行，`MinecraftServer#execute` 同步等待响应即结果，与模拟/提交串行化并取消在途计算），删 SUBMITTED/FAILED 仅清理历史；每网格自动保留最近 `commandHistoryLimit`（默认 50，模组配置）条终态记录，PENDING 不自动清理；后端 `CraftController`/`GridService`/`ModApiClient` 纯转发（新增 `invalid_command_id`/`command_not_found`），前端 `CommandList` 每行两段式确认删除按钮。实现记录见 git 历史。
-- **`lastSeenAt` 随快照回写**：design.md §4.1 已标注，快照循环 `tick` 时更新身份表。
+- **`lastSeenAt` 随快照回写** ✅ 已完成（0.0.14，契约 v0.10）
+  > `SnapshotManager.tick` 对在线网格调 `GridIdentityStore.touchLastSeen` 回写最近在线时间（离线轮不更新，返回的新身份覆盖回镜像缓存），随 `SavedData` 持久化跨重启正确；`GET /grids` 摘要新增 `lastSeenAt`（`ModGridSummaryResponse` 可空承接旧版模组 → `GridSummaryResponse` `@JsonInclude(NON_NULL)` 输出），前端离线网格卡片显示「最后在线」。
 
 ## 7. P2 · 附魔属性展示（方案 A：前端解析 `key.components`）
 

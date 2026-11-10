@@ -113,6 +113,8 @@ class GridServiceTests {
 		GridSummaryResponse summary = response.grids().get(0);
 		assertThat(summary.hasPassword()).isFalse();
 		assertThat(summary.unlocked()).isTrue();
+		// 模组 lastSeenAt 原样透传到 Web 摘要（契约 v0.10）
+		assertThat(summary.lastSeenAt()).isEqualTo(1759990000000L);
 	}
 
 	/** 设了密码且账号未解锁 → 列表 unlocked=false；snapshot 前置检查 → 403 grid_locked。 */
@@ -244,6 +246,6 @@ class GridServiceTests {
 	 */
 	private static ModGridSummaryResponse modSummary(boolean locked, Boolean hasPassword) {
 		return new ModGridSummaryResponse(ACCESS_ID, "主基地 ME 网格", "minecraft:overworld",
-				128, 64, -256, true, 1760000000000L, 17, 2, hasPassword);
+				128, 64, -256, true, 1760000000000L, 17, 2, hasPassword, 1759990000000L);
 	}
 }

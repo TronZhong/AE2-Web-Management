@@ -212,7 +212,7 @@ public class GridService {
 		return new GridSummaryResponse(summary.accessId(), summary.displayName(), summary.dimension(),
 				summary.controllerX(), summary.controllerY(), summary.controllerZ(),
 				summary.online(), summary.capturedAt(), summary.inventoryEntries(), summary.cpuCount(),
-				hasPassword, unlocked);
+				hasPassword, unlocked, summary.lastSeenAt());
 	}
 
 	/**

@@ -16,6 +16,7 @@
 - **v0.7（2026-11）**：新增 `GET /api/icons/{namespace}/{path}.png` 图标转发端点——对模组 `GET /icons/{namespace}/{path}.png`（模组 0.0.10，见 [模组↔后端契约](index.md)）做纯字节透传（透传 `Content-Type: image/png` 与 `Cache-Control`，后端不自建缓存）。仅要求登录，不做 per-network 访问控制；模组不可达 503、图标未渲染 404，前端 `@error` 回退占位方块并有限重试。见「图标转发端点」。
 - **v0.8（2026-11）**：**移除 `craftingCpus[].name`**——AE2 合成 CPU 无法命名，前端与游戏内 GUI 一致按列表序号显示 `#N`（模组 0.0.12 同步移除传输与持久化字段；`craftingCpus[]` 现按协处理器多者→存储大者排序，`#N` 与游戏内未命名 CPU 编号一致）。
 - **v0.9（2026-11）**：新增 `DELETE /api/grids/{accessId}/commands/{commandId}` **删除命令记录**（纯转发模组同名端点，模组 0.0.13）：删除 `PENDING` 记录即撤销（不会提交给 AE2），删除 `SUBMITTED`/`FAILED` 记录仅清理历史；模组在主线程原子执行，响应即最终结果（204 已删除 / 404 `grid_not_found` / `command_not_found`）。`grid_locked` 访问控制同样适用。另：模组侧每个网格自动保留最近 50 条（可配置）终态命令记录。见「合成命令端点」。
+- **v0.10（2026-11）**：`GET /api/grids` 网格摘要新增 `lastSeenAt`（纯转发模组 0.0.14 字段）：**最近一次在线时间**（epoch 毫秒），由模组快照循环对在线网格回写身份表，随 `SavedData` 持久化；旧版模组（<0.0.14）无该字段 → 后端反序列化为 null 并在 Web 响应省略（向后兼容，同 `nameKey` 模式）。前端离线网格卡片显示「最后在线」。
 
 ## 通用约定
 
@@ -87,6 +88,7 @@
 | `grids[].cpuCount` | number | 合成 CPU 数量 |
 | `grids[].hasPassword` | boolean | 是否在游戏内设置了网格密码（v0.3；旧版模组恒 `false`） |
 | `grids[].unlocked` | boolean | 当前账号是否可访问：未设密码恒 `true`；设了密码则为该账号是否已解锁（v0.3，账号维度持久记忆） |
+| `grids[].lastSeenAt` | number | 最近一次在线时间（epoch 毫秒，v0.10）：模组快照循环对在线网格回写身份表，离线保持不变；旧版模组（<0.0.14）无该字段 → 响应省略 |
 
 ### `GET /api/grids/{accessId}/snapshot`
 

@@ -67,7 +67,8 @@ class ModApiClientTests {
 						"capturedAt":1760000000000,
 						"inventoryEntries":17,
 						"cpuCount":2,
-						"hasPassword":true
+						"hasPassword":true,
+						"lastSeenAt":1760000000001
 					}]}
 				""", MediaType.APPLICATION_JSON));
 
@@ -85,6 +86,8 @@ class ModApiClientTests {
 		assertThat(response.grids().get(0).inventoryEntries()).isEqualTo(17);
 		assertThat(response.grids().get(0).cpuCount()).isEqualTo(2);
 		assertThat(response.grids().get(0).hasPassword()).isTrue();
+		// 契约 v0.10：lastSeenAt 最近一次在线时间随摘要透传
+		assertThat(response.grids().get(0).lastSeenAt()).isEqualTo(1760000000001L);
 		this.server.verify();
 	}
 
@@ -111,6 +114,8 @@ class ModApiClientTests {
 		ModGridListResponse response = this.client.listGrids();
 
 		assertThat(response.grids().get(0).hasPassword()).isNull();
+		// 旧版模组（<0.0.14）无 lastSeenAt 字段 → null，Web 响应省略（向后兼容）
+		assertThat(response.grids().get(0).lastSeenAt()).isNull();
 		this.server.verify();
 	}
 

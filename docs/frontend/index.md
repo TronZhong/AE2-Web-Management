@@ -13,7 +13,7 @@
 | 样式 | Tailwind CSS v4（设计令牌在 `src/style.css` 的 `@theme`，暗色终端风） |
 | 数据源 | 默认 mock；`VITE_USE_MOCK=false` 切换真实请求（后端转发已实现，dev 走 Vite `/api` 代理） |
 | 认证 | 账号制（后端 satoken Cookie 会话）；未登录一律重定向登录页 |
-| 契约 | [`contracts/web-api.md`](../../contracts/web-api.md)（v0.6，指向 `docs/contracts/web-api.md`） |
+| 契约 | [`contracts/web-api.md`](../../contracts/web-api.md)（v0.10，指向 `docs/contracts/web-api.md`） |
 
 ## 目录结构与源码映射
 
@@ -53,7 +53,7 @@
 | [`../../web/frontend/src/components/base/ItemTooltip.vue`](../../web/frontend/src/components/base/ItemTooltip.vue) | 跟随鼠标的 MC 风格 tooltip（teleport 到 body，按缩放系数换算坐标） |
 | [`../../web/frontend/src/components/base/HoverDetail.vue`](../../web/frontend/src/components/base/HoverDetail.vue) | 截断文本悬浮详情：单行截断 + 末尾向下小箭头（仅溢出时出现），**悬停箭头**弹出完整内容的信息窗口（teleport 到 body、窗口左上角对齐鼠标使鼠标恰在窗口内；悬浮截断文本不触发）；移入窗口保持、移出窗口即关 |
 | **`components/grid/`** — 选择页组件 | |
-| [`../../web/frontend/src/components/grid/GridCard.vue`](../../web/frontend/src/components/grid/GridCard.vue) | 网格卡片：名称、在线徽标、锁定徽标（v0.3 `hasPassword && !unlocked`）、控制器位置、快照摘要、进入/解锁按钮 |
+| [`../../web/frontend/src/components/grid/GridCard.vue`](../../web/frontend/src/components/grid/GridCard.vue) | 网格卡片：名称、在线徽标、锁定徽标（v0.3 `hasPassword && !unlocked`）、控制器位置、快照摘要、离线网格「最后在线」时间（契约 v0.10 `lastSeenAt`）、进入/解锁按钮 |
 | [`../../web/frontend/src/components/grid/UnlockGate.vue`](../../web/frontend/src/components/grid/UnlockGate.vue) | 网格解锁门（v0.3）：锁定网格的详情页以此面板替代内容，密码提交 `POST /unlock`，`invalid_password` 等错误码直出，成功后冒泡 `unlocked` 事件 |
 | **`components/snapshot/`** — 详情页组件 | |
 | [`../../web/frontend/src/components/snapshot/StatusCpuCard.vue`](../../web/frontend/src/components/snapshot/StatusCpuCard.vue) | 状态 + 合成 CPU + 合成命令合并卡（详情页首行左卡，与样板卡横向对半分）：上半为在线态、数据截至、控制器、accessId；下半上下堆叠——上为 CPU 忙闲/存储/协处理器、下为合成命令列表（均最多完整显示 2 条，超出滚动）；过长控制器位置 / accessId 文本经 HoverDetail 悬浮展开 |
@@ -84,6 +84,7 @@
 - [x] 物品贴图接入（契约 v0.7，roadmap.md §5 已完成）：`api/index.js` 的 `iconUrlOf()` 按 key id 构造 `/api/icons/{ns}/{path}.png`（id 段不满足模组字符集或 mock 模式返回空串），库存/样板/命令/计划合成各组件传入 `ItemSlot` 的 `iconUrl`；`loading="lazy"` + `@error` 回退占位方块，5s 后有界重试 2 次（配合模组 404 惰性补齐渐进出现），iconUrl 变化时重试状态归零。专用服务器（图标恒 404）与 mock 模式下保持占位方块。
 - [x] 详情页布局改版：状态·CPU·命令合并卡与样板卡横向对半分（卡内 CPU 在上、命令在下，各最多 2 条滚动）；新增 `HoverDetail` 截断文本悬浮详情（向下小箭头 + 信息窗口，**悬停箭头触发**，窗口对齐鼠标、移入保持、移出即关），应用于控制器 / accessId / 命令回执与物品 id；样板卡格子区窄屏 440px 固定、桌面端拉伸填满（库存维持 480px 不变）；原独立 `CommandsCard` 更名为 `CommandList` 嵌入视图。顺带修复 mock `submitCraft` 对响应式 key 对象 `structuredClone` 失败导致 mock 模式无法提交合成的问题。
 - [x] 命令删除接线（契约 v0.9）：`CommandList` 每行删除按钮两段式确认（点一次变「确认删除」再点一次生效，blur 复位），PENDING 行提示「删除即撤销」；`StatusCpuCard` 冒泡 `delete`、详情页调 `deleteCommand` 后刷新命令列表（`command_not_found` 视为已删除静默通过）；mock 层模拟删除与 50 条终态自动修剪。
+- [x] 最后在线展示（契约 v0.10）：网格摘要新增 `lastSeenAt` 透传，`GridCard` 离线网格显示「最后在线」行（在线网格与旧后端缺字段时省略）；mock 层在线网格推导为当前时间、离线网格用 fixture 值。
 
 ## 约定
 

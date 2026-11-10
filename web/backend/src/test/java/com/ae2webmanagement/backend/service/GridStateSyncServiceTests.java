@@ -144,6 +144,6 @@ class GridStateSyncServiceTests {
 	private static ModGridSummaryResponse summary(
 			String accessId, boolean hasPassword, boolean online, long capturedAt, String displayName) {
 		return new ModGridSummaryResponse(accessId, displayName, "minecraft:overworld",
-				128, 64, -256, online, capturedAt, 17, 2, hasPassword);
+				128, 64, -256, online, capturedAt, 17, 2, hasPassword, capturedAt);
 	}
 }

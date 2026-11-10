@@ -20,6 +20,7 @@ package com.ae2webmanagement.backend.dto;
  * @param inventoryEntries 库存物品种类数（非数量）
  * @param cpuCount         合成 CPU 数量
  * @param hasPassword      是否设置了网格密码（v0.3；旧版模组为 null → 按公开处理）
+ * @param lastSeenAt       最近一次在线时间（v0.10，模组 0.0.14；旧版模组为 null → Web 响应省略）
  */
 public record ModGridSummaryResponse(
 		String accessId,
@@ -32,5 +33,6 @@ public record ModGridSummaryResponse(
 		long capturedAt,
 		int inventoryEntries,
 		int cpuCount,
-		Boolean hasPassword) {
+		Boolean hasPassword,
+		Long lastSeenAt) {
 }

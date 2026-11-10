@@ -199,6 +199,31 @@ public final class GridIdentityStore extends SavedData {
         return Optional.of(updated);
     }
 
+    /**
+     * 更新网格最近一次在线时间（快照循环回写，主线程调用；docs/design.md §4.1）。
+     *
+     * <p>快照循环每轮对「在线」网格调用：写入当前采样时间，让该字段保持
+     * 「最近一次在线时间」的语义（离线轮不调用，字段保持最后一次在线值）；
+     * 随 {@code setDirty} 持久化到 SavedData，跨重启仍正确。照 {@link #rename}
+     * 的不可变 record 模式重建记录；返回的新记录由调用方覆盖回身份镜像缓存。</p>
+     *
+     * @param accessId  网格接入 ID（须已注册）
+     * @param timestamp 本次快照采样时间（epoch 毫秒）
+     * @return 更新后的身份记录；网格不存在时为空
+     */
+    public Optional<GridIdentity> touchLastSeen(UUID accessId, long timestamp) {
+        GridIdentity identity = identities.get(accessId);
+        if (identity == null) {
+            return Optional.empty();
+        }
+        GridIdentity updated = new GridIdentity(
+                identity.accessId(), identity.controllerLevel(), identity.controllerPos(),
+                identity.token(), identity.displayName(), identity.createdAt(), timestamp, identity.passwordHash());
+        identities.put(accessId, updated);
+        setDirty();
+        return Optional.of(updated);
+    }
+
     /** 全部身份（只读）。 */
     public Collection<GridIdentity> getAll() {
         return Collections.unmodifiableCollection(identities.values());

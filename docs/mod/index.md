@@ -15,7 +15,7 @@
 | Gradle 插件 | NeoGradle ModDev 2.0.148 |
 | 映射 | Parchment `2024.11.17`（MC 1.21.1） |
 | Java | 21 |
-| 版本 | `0.0.13` |
+| 版本 | `0.0.14` |
 | mod_id / 包名 | `ae2webmanagement` / `com.ae2webmanagement.ae2webmanagementmod` |
 
 ## 目录结构与源码映射
@@ -41,11 +41,11 @@
 | [`../../mod/src/main/java/.../access/client/AccessScreen.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/client/AccessScreen.java) | 客户端界面：标题、实时状态、身份信息（accessId/displayName/控制器位置）、改名区 + 注册按钮 + 密码区（EditBox 掩码、设置/清除按钮），无物品栏 |
 | [`../../mod/src/main/java/.../access/AccessRegistration.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessRegistration.java) | 方块/物品/方块实体注册、AE2 capability 注册、C2S payload 注册、创造标签页 |
 | **`grid/`** — 网格身份 | |
-| [`../../mod/src/main/java/.../grid/GridIdentity.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/grid/GridIdentity.java) | 网格接入身份（数据记录：`accessId` + 控制器锚点 + token + `passwordHash`） |
-| [`../../mod/src/main/java/.../data/GridIdentityStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/GridIdentityStore.java) | Overworld 网格身份表（`ae2web_identities.dat`），`setPassword` 写密码哈希、`rename` 改显示名 |
+| [`../../mod/src/main/java/.../grid/GridIdentity.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/grid/GridIdentity.java) | 网格接入身份（数据记录：`accessId` + 控制器锚点 + token + `passwordHash` + `lastSeenAt`） |
+| [`../../mod/src/main/java/.../data/GridIdentityStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/GridIdentityStore.java) | Overworld 网格身份表（`ae2web_identities.dat`），`setPassword` 写密码哈希、`rename` 改显示名、`touchLastSeen` 快照循环回写最近在线时间 |
 | **`snapshot/`** — 快照 | |
 | [`../../mod/src/main/java/.../snapshot/Snapshot.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/Snapshot.java) | 库存、合成 CPU、样板摘要、采样时间和在线态 |
-| [`../../mod/src/main/java/.../snapshot/SnapshotManager.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/SnapshotManager.java) | 主线程 4 秒采样、内存缓存、离线保留；密码哈希镜像（`getPasswordHash`/`updatePasswordHash`，HTTP 线程可读）；改名后 `updateIdentity` 即时刷新身份镜像 |
+| [`../../mod/src/main/java/.../snapshot/SnapshotManager.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/SnapshotManager.java) | 主线程 4 秒采样、内存缓存、离线保留；快照循环对在线网格回写身份表 `lastSeenAt`（0.0.14）；密码哈希镜像（`getPasswordHash`/`updatePasswordHash`，HTTP 线程可读）；改名后 `updateIdentity` 即时刷新身份镜像 |
 | [`../../mod/src/main/java/.../data/SnapshotStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/SnapshotStore.java) | Overworld 快照表（`ae2web_snapshots.dat`），含库存、CPU 和样板摘要 |
 | **`command/`** — 合成命令 | |
 | [`../../mod/src/main/java/.../command/CraftCommand.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/command/CraftCommand.java) | 合成意图记录：目标 `AEKey`、数量、状态、结果 |
@@ -72,7 +72,7 @@
 | `minecraft_version` | `1.21.1` | 目标 MC 版本 |
 | `neo_version` | `21.1.265` | 必须与 MC 版本一致 |
 | `ae2_version` | `19.2.18` | AE2 依赖版本（`build.gradle` 引用） |
-| `mod_version` | `0.0.13` | 每次提交递增补丁号 |
+| `mod_version` | `0.0.14` | 每次提交递增补丁号 |
 | `mod_id` | `ae2webmanagement` | 必须与主类 `MODID` 一致 |
 | `mod_name` | `AE2 Web Management` | 展示名 |
 | `mod_group_id` | `com.ae2webmanagement.ae2webmanagementmod` | 应与源码基础包一致 |
@@ -108,7 +108,7 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 - [x] **图标分辨率 64×64（0.0.11）**：`IconService` 将正交投影固定在 16×16 GUI 单位逻辑画布（原版物品格尺寸），FBO/NativeImage 按 64×64 像素铺设，1 GUI 单位采样 4 像素——修复「仅调大 `ICON_SIZE` 后物品只占画布左上角 1/4」的投影错位；平面贴图最近邻放大 4×，3D 物品获得 4× SSAA。分辨率编入缓存路径（`icons/64x64/`），调整 `IconPaths.ICON_RESOLUTION` 后旧分辨率缓存自动失效。
 - [x] **CPU 序号显示（0.0.12）**：AE2 合成 CPU 无法命名，快照 `craftingCpus[]` 移除 `name` 字段（`CpuEntry` / `SavedData` NBT / HTTP JSON 同步移除；旧存档残留 `name` 键读取时忽略）；采集时按游戏内 `CraftingCPUCycler` 同序排序（协处理器↓、存储↓），网页按列表序号显示 `#N`、与游戏内编号一致。
 - [x] **命令记录删除与历史自动清理（契约 v0.9，0.0.13）**：`DELETE /grids/{id}/commands/{commandId}` 物理删除命令记录——删 PENDING 即撤销（主线程原子执行：与模拟/提交串行化并取消在途 AE2 计算，保证不会提交），删终态仅清理历史；HTTP 线程经 `MinecraftServer#execute` 同步等待（上限 2s < 后端 5s 读超时），响应即最终结果；每个网格自动保留最近 `commandHistoryLimit`（默认 50）条终态记录（`update` 终态写入后修剪 + 启动时全量修剪一次），PENDING 不自动清理。
-- [ ] **`lastSeenAt` 随快照回写（`roadmap.md` §6）**：身份表 `lastSeenAt` 尚未随快照循环回写，仍是建档时间。
+- [x] **`lastSeenAt` 随快照回写（契约 v0.10，0.0.14）**：`SnapshotManager.tick` 对在线网格调 `GridIdentityStore.touchLastSeen` 回写最近在线时间（离线轮不更新），返回的新身份覆盖回镜像缓存；`GET /grids` 摘要新增 `lastSeenAt` 字段，旧版后端/前端可忽略。
 
 > 实现顺序与完整方案见 [技术设计](../design.md)：锚点身份（控制器 + `SavedData`）→ 注册器方块 → 4 秒快照循环 → 命令队列 → 本地 127.0.0.1 数据口。
 

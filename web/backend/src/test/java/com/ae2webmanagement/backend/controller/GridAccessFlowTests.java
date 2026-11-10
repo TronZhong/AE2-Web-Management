@@ -72,9 +72,9 @@ class GridAccessFlowTests {
 	private static ModGridListResponse modList(String lockedId, String publicId, boolean hasPassword) {
 		return new ModGridListResponse(List.of(
 				new ModGridSummaryResponse(lockedId, "锁定网格", "minecraft:overworld",
-						1, 2, 3, true, 1760000000000L, 5, 1, hasPassword),
+						1, 2, 3, true, 1760000000000L, 5, 1, hasPassword, 1760000000000L),
 				new ModGridSummaryResponse(publicId, "公开网格", "minecraft:overworld",
-						4, 5, 6, false, 0, 0, 0, false)));
+						4, 5, 6, false, 0, 0, 0, false, 1759990000000L)));
 	}
 
 	/** 闭环：锁定网格 unlocked=false → snapshot 403 → 错密码 401 → 正确密码 204 → unlocked=true → snapshot 200。 */

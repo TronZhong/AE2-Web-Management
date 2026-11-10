@@ -1,5 +1,7 @@
 package com.ae2webmanagement.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * 网格摘要：网格列表中单个网格的条目（Web 响应 DTO，契约 v0.3）。
  *
@@ -20,6 +22,8 @@ package com.ae2webmanagement.backend.dto;
  * @param cpuCount         合成 CPU 数量
  * @param hasPassword      是否设置了网格密码（v0.3；旧版模组恒 false）
  * @param unlocked         当前账号是否可访问：未设密码恒 true；设了密码则为该账号是否已解锁（v0.3）
+ * @param lastSeenAt       最近一次在线时间（v0.10，模组 0.0.14 随快照回写）；
+ *                         旧版模组无该字段 → null，经 {@code @JsonInclude(NON_NULL)} 在 Web 响应省略
  */
 public record GridSummaryResponse(
 		String accessId,
@@ -33,5 +37,6 @@ public record GridSummaryResponse(
 		int inventoryEntries,
 		int cpuCount,
 		boolean hasPassword,
-		boolean unlocked) {
+		boolean unlocked,
+		@JsonInclude(JsonInclude.Include.NON_NULL) Long lastSeenAt) {
 }

@@ -37,7 +37,7 @@
 | `.../backend/controller/RealtimeController.java` | `GET /api/events`（SSE 实时事件，Sa-Token Cookie 认证；长超时 + 心跳；事件形状见 docs/contracts/web-api.md「实时事件」） |
 | `.../backend/service/RealtimeEventHub.java` | SSE emitter 集合管理：注册 / 移除 / 广播 / 定时心跳 |
 | `.../backend/service/GridStateSyncService.java` | 每 2s 拉模组网格列表与内存指纹比对，变化即经 `RealtimeEventHub` 广播（指纹只含模组侧状态，不含账号 `unlocked`） |
-| `.../backend/dto/` | 契约 DTO（record，AEKey `key` 以 `JsonNode` 透传；认证 DTO 为 `LoginRequest` / `LoginResponse` / `MeResponse`）。模组侧与 web 侧网格摘要分离：`ModGridListResponse` / `ModGridSummaryResponse`（可空 `Boolean hasPassword` 承接旧版模组）→ `GridService` 映射为 `GridListResponse` / `GridSummaryResponse`（primitive `hasPassword` + 计算的 `unlocked`）；解锁请求 `UnlockRequest`、模组校验请求 `VerifyPasswordRequest` |
+| `.../backend/dto/` | 契约 DTO（record，AEKey `key` 以 `JsonNode` 透传；认证 DTO 为 `LoginRequest` / `LoginResponse` / `MeResponse`）。模组侧与 web 侧网格摘要分离：`ModGridListResponse` / `ModGridSummaryResponse`（可空 `Boolean hasPassword`、可空 `Long lastSeenAt` 承接旧版模组）→ `GridService` 映射为 `GridListResponse` / `GridSummaryResponse`（primitive `hasPassword` + 计算的 `unlocked` + `@JsonInclude(NON_NULL) lastSeenAt`）；解锁请求 `UnlockRequest`、模组校验请求 `VerifyPasswordRequest` |
 | `.../backend/domain/Account.java` | JPA 实体：后端账号（用户名唯一 + BCrypt 哈希，表 `accounts`） |
 | `.../backend/domain/GridAccess.java` | JPA 实体：账号已解锁网格记录（表 `account_grid_access`，`unique(account_id, access_id)`） |
 | `.../backend/repository/AccountRepository.java` | 账号表访问（按用户名查找、是否已有账号） |
@@ -85,6 +85,7 @@ cd .\web\backend
 - [x] **物品中文名称透传（契约 v0.6，模组 0.0.9，roadmap.md §4）**：`StackEntry` DTO 新增可选 `nameKey`（模组快照 JSON 同名字段透传，`JsonNode key` 不变）；`@JsonInclude(NON_NULL)` 省略 null，旧版模组/旧快照无该字段时 Web 响应仍然省略（向后兼容）。
 - [x] **物品图标转发（契约 v0.7，模组 0.0.10，roadmap.md §5）**：`GET /api/icons/{namespace}/{path}.png`——`IconController` 校验路径字符集（`[a-z0-9_.-]`，非法 400 `invalid_icon_path`）后经 `ModApiClient.fetchIcon` 纯字节转发模组 `GET /icons/...`（不做 JSON 解析、不自建缓存、不做 per-network 访问控制），响应透传 `image/png` + `Cache-Control: public, max-age=86400`；模组 404 `icon_not_found`（未渲染，惰性补齐中）原样透传；`GlobalExceptionHandler` 兜底翻译 `ResourceAccessException` → 503 `mod_unreachable`。
 - [x] **命令记录删除转发（契约 v0.9，模组 0.0.13）**：`DELETE /api/grids/{id}/commands/{commandId}` 纯转发模组（`CraftController` → `GridService.deleteCommand` → `ModApiClient.deleteCommand`）；`commandId` 非法 400 `invalid_command_id`；`grid_locked` 访问控制同样适用；模组 404 `command_not_found` / `grid_not_found` 原样透传。模组侧自动保留每网格最近 50 条（可配置）终态记录。
+- [x] **`lastSeenAt` 透传（契约 v0.10，模组 0.0.14）**：`ModGridSummaryResponse` 增加可空 `Long lastSeenAt`（旧版模组缺字段 → null），`GridSummaryResponse` 以 `@JsonInclude(NON_NULL)` 输出（null 省略，向后兼容）；`GridService` 原样映射。
 - [ ] 暂无改密 / 注册 / 多账号管理端点（个人自用场景，roadmap 未列入待办）。
 
 ## 相关文档

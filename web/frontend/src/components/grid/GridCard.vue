@@ -55,6 +55,11 @@ const locked = computed(() => Boolean(props.grid.hasPassword) && !props.grid.unl
         <dt class="shrink-0 text-ink-faint">数据截至</dt>
         <dd>{{ formatTime(grid.capturedAt) }}</dd>
       </div>
+      <!-- 契约 v0.10：最近一次在线时间，仅离线网格展示（在线即「现在」无信息量）；旧后端无该字段时省略 -->
+      <div v-if="!grid.online && grid.lastSeenAt" class="flex justify-between gap-2">
+        <dt class="shrink-0 text-ink-faint">最后在线</dt>
+        <dd>{{ formatTime(grid.lastSeenAt) }}</dd>
+      </div>
     </dl>
 
     <footer>

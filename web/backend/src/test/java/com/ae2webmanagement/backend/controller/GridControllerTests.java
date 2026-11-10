@@ -64,7 +64,7 @@ class GridControllerTests {
 	void gridsFieldNamesMatchContract() throws Exception {
 		when(this.gridService.listGrids(42L)).thenReturn(new GridListResponse(List.of(
 				new GridSummaryResponse(ACCESS_ID, "主基地 ME 网格", "minecraft:overworld",
-						128, 64, -256, true, 1760000000000L, 17, 2, true, false))));
+						128, 64, -256, true, 1760000000000L, 17, 2, true, false, 1759990000000L))));
 
 		this.mockMvc.perform(get("/api/grids"))
 			.andExpect(status().isOk())
