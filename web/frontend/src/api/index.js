@@ -1,12 +1,12 @@
 /**
  * 后端 Web API 客户端（前端唯一的网络出口，组件不得自行 fetch）。
  * 契约：docs/contracts/web-api.md（v0.7：认证端点 + 受保护的只读/命令端点 + 图标转发）。
- * 默认使用 mock 数据源；设置 VITE_USE_MOCK=false 切换真实请求。
+ * 默认走真实请求（实时数据）；设置 VITE_USE_MOCK=true 启用 mock 数据源（或 npm run dev:mock）。
  */
 import * as mock from './mock/index.js'
 
-/** 是否使用 mock 数据源（默认 true，直至后端 /api 转发上线）。 */
-export const USE_MOCK = (import.meta.env?.VITE_USE_MOCK ?? 'true') !== 'false'
+/** 是否使用 mock 数据源（默认 false 走实时数据；仅显式 VITE_USE_MOCK=true 时启用 mock）。 */
+export const USE_MOCK = (import.meta.env?.VITE_USE_MOCK ?? 'false') === 'true'
 
 /** 401 统一处理回调（由 main.js 注册：清除会话并跳转登录页）。 */
 let unauthorizedHandler = null

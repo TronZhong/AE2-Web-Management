@@ -1,9 +1,8 @@
 <script setup>
-/** 网格选择页：列出全部已注册网格卡片；10s 轮询 + SSE 事件即时刷新 + 手动刷新。 */
+/** 网格选择页：列出全部已注册网格卡片；10s 轮询 + SSE 事件即时刷新（实时推送已覆盖，无手动刷新）。 */
 import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
-import BaseButton from '../components/base/BaseButton.vue'
 import EmptyState from '../components/base/EmptyState.vue'
 import GridCard from '../components/grid/GridCard.vue'
 import { subscribeGridEvents } from '../api/events.js'
@@ -31,14 +30,11 @@ function enter(grid) {
 
 <template>
   <div>
-    <div class="mb-6 flex items-end justify-between gap-4">
-      <div>
-        <h1 class="text-lg font-medium text-ink">选择网格</h1>
-        <p class="mt-1 font-mono text-xs text-ink-faint">
-          来自游戏内接入方块注册 · 共 {{ grids.length }} 个网格
-        </p>
-      </div>
-      <BaseButton :disabled="loading" @click="refresh">{{ loading ? '刷新中…' : '刷新' }}</BaseButton>
+    <div class="mb-6">
+      <h1 class="text-lg font-medium text-ink">选择网格</h1>
+      <p class="mt-1 font-mono text-xs text-ink-faint">
+        来自游戏内接入方块注册 · 共 {{ grids.length }} 个网格
+      </p>
     </div>
 
     <p

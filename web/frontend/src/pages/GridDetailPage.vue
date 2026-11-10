@@ -93,7 +93,8 @@ async function onDeleteCommand(command) {
 
     <div class="mb-6 mt-3 flex items-end justify-between gap-4">
       <h1 class="min-w-0 truncate text-lg font-medium text-ink">{{ title }}</h1>
-      <span class="shrink-0 font-mono text-[11px] text-ink-faint">{{ USE_MOCK ? 'MOCK 数据' : '实时数据' }}</span>
+      <!-- 仅 mock 模式显示徽标：实时数据是默认态，无需额外提示 -->
+      <span v-if="USE_MOCK" class="shrink-0 font-mono text-[11px] text-ink-faint">MOCK 数据</span>
     </div>
 
     <UnlockGate

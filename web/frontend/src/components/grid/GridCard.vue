@@ -2,7 +2,8 @@
 /**
  * 网格卡片：选择页的单个网格条目。
  * 展示显示名、在线徽标、锁定徽标（v0.3：设有网格密码且未解锁）、
- * 控制器位置、快照摘要与「数据截至」时间；点击「进入网格」向父级发 enter 事件。
+ * 控制器位置、快照摘要与时间行（在线「数据截至」/ 离线「最后在线」，契约 v0.10）；
+ * 点击「进入网格」向父级发 enter 事件。
  * 账号登录承担服务器级访问控制，网格密码在详情页解锁门校验。
  */
 import { computed } from 'vue'
@@ -20,6 +21,16 @@ defineEmits(['enter'])
 
 /** 是否处于锁定态：设有网格密码且当前账号未解锁。 */
 const locked = computed(() => Boolean(props.grid.hasPassword) && !props.grid.unlocked)
+
+/**
+ * 时间行（契约 v0.10）：在线网格显示「数据截至」（capturedAt）；
+ * 离线网格同一行直接显示「最后在线」（lastSeenAt，旧后端缺字段时回退 capturedAt），不额外占一行。
+ */
+const timeRow = computed(() =>
+  props.grid.online
+    ? { label: '数据截至', value: props.grid.capturedAt }
+    : { label: '最后在线', value: props.grid.lastSeenAt ?? props.grid.capturedAt },
+)
 </script>
 
 <template>
@@ -51,14 +62,10 @@ const locked = computed(() => Boolean(props.grid.hasPassword) && !props.grid.unl
         <dt class="shrink-0 text-ink-faint">库存 / CPU</dt>
         <dd>{{ grid.inventoryEntries }} 项 / {{ grid.cpuCount }} 个</dd>
       </div>
+      <!-- 时间行：在线「数据截至」；离线同位替换为「最后在线」（契约 v0.10），单行不重复 -->
       <div class="flex justify-between gap-2">
-        <dt class="shrink-0 text-ink-faint">数据截至</dt>
-        <dd>{{ formatTime(grid.capturedAt) }}</dd>
-      </div>
-      <!-- 契约 v0.10：最近一次在线时间，仅离线网格展示（在线即「现在」无信息量）；旧后端无该字段时省略 -->
-      <div v-if="!grid.online && grid.lastSeenAt" class="flex justify-between gap-2">
-        <dt class="shrink-0 text-ink-faint">最后在线</dt>
-        <dd>{{ formatTime(grid.lastSeenAt) }}</dd>
+        <dt class="shrink-0 text-ink-faint">{{ timeRow.label }}</dt>
+        <dd>{{ formatTime(timeRow.value) }}</dd>
       </div>
     </dl>
 

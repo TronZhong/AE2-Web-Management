@@ -1,7 +1,8 @@
 <script setup>
 /**
- * 应用外壳：顶栏（站点标识 + 数据源徽标 + 当前账号）、路由出口与页脚。
- * 数据源徽标按 USE_MOCK 显示 MOCK / 实时，避免误把演示数据当真实状态。
+ * 应用外壳：顶栏（站点标识 + 当前账号）、路由出口与页脚。
+ * 顶栏默认不显示数据源徽标（实时数据是默认常态）；仅 mock 模式显示「MOCK 数据」徽标，
+ * 避免误把演示数据当真实状态。
  * 登出：清会话后立即跳回登录页（不带 redirect，主动登出不回跳，roadmap 已完成项）。
  */
 import { RouterLink, RouterView, useRouter } from 'vue-router'
@@ -28,11 +29,12 @@ async function onLogout() {
           <span class="mr-1.5 text-accent">◆</span>ae2web
         </RouterLink>
         <div class="flex items-center gap-3">
+          <!-- 仅 mock 模式显示徽标：实时数据是默认态，无需额外提示 -->
           <span
-            class="rounded-full border px-2 py-0.5 font-mono text-[10px]"
-            :class="USE_MOCK ? 'border-accent/30 bg-accent/10 text-accent' : 'border-ok/30 bg-ok/10 text-ok'"
+            v-if="USE_MOCK"
+            class="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-[10px] text-accent"
           >
-            {{ USE_MOCK ? 'MOCK 数据' : '实时数据' }}
+            MOCK 数据
           </span>
           <span v-if="username" class="font-mono text-[11px] text-ink-dim">{{ username }}</span>
           <button

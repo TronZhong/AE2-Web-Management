@@ -18,6 +18,8 @@
 - **v0.9（2026-11）**：新增 `DELETE /api/grids/{accessId}/commands/{commandId}` **删除命令记录**（纯转发模组同名端点，模组 0.0.13）：删除 `PENDING` 记录即撤销（不会提交给 AE2），删除 `SUBMITTED`/`FAILED` 记录仅清理历史；模组在主线程原子执行，响应即最终结果（204 已删除 / 404 `grid_not_found` / `command_not_found`）。`grid_locked` 访问控制同样适用。另：模组侧每个网格自动保留最近 50 条（可配置）终态命令记录。见「合成命令端点」。
 - **v0.10（2026-11）**：`GET /api/grids` 网格摘要新增 `lastSeenAt`（纯转发模组 0.0.14 字段）：**最近一次在线时间**（epoch 毫秒），由模组快照循环对在线网格回写身份表，随 `SavedData` 持久化；旧版模组（<0.0.14）无该字段 → 后端反序列化为 null 并在 Web 响应省略（向后兼容，同 `nameKey` 模式）。前端离线网格卡片显示「最后在线」。
 
+> 注（2026-11，前端数据源）：前端默认走真实请求（实时数据）；`VITE_USE_MOCK=true`（或 `npm run dev:mock`）启用内置 mock，响应形状与本契约一致。API 端点形状无变化（此前默认 mock、以 `VITE_USE_MOCK=false` 切真实，见 v0.1）。
+
 ## 通用约定
 
 - Base URL：`/api`（后端统一前缀）。

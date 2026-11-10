@@ -60,12 +60,13 @@ cd .\web\backend
 
 ```powershell
 cd .\web\frontend
-npm install   # 首次安装依赖
-npm run dev   # 本地开发，默认 5173
-npm run build # 生产构建
+npm install        # 首次安装依赖
+npm run dev        # 本地开发，默认 5173（实时数据，需后端 8080）
+npm run dev:mock   # mock 数据源演示模式
+npm run build      # 生产构建
 ```
 
-前端已接入选择页、详情页（只读 + 合成命令）与登录页；`VITE_USE_MOCK=false` 时走真实请求（dev 代理 `/api` → 8080）。
+前端已接入选择页、详情页（只读 + 合成命令）与登录页；默认走真实请求（dev 代理 `/api` → 8080），`VITE_USE_MOCK=true` 启用 mock。
 
 ## 相关文档
 
