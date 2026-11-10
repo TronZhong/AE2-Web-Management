@@ -24,6 +24,9 @@ defineProps({
   /** 命令列表拉取失败的错误码；为空表示正常。 */
   commandsError: { type: String, default: '' },
 })
+
+/** 向页面冒泡命令列表的 delete 事件（契约 v0.9 删除命令记录）。 */
+defineEmits(['delete'])
 </script>
 
 <template>
@@ -82,7 +85,7 @@ defineProps({
       </section>
       <section class="mt-4 min-w-0 border-t border-line pt-3">
         <p class="mb-2 text-[10px] uppercase tracking-widest text-ink-faint">合成命令（{{ commands.length }} 条）</p>
-        <CommandList :commands="commands" :error="commandsError" />
+        <CommandList :commands="commands" :error="commandsError" @delete="$emit('delete', $event)" />
       </section>
     </div>
   </BaseCard>

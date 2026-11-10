@@ -1,6 +1,7 @@
 package com.ae2webmanagement.backend.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +25,8 @@ import com.ae2webmanagement.backend.service.GridService;
  *       成功返回 {@code 202 {commandId, state, submittedAt}}（state=PENDING）</li>
  *   <li>{@code GET /api/grids/{accessId}/commands} — 命令状态列表
  *       （PENDING / SUBMITTED / FAILED）</li>
+ *   <li>{@code DELETE /api/grids/{accessId}/commands/{commandId}} — 删除命令记录
+ *       （v0.9：删 PENDING 即撤销，删终态仅清理历史）</li>
  * </ul>
  *
  * <p>Controller 只做协议适配：请求体形状校验与模组行为对齐
@@ -76,6 +79,24 @@ public class CraftController {
 	@GetMapping("/grids/{accessId}/commands")
 	public CommandListResponse commands(@PathVariable String accessId) {
 		return this.gridService.getCommands(accessId, this.authService.currentAccountId());
+	}
+
+	/**
+	 * 删除命令记录（契约 v0.9「DELETE /api/grids/{accessId}/commands/{commandId}」）。
+	 *
+	 * <p>后端纯转发：模组在主线程原子删除——删除 PENDING 记录即撤销（不会提交 AE2），
+	 * 删除 SUBMITTED/FAILED 记录仅清理历史。成功 204 无响应体；命令不存在 404
+	 * {@code command_not_found}；网格不存在 404 {@code grid_not_found}；锁定网格 403
+	 * {@code grid_locked}；路径参数非法 400 {@code invalid_access_id} / {@code invalid_command_id}。</p>
+	 *
+	 * @param accessId  网格接入 ID
+	 * @param commandId 命令 ID
+	 * @return 204 无响应体
+	 */
+	@DeleteMapping("/grids/{accessId}/commands/{commandId}")
+	public ResponseEntity<Void> deleteCommand(@PathVariable String accessId, @PathVariable String commandId) {
+		this.gridService.deleteCommand(accessId, commandId, this.authService.currentAccountId());
+		return ResponseEntity.noContent().build();
 	}
 
 	/**

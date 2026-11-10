@@ -117,6 +117,29 @@ export async function unlockGrid(accessId, password) {
 }
 
 /**
+ * DELETE /api/grids/{accessId}/commands/{commandId} → 204：删除命令记录（契约 v0.9）。
+ * 删除 PENDING 记录即撤销（不会提交给 AE2，误发撤回入口）；删除 SUBMITTED/FAILED
+ * 记录仅清理历史，不影响 AE2 已受理的任务。记录不存在（含已删除，重复点击/竞态）
+ * 抛 command_not_found；网格不存在抛 grid_not_found；锁定网格抛 grid_locked。
+ * @param accessId  网格接入 ID
+ * @param commandId 命令 ID
+ */
+export async function deleteCommand(accessId, commandId) {
+  if (USE_MOCK) {
+    return mock.deleteCommand(accessId, commandId)
+  }
+  const response = await fetch(
+    `/api/grids/${encodeURIComponent(accessId)}/commands/${encodeURIComponent(commandId)}`,
+    { method: 'DELETE' },
+  )
+  // 204 无响应体，直接成功返回；其余走统一错误归一化
+  if (response.status === 204) {
+    return null
+  }
+  return unwrap(response)
+}
+
+/**
  * 由 AEKey JSON 构造物品图标 URL（契约 v0.7「图标转发端点」）：
  * {@code key.id}（如 {@code "minecraft:iron_block"}）→ {@code /api/icons/minecraft/iron_block.png}。
  *

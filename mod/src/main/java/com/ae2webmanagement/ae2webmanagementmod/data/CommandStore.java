@@ -102,6 +102,20 @@ public final class CommandStore extends SavedData {
         setDirty();
     }
 
+    /**
+     * 删除命令记录，并标记 SavedData 为脏数据以便自动保存。
+     *
+     * @param id 命令 ID
+     * @return 记录是否存在并被删除
+     */
+    public boolean remove(UUID id) {
+        boolean removed = this.commands.remove(id) != null;
+        if (removed) {
+            setDirty();
+        }
+        return removed;
+    }
+
     /** 按 commandId 查找命令。 */
     public Optional<CraftCommand> get(UUID id) {
         return Optional.ofNullable(this.commands.get(id));

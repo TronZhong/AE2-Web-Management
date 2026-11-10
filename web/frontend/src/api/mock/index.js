@@ -15,6 +15,9 @@ const DRIFT_IDS = new Set(['minecraft:stone', 'minecraft:coal', 'minecraft:wheat
 /** 在线网格的 PENDING 命令等待多少毫秒后转为 SUBMITTED（模拟模组队列调度）。 */
 const SUBMIT_DELAY_MS = 6_000
 
+/** 每个网格保留的终态命令历史上限（与模组 commandHistoryLimit 默认值一致，契约 v0.9）。 */
+const MAX_TERMINAL_COMMANDS = 50
+
 /** 模块级命令历史：accessId → 命令数组（按 submittedAt 升序），对应模组 CommandStore。 */
 const COMMAND_HISTORY = new Map()
 
@@ -78,6 +81,24 @@ function advanceCommands(history, online) {
       command.state = 'SUBMITTED'
       command.result = `submitted to AE2; craftingId=${command.commandId}`
     }
+  }
+}
+
+/**
+ * 修剪超出上限的终态命令（对应模组 commandHistoryLimit 自动清理，契约 v0.9）：
+ * 历史按 submittedAt 升序维护，从最旧的终态记录开始删，PENDING 不清理。
+ */
+function pruneHistory(history) {
+  const terminalIndexes = []
+  history.forEach((command, index) => {
+    if (command.state !== 'PENDING') {
+      terminalIndexes.push(index)
+    }
+  })
+  const excess = terminalIndexes.length - MAX_TERMINAL_COMMANDS
+  // 从后往前删，避免删除时索引位移
+  for (let i = excess - 1; i >= 0; i--) {
+    history.splice(terminalIndexes[i], 1)
   }
 }
 
@@ -172,7 +193,32 @@ export async function fetchCommands(accessId) {
   }
   const history = ensureHistory(accessId)
   advanceCommands(history, snapshot.online)
+  pruneHistory(history)
   return { commands: structuredClone(history) }
+}
+
+/**
+ * DELETE /api/grids/{accessId}/commands/{commandId}（mock）：物理删除命令记录（契约 v0.9）。
+ * 删除 PENDING 即撤销（不再转为 SUBMITTED）；记录不存在抛 command_not_found；
+ * 网格不存在抛 grid_not_found；锁定网格抛 grid_locked。
+ */
+export async function deleteCommand(accessId, commandId) {
+  await latency()
+  const snapshot = SNAPSHOTS[accessId]
+  if (!snapshot) {
+    throw new Error('grid_not_found')
+  }
+  const grid = GRIDS.find((item) => item.accessId === accessId)
+  if (grid && !isUnlocked(grid)) {
+    throw new Error('grid_locked')
+  }
+  const history = ensureHistory(accessId)
+  const index = history.findIndex((command) => command.commandId === commandId)
+  if (index === -1) {
+    throw new Error('command_not_found')
+  }
+  history.splice(index, 1)
+  return null
 }
 
 /**

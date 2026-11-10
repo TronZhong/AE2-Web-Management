@@ -116,6 +116,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
    - 模拟成功后 `submitJob(...)`；
    - 回写 `SUBMITTED` 或 `FAILED` 与结果。
 3. 网页通过快照/结果查询接口读取命令结果。
+4. **删除/撤销（0.0.13）**：`DELETE /grids/{id}/commands/{commandId}` 物理删除记录——删 `PENDING` 即撤销（与模拟/提交在主线程串行化，保证不会提交 AE2；在途计算一并取消），删终态记录仅清理历史；每个网格自动保留最近 `commandHistoryLimit`（默认 50）条终态记录，`PENDING` 不自动清理。
 
 ## 6. 模组 ↔ 后端契约（端点形状，具体 schema 在 `contracts/` 定义）
 
@@ -125,6 +126,7 @@ Spring Boot 后端 ── 登录/授权 ── 数据库（账户、授权）
 | `GET /grids/{id}/snapshot` | 后端→模组 | 读库存 + 合成状态快照 |
 | `POST /grids/{id}/craft` | 后端→模组 | 投递合成命令（返回受理 ID） |
 | `GET /grids/{id}/commands` | 后端→模组 | 查命令执行结果 |
+| `DELETE /grids/{id}/commands/{commandId}` | 后端→模组 | 删除命令记录（撤销 PENDING / 清理历史，0.0.13 起） |
 
 认证：模组 HTTP 口只绑定 127.0.0.1，后端请求带 `X-Shared-Secret` 头（与 `application.yaml` 的 `app.mod.shared-secret` 一致）。
 

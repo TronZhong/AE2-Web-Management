@@ -338,6 +338,38 @@ class ModApiClientTests {
 		this.server.verify();
 	}
 
+	/** 正常响应：DELETE /commands/{commandId} → 204 无响应体（契约 v0.9，模组 0.0.13）。 */
+	@Test
+	void deleteCommandSendsDeleteAndAccepts204() {
+		UUID accessId = UUID.fromString("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
+		UUID commandId = UUID.fromString("5b0cdd1e-6e0e-4a1f-9a1b-3f0f9b21b100");
+		this.server.expect(requestTo(BASE_URL + "/grids/" + accessId + "/commands/" + commandId))
+			.andExpect(method(HttpMethod.DELETE))
+			.andExpect(header("X-Shared-Secret", "test-secret"))
+			.andRespond(withStatus(HttpStatus.NO_CONTENT));
+
+		this.client.deleteCommand(accessId, commandId);
+
+		this.server.verify();
+	}
+
+	/** 错误透传：DELETE 命令记录不存在 → ModApiException(404, command_not_found)。 */
+	@Test
+	void deleteCommandNotFoundPassesThrough() {
+		UUID accessId = UUID.fromString("0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001");
+		UUID commandId = UUID.fromString("5b0cdd1e-6e0e-4a1f-9a1b-3f0f9b21b100");
+		this.server.expect(requestTo(BASE_URL + "/grids/" + accessId + "/commands/" + commandId))
+			.andRespond(withStatus(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON)
+				.body("{\"error\":\"command_not_found\"}"));
+
+		assertThatThrownBy(() -> this.client.deleteCommand(accessId, commandId))
+			.isInstanceOfSatisfying(ModApiException.class, e -> {
+				assertThat(e.status()).isEqualTo(404);
+				assertThat(e.code()).isEqualTo("command_not_found");
+			});
+		this.server.verify();
+	}
+
 	/** 构造 AEKey JSON 的便捷方法（模拟快照里透传的 key）。 */
 	private static JsonNode key(String json) {
 		try {

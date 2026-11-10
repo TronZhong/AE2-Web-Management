@@ -148,6 +148,25 @@ public class ModApiClient {
 	}
 
 	/**
+	 * 删除一条合成命令记录（契约条目：docs/contracts/index.md「合成命令 API」
+	 * 「DELETE /grids/{accessId}/commands/{commandId}」，模组 0.0.13 起提供）。
+	 *
+	 * <p>删除 PENDING 记录即撤销（不会提交给 AE2）；删除 SUBMITTED/FAILED
+	 * 记录仅清理历史，不影响 AE2 已受理的任务。模组在主线程原子执行删除，
+	 * 响应即最终结果：204 已删除；404 grid_not_found / command_not_found；
+	 * 400 invalid_access_id / invalid_command_id。</p>
+	 *
+	 * @param accessId  网格接入 ID（已由 service 校验为合法 UUID）
+	 * @param commandId 命令 ID（已由 service 校验为合法 UUID）
+	 */
+	public void deleteCommand(UUID accessId, UUID commandId) {
+		call(() -> this.modRestClient.delete()
+			.uri("/grids/{accessId}/commands/{commandId}", accessId, commandId)
+			.retrieve()
+			.toBodilessEntity());
+	}
+
+	/**
 	 * 统一执行一次对模组的 HTTP 调用并做异常归类。
 	 *
 	 * <p>非 2xx → {@link #toModApiException(RestClientResponseException)}；

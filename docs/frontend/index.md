@@ -26,10 +26,10 @@
 | **`router/`** | |
 | [`../../web/frontend/src/router/index.js`](../../web/frontend/src/router/index.js) | 路由表：选择页与详情页（懒加载、`props: true` 传 accessId） |
 | **`api/`** — 后端调用层（组件唯一网络出口） | |
-| [`../../web/frontend/src/api/index.js`](../../web/frontend/src/api/index.js) | `login` / `logout` / `fetchMe`（认证）+ `fetchGrids` / `fetchSnapshot` / `submitCraft` / `fetchCommands` / `unlockGrid`（v0.3 解锁）+ `iconUrlOf`（v0.7 图标 URL 构造）；`USE_MOCK` 开关、契约错误码归一化、`onUnauthorized` 401 统一回调 |
+| [`../../web/frontend/src/api/index.js`](../../web/frontend/src/api/index.js) | `login` / `logout` / `fetchMe`（认证）+ `fetchGrids` / `fetchSnapshot` / `submitCraft` / `fetchCommands` / `deleteCommand`（v0.9 删除命令记录）/ `unlockGrid`（v0.3 解锁）+ `iconUrlOf`（v0.7 图标 URL 构造）；`USE_MOCK` 开关、契约错误码归一化、`onUnauthorized` 401 统一回调 |
 | [`../../web/frontend/src/api/events.js`](../../web/frontend/src/api/events.js) | SSE 实时事件订阅（`EventSource` 连 `/api/events`；`USE_MOCK` 时 no-op）：`grids-updated` → 刷新列表，`grid-snapshot-updated` → 刷新对应网格；断线由浏览器自动重连，轮询兜底 |
 | [`../../web/frontend/src/api/mock/fixtures.js`](../../web/frontend/src/api/mock/fixtures.js) | 三个示例网格（两在线一离线）的列表与快照固定数据；`GRID_PASSWORDS` 演示密码表（主基地网格 `1234`） |
-| [`../../web/frontend/src/api/mock/index.js`](../../web/frontend/src/api/mock/index.js) | mock 读取：模拟延迟；在线快照推进 `capturedAt` 并少量漂移数量；命令队列模拟（在线网格 PENDING 延时转 SUBMITTED，离线保持排队）；网格密码模拟（锁定网格 snapshot/craft/commands 抛 `grid_locked`，`unlockGrid` 按会话记住解锁）；mock 登录接受任意非空凭证 |
+| [`../../web/frontend/src/api/mock/index.js`](../../web/frontend/src/api/mock/index.js) | mock 读取：模拟延迟；在线快照推进 `capturedAt` 并少量漂移数量；命令队列模拟（在线网格 PENDING 延时转 SUBMITTED，离线保持排队；终态超 50 条自动修剪）+ `deleteCommand` 删除记录；网格密码模拟（锁定网格 snapshot/craft/commands 抛 `grid_locked`，`unlockGrid` 按会话记住解锁）；mock 登录接受任意非空凭证 |
 | [`../../web/frontend/src/api/events.js`](../../web/frontend/src/api/events.js) | SSE 事件订阅（EventSource → `/api/events`；`USE_MOCK` 时 no-op） |
 | **`composables/`** — 状态与轮询 | |
 | [`../../web/frontend/src/composables/useAuth.js`](../../web/frontend/src/composables/useAuth.js) | 账号登录态单例：`ensureReady`（启动恢复会话）、`login` / `logout` / `clearSession` |
@@ -60,7 +60,7 @@
 | [`../../web/frontend/src/components/snapshot/InventoryCard.vue`](../../web/frontend/src/components/snapshot/InventoryCard.vue) | 库存卡：MC 格子布局（ItemSlot 网格），关键字过滤 + 按行窗口化虚拟滚动，列数自适应宽度 |
 | [`../../web/frontend/src/components/snapshot/PatternListCard.vue`](../../web/frontend/src/components/snapshot/PatternListCard.vue) | 样板卡：主输出格子网格（窄屏视口固定 440px，桌面端随卡片拉伸填满、与合并卡等高；数量超出向下滚动），点击格子弹出计划合成卡；提交成功后向上冒泡 `submitted` 事件 |
 | [`../../web/frontend/src/components/snapshot/CraftPlanModal.vue`](../../web/frontend/src/components/snapshot/CraftPlanModal.vue) | 计划合成弹窗：z 轴更高 + 背景模糊；输入需求以 MC 格子展示（角标 = 候选 × 倍率 × 批次）；「开始合成」提交 `POST /craft`，成功展示受理回执（commandId + 时间），契约错误码直接透出 |
-| [`../../web/frontend/src/components/snapshot/CommandList.vue`](../../web/frontend/src/components/snapshot/CommandList.vue) | 合成命令列表（嵌入视图，无卡片外壳）：由状态卡下半内嵌使用，栏目标题与计数由宿主提供；命令历史倒序展示（最新在上，最多完整显示 2 条，超出滚动），状态徽标（排队中/已提交/失败）、模组回执与失败原因；过长回执 / 物品 id 经 HoverDetail 悬浮展开；只读，取消 API 为后续迭代 |
+| [`../../web/frontend/src/components/snapshot/CommandList.vue`](../../web/frontend/src/components/snapshot/CommandList.vue) | 合成命令列表（嵌入视图，无卡片外壳）：由状态卡下半内嵌使用，栏目标题与计数由宿主提供；命令历史倒序展示（最新在上，最多完整显示 2 条，超出滚动），状态徽标（排队中/已提交/失败）、模组回执与失败原因；过长回执 / 物品 id 经 HoverDetail 悬浮展开；每行删除按钮（契约 v0.9，两段式确认）emit `delete` 由页面调 API 后刷新——删 PENDING 即撤销、删终态仅清理历史 |
 | **`pages/`** — 页面 | |
 | [`../../web/frontend/src/pages/LoginPage.vue`](../../web/frontend/src/pages/LoginPage.vue) | 登录页：用户名/密码表单，unauthorized → 「用户名或密码错误」，成功后回跳 `?redirect=` |
 | [`../../web/frontend/src/pages/GridSelectPage.vue`](../../web/frontend/src/pages/GridSelectPage.vue) | 选择页：网格卡片栅格，10s 轮询 + SSE 事件即时刷新 + 手动刷新 |
@@ -83,6 +83,7 @@
 - [x] 物品中文名（契约 v0.6，roadmap.md §4 已完成）：`src/lib/itemName.js` 引入，快照条目按模组 `nameKey` 查官方中文语言表（minecraft/ae2，`src/data/lang/`），查不到回退 id 启发式与英文友好名；库存/样板/命令/计划合成各组件与 mock fixtures 已接线。
 - [x] 物品贴图接入（契约 v0.7，roadmap.md §5 已完成）：`api/index.js` 的 `iconUrlOf()` 按 key id 构造 `/api/icons/{ns}/{path}.png`（id 段不满足模组字符集或 mock 模式返回空串），库存/样板/命令/计划合成各组件传入 `ItemSlot` 的 `iconUrl`；`loading="lazy"` + `@error` 回退占位方块，5s 后有界重试 2 次（配合模组 404 惰性补齐渐进出现），iconUrl 变化时重试状态归零。专用服务器（图标恒 404）与 mock 模式下保持占位方块。
 - [x] 详情页布局改版：状态·CPU·命令合并卡与样板卡横向对半分（卡内 CPU 在上、命令在下，各最多 2 条滚动）；新增 `HoverDetail` 截断文本悬浮详情（向下小箭头 + 信息窗口，**悬停箭头触发**，窗口对齐鼠标、移入保持、移出即关），应用于控制器 / accessId / 命令回执与物品 id；样板卡格子区窄屏 440px 固定、桌面端拉伸填满（库存维持 480px 不变）；原独立 `CommandsCard` 更名为 `CommandList` 嵌入视图。顺带修复 mock `submitCraft` 对响应式 key 对象 `structuredClone` 失败导致 mock 模式无法提交合成的问题。
+- [x] 命令删除接线（契约 v0.9）：`CommandList` 每行删除按钮两段式确认（点一次变「确认删除」再点一次生效，blur 复位），PENDING 行提示「删除即撤销」；`StatusCpuCard` 冒泡 `delete`、详情页调 `deleteCommand` 后刷新命令列表（`command_not_found` 视为已删除静默通过）；mock 层模拟删除与 50 条终态自动修剪。
 
 ## 约定
 

@@ -10,7 +10,7 @@
  */
 import { computed, onMounted, onUnmounted } from 'vue'
 
-import { USE_MOCK } from '../api/index.js'
+import { USE_MOCK, deleteCommand } from '../api/index.js'
 import { subscribeGridEvents } from '../api/events.js'
 import { useCommands } from '../composables/useCommands.js'
 import { useGrids } from '../composables/useGrids.js'
@@ -66,6 +66,23 @@ function onUnlocked() {
   refresh(props.accessId)
   refreshGrids()
 }
+
+/**
+ * 删除命令记录（契约 v0.9）：调 DELETE 端点后刷新命令列表。
+ * command_not_found（重复点击/竞态下记录已消失）按已删除处理，静默通过；
+ * 其余错误码不阻塞——刷新后列表仍显示该记录，删除按钮保持可用，真相由数据呈现。
+ * @param command 目标命令条目（来自 CommandList 的 delete 事件）
+ */
+async function onDeleteCommand(command) {
+  try {
+    await deleteCommand(props.accessId, command.commandId)
+  } catch (cause) {
+    if (cause?.message !== 'command_not_found') {
+      console.warn('[grid] 删除命令失败:', cause?.message ?? cause)
+    }
+  }
+  await refreshCommands(props.accessId)
+}
 </script>
 
 <template>
@@ -108,7 +125,13 @@ function onUnlocked() {
         </p>
 
         <div class="grid gap-4 lg:grid-cols-2">
-          <StatusCpuCard :snapshot="snapshot" :grid="grid" :commands="commands" :commands-error="commandsError" />
+          <StatusCpuCard
+            :snapshot="snapshot"
+            :grid="grid"
+            :commands="commands"
+            :commands-error="commandsError"
+            @delete="onDeleteCommand"
+          />
           <PatternListCard
             :access-id="accessId"
             :patterns="snapshot.patterns"

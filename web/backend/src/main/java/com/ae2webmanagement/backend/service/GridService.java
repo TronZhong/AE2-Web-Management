@@ -149,6 +149,27 @@ public class GridService {
 	}
 
 	/**
+	 * 删除合成命令记录（{@code DELETE /api/grids/{accessId}/commands/{commandId}}，契约 v0.9）。
+	 *
+	 * <p>后端纯转发：模组在主线程原子删除并返回最终结果——删除 PENDING 记录即撤销
+	 * （不会提交 AE2），删除 SUBMITTED/FAILED 记录仅清理历史。模组 404
+	 * {@code grid_not_found} / {@code command_not_found} 原样透传。</p>
+	 *
+	 * @param accessId  路径参数原值，须为合法 UUID
+	 * @param commandId 命令 ID 路径参数原值，须为合法 UUID
+	 * @param accountId 当前登录账号 ID（访问控制用）
+	 */
+	public void deleteCommand(String accessId, String commandId, long accountId) {
+		UUID id = parseAccessId(accessId);
+		UUID commandUuid = parseCommandId(commandId);
+		ensureAccessible(id, accountId);
+		callMod(() -> {
+			this.modApiClient.deleteCommand(id, commandUuid);
+			return null;
+		});
+	}
+
+	/**
 	 * 网格访问控制检查：网格设有密码且当前账号未解锁 → {@code 403 grid_locked}。
 	 *
 	 * <p>网格不在模组列表中时不拦截（hasPassword 按 false 处理），把 404 语义
@@ -215,6 +236,21 @@ public class GridService {
 		catch (ResourceAccessException e) {
 			log.warn("无法连接模组本地 API（游戏未启动或模组数据口未开启）：{}", e.getMessage());
 			throw new ModApiException(503, "mod_unreachable", e);
+		}
+	}
+
+	/**
+	 * 校验 {@code commandId} 为合法 UUID。
+	 *
+	 * @param commandId 路径参数原值
+	 * @return 解析后的 UUID
+	 */
+	private static UUID parseCommandId(String commandId) {
+		try {
+			return UUID.fromString(commandId);
+		}
+		catch (IllegalArgumentException | NullPointerException e) {
+			throw new ModApiException(400, "invalid_command_id");
 		}
 	}
 

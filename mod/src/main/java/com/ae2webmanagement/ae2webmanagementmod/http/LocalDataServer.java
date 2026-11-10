@@ -49,7 +49,8 @@ import com.ae2webmanagement.ae2webmanagementmod.snapshot.SnapshotManager;
  * 模组本地数据 API。
  *
  * <p>仅绑定回环地址。GET 只读取并发缓存；POST 只把合成意图交给
- * {@link CommandManager} 的线程安全队列，世界与 AE2 状态始终在主线程处理。
+ * {@link CommandManager} 的线程安全队列；DELETE 同步等待主线程原子删除命令
+ * 记录（响应即最终结果）；世界与 AE2 状态始终在主线程处理。</p>
  */
 public final class LocalDataServer {
 
@@ -143,8 +144,12 @@ public final class LocalDataServer {
                 handlePost(exchange, path);
                 return;
             }
+            if ("DELETE".equalsIgnoreCase(method)) {
+                handleDelete(exchange, path);
+                return;
+            }
 
-            exchange.getResponseHeaders().set("Allow", "GET, POST");
+            exchange.getResponseHeaders().set("Allow", "GET, POST, DELETE");
             sendError(exchange, 405, "method_not_allowed");
         } catch (Exception exception) {
             LOGGER.error("[AE2Web] Local data API request failed: {}", exchange.getRequestURI(), exception);
@@ -285,6 +290,49 @@ public final class LocalDataServer {
         }
 
         sendError(exchange, 404, "not_found");
+    }
+
+    /**
+     * 处理 DELETE 分发：删除合成命令记录（docs/contracts/index.md「合成命令 API」，模组 0.0.13）。
+     *
+     * <p>路径 {@code /grids/{accessId}/commands/{commandId}}；删除在主线程原子执行
+     * （删除 PENDING 即撤销、删终态仅清理历史），响应即最终结果。记录不存在
+     * （含已删除）→ 404 {@code command_not_found}，网格未知 → 404 {@code grid_not_found}，
+     * 主线程不可用/超时 → 500 {@code internal_error}。</p>
+     */
+    private void handleDelete(HttpExchange exchange, String path) throws IOException {
+        String[] parts = path.split("/");
+        if (parts.length != 5 || !"grids".equals(parts[1]) || !"commands".equals(parts[3])) {
+            sendError(exchange, 404, "not_found");
+            return;
+        }
+
+        UUID accessId;
+        try {
+            accessId = UUID.fromString(parts[2]);
+        } catch (IllegalArgumentException exception) {
+            sendError(exchange, 400, "invalid_access_id");
+            return;
+        }
+        UUID commandId;
+        try {
+            commandId = UUID.fromString(parts[4]);
+        } catch (IllegalArgumentException exception) {
+            sendError(exchange, 400, "invalid_command_id");
+            return;
+        }
+
+        if (!this.commands.hasGrid(accessId)) {
+            sendError(exchange, 404, "grid_not_found");
+            return;
+        }
+
+        CommandManager.DeletionResult result = this.commands.delete(accessId, commandId);
+        switch (result) {
+            case DELETED -> sendEmpty(exchange, 204);
+            case NOT_FOUND -> sendError(exchange, 404, "command_not_found");
+            case UNAVAILABLE -> sendError(exchange, 500, "internal_error");
+        }
     }
 
     /**

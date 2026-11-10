@@ -39,6 +39,8 @@ class GridServiceTests {
 
 	private static final String ACCESS_ID = "0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a001";
 
+	private static final String COMMAND_ID = "5b0cdd1e-6e0e-4a1f-9a1b-3f0f9b21b100";
+
 	private static final long ACCOUNT_ID = 42L;
 
 	@Mock
@@ -192,6 +194,47 @@ class GridServiceTests {
 				assertThat(e.code()).isEqualTo("invalid_password");
 			});
 		verifyNoInteractions(this.gridAccessRepository);
+	}
+
+	/** 删除命令：commandId 非法 → 400 invalid_command_id，且不触达模组客户端（契约 v0.9）。 */
+	@Test
+	void deleteCommandWithInvalidCommandIdMapsTo400AndSkipsModCall() {
+		assertThatThrownBy(() -> this.service.deleteCommand(ACCESS_ID, "not-a-uuid", ACCOUNT_ID))
+			.isInstanceOfSatisfying(ModApiException.class, e -> {
+				assertThat(e.status()).isEqualTo(400);
+				assertThat(e.code()).isEqualTo("invalid_command_id");
+			});
+		verifyNoInteractions(this.modApiClient);
+	}
+
+	/** 删除命令：锁定且未解锁网格 → 403 grid_locked，不转发模组。 */
+	@Test
+	void deleteCommandBlockedByGridLock() {
+		when(this.modApiClient.listGrids()).thenReturn(new ModGridListResponse(List.of(modSummary(true, true))));
+		when(this.gridAccessRepository.existsByAccountIdAndAccessId(ACCOUNT_ID, ACCESS_ID)).thenReturn(false);
+
+		assertThatThrownBy(() -> this.service.deleteCommand(ACCESS_ID, COMMAND_ID, ACCOUNT_ID))
+			.isInstanceOfSatisfying(ModApiException.class, e -> {
+				assertThat(e.status()).isEqualTo(403);
+				assertThat(e.code()).isEqualTo("grid_locked");
+			});
+		verify(this.modApiClient, never()).deleteCommand(any(UUID.class), any(UUID.class));
+	}
+
+	/** 删除命令：已解锁 → 转发模组（UUID 解析正确），模组 404 command_not_found 原样透传。 */
+	@Test
+	void deleteCommandPassesThroughAfterLockCheck() {
+		when(this.modApiClient.listGrids()).thenReturn(new ModGridListResponse(List.of(modSummary(true, true))));
+		when(this.gridAccessRepository.existsByAccountIdAndAccessId(ACCOUNT_ID, ACCESS_ID)).thenReturn(true);
+		doThrow(new ModApiException(404, "command_not_found"))
+			.when(this.modApiClient).deleteCommand(any(UUID.class), any(UUID.class));
+
+		assertThatThrownBy(() -> this.service.deleteCommand(ACCESS_ID, COMMAND_ID, ACCOUNT_ID))
+			.isInstanceOfSatisfying(ModApiException.class, e -> {
+				assertThat(e.status()).isEqualTo(404);
+				assertThat(e.code()).isEqualTo("command_not_found");
+			});
+		verify(this.modApiClient).deleteCommand(UUID.fromString(ACCESS_ID), UUID.fromString(COMMAND_ID));
 	}
 
 	/**

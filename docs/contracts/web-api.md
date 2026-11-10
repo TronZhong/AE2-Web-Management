@@ -15,6 +15,7 @@
 - **v0.6（2026-11）**：**物品中文名称**（与模组 0.0.9、roadmap.md §4 同步）：快照 `inventory[]` / `patterns[]` 各 stack 条目新增**可选** `nameKey`（物品翻译键，前端查中文语言表）；旧版模组/旧快照无该字段，Web 响应省略（向后兼容）。
 - **v0.7（2026-11）**：新增 `GET /api/icons/{namespace}/{path}.png` 图标转发端点——对模组 `GET /icons/{namespace}/{path}.png`（模组 0.0.10，见 [模组↔后端契约](index.md)）做纯字节透传（透传 `Content-Type: image/png` 与 `Cache-Control`，后端不自建缓存）。仅要求登录，不做 per-network 访问控制；模组不可达 503、图标未渲染 404，前端 `@error` 回退占位方块并有限重试。见「图标转发端点」。
 - **v0.8（2026-11）**：**移除 `craftingCpus[].name`**——AE2 合成 CPU 无法命名，前端与游戏内 GUI 一致按列表序号显示 `#N`（模组 0.0.12 同步移除传输与持久化字段；`craftingCpus[]` 现按协处理器多者→存储大者排序，`#N` 与游戏内未命名 CPU 编号一致）。
+- **v0.9（2026-11）**：新增 `DELETE /api/grids/{accessId}/commands/{commandId}` **删除命令记录**（纯转发模组同名端点，模组 0.0.13）：删除 `PENDING` 记录即撤销（不会提交给 AE2），删除 `SUBMITTED`/`FAILED` 记录仅清理历史；模组在主线程原子执行，响应即最终结果（204 已删除 / 404 `grid_not_found` / `command_not_found`）。`grid_locked` 访问控制同样适用。另：模组侧每个网格自动保留最近 50 条（可配置）终态命令记录。见「合成命令端点」。
 
 ## 通用约定
 
@@ -25,9 +26,11 @@
   - `mod_unreachable`（503）：后端无法连接模组本地 API（游戏未启动 / 数据口未开启 / 超时）；
   - `mod_unavailable`（503）：模组拒绝了后端的共享密钥（`X-Shared-Secret` 不匹配，需检查后端 `app.mod.shared-secret` 配置）；
   - `invalid_password`（401，v0.3）：网格密码校验失败；
-  - `grid_locked`（403，v0.3）：网格设有密码且当前账号未解锁，snapshot / craft / commands 拒绝访问；
+  - `grid_locked`（403，v0.3）：网格设有密码且当前账号未解锁，snapshot / craft / commands（含 v0.9 的 DELETE 命令）拒绝访问；
   - `invalid_icon_path`（400，v0.7）：图标路径段不合法（仅允许 `[a-z0-9_.-]`）；
-  - `icon_not_found`（404，v0.7）：图标尚未渲染（模组惰性补齐中，重试即可）。
+  - `icon_not_found`（404，v0.7）：图标尚未渲染（模组惰性补齐中，重试即可）；
+  - `invalid_command_id`（400，v0.9）：命令删除端点的 `commandId` 路径参数不是合法 UUID；
+  - `command_not_found`（404，v0.9）：要删除的命令记录不存在（含已被删除）。
 - `amount` 以 JSON number 透传（Java 侧为 long；超过 2^53 的值理论上丢精度，实际库存量达不到）。
 - **用户认证（账号制，v0.2 起）**：密码是**后端账号密码**，与 Minecraft/AE2 无关；登录后可见全部已注册网格。
   - 会话凭证：登录成功后，后端通过响应头 `Set-Cookie` 下发 `satoken` Cookie（HttpOnly），并在响应体返回 token 值；后续请求**同源自动携带 Cookie**，非 Cookie 客户端可用请求头 `satoken: <tokenValue>` 等价传递。
@@ -187,6 +190,25 @@
 
 > 后端为纯转发，命令由模组队列调度：入队后主线程持久化，网格在线后异步重算并提交给 AE2。
 
+### `DELETE /api/grids/{accessId}/commands/{commandId}`
+
+删除一条命令记录（v0.9，纯转发模组 `DELETE /grids/{accessId}/commands/{commandId}`）：
+
+| 被删记录状态 | 效果 |
+| --- | --- |
+| `PENDING` | **撤销**：记录移除，永远不会提交给 AE2（误发撤回入口） |
+| `SUBMITTED` / `FAILED` | 仅清理历史条目；AE2 已受理的任务不受影响 |
+
+| 行为 | 说明 |
+| --- | --- |
+| 成功 `204` | 记录已删除（模组主线程原子执行，响应即最终结果） |
+| `400 invalid_access_id` / `invalid_command_id` | 路径参数不是合法 UUID |
+| `404 grid_not_found` / `command_not_found` | 网格不存在 / 记录不存在（含已删除，重复删除不幂等） |
+| `403 grid_locked` | 锁定且未解锁的网格（与其他命令端点同规则） |
+| `503 mod_unreachable` / `mod_unavailable` | 游戏未启动 / 共享密钥不匹配 |
+
+> 前端交互约定（v0.9）：命令列表每行提供删除按钮，**两段式确认**（点一次变「确认删除」再点一次才发请求）；对 `PENDING` 行按钮语义即「撤销」。删除后刷新命令列表；`command_not_found`（重复点击/竞态）按已删除处理。
+
 认证：上述只读与合成端点自 v0.2 起均要求已登录（见「认证端点」与「通用约定」）。
 
 ## 网格访问端点
@@ -209,8 +231,8 @@
 ## 网格访问控制（v0.3）
 
 - 网格列表对所有已登录账号可见（含未解锁的锁定网格，卡片显示锁定态）。
-- `GET /snapshot`、`POST /craft`、`GET /commands` 对 `hasPassword && !unlocked` 的网格
-  返回 `403 {"error":"grid_locked"}`；解锁后正常。
+- `GET /snapshot`、`POST /craft`、`GET /commands`、`DELETE /commands/{commandId}`（v0.9 起）对
+  `hasPassword && !unlocked` 的网格返回 `403 {"error":"grid_locked"}`；解锁后正常。
 - 访问控制在后端执行（转发模组前检查），模组数据口继续只信任共享密钥。
 
 ## 实时事件端点（v0.4，SSE）

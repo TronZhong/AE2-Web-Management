@@ -15,6 +15,7 @@
 - **物品中文名称**（模组 0.0.9，契约 v0.6）：快照中 `inventory[]` / `patterns[]` 各 stack 条目新增**可选** `nameKey`（物品翻译键，如 `block.minecraft.stone` / `item.ae2.controller`，roadmap.md §4）；前端按官方中文语言表查名。旧版模组无该字段 → 后端按 null 处理并在 Web 响应省略，向后兼容。`SavedData` NBT 中该字段同样可空（旧存档读出为 null）。
 - **物品图标（模组 0.0.10 + 后端/前端，契约 v0.7；0.0.11 分辨率升级 64×64）**：模组 `GET /icons/{namespace}/{path}.png` 图标静态文件端点（64×64 PNG，客户端离屏渲染产物（16×16 GUI 单位逻辑画布 4× 超采样），只读磁盘不现算；路径段仅允许 `[a-z0-9_.-]`，缺失 404 + 惰性补齐）；后端 `GET /api/icons/{namespace}/{path}.png` 纯字节转发（透传 `Content-Type` 与 `Cache-Control`，仅要求登录，不自建缓存）；前端 `iconUrlOf()` 按 key id 构造 URL，`ItemSlot` 懒加载 + 失败回退占位方块并有限重试。详见 [web-api.md](web-api.md)「图标转发端点」。
 - **CPU 名称字段移除（模组 0.0.12，Web 契约 v0.8）**：AE2 合成 CPU 无法命名，快照 `craftingCpus[]` 不再携带 `name`——模组采集 / `SavedData` NBT / HTTP JSON、后端 DTO 透传、前端展示全链路同步移除；网页按列表序号显示 `#N`，模组按游戏内同序（协处理器↓、存储↓）排序，编号与游戏内未命名 CPU 一致。
+- **命令记录删除与历史自动清理（模组 0.0.13，Web 契约 v0.9）**：新增 `DELETE /grids/{accessId}/commands/{commandId}`——**物理删除**命令记录：删除 `PENDING` 记录即撤销（不会提交给 AE2，含取消在途计算），删除 `SUBMITTED`/`FAILED` 记录仅清理历史（不影响 AE2 已受理的任务）。删除在模组主线程原子执行（与模拟/提交串行化，杜绝「已删命令仍被提交」的竞态），响应即最终结果。另：每个网格自动保留最近 `commandHistoryLimit`（模组配置，默认 50）条终态记录，超出删除最旧；`PENDING` 不参与自动清理。详见下方「合成命令 API」。
 - 完整 schema、JSON Schema/OpenAPI 仍待定义；字段变更前先更新本页。
 - 目录：`contracts/`（当前以文档形式维护初版 API 形状）。
 
@@ -87,6 +88,30 @@
 
 > `POST` 返回 `202` 表示已进入线程安全队列；主线程下一 tick 会持久化命令，
 > 网格在线后异步重算并提交给 AE2。
+
+### `DELETE /grids/{accessId}/commands/{commandId}`
+
+删除一条命令记录（模组 0.0.13 起）。**物理删除**，语义按记录当前状态：
+
+| 被删记录状态 | 效果 |
+| --- | --- |
+| `PENDING` | **撤销**：记录移除，永远不会提交给 AE2（若 AE2 计算正在进行，一并取消）；这是误发撤回的入口 |
+| `SUBMITTED` / `FAILED` | 仅清理历史条目；AE2 已受理的合成任务**不受影响**（模组不跟踪 AE2 链接，无法也不试图撤回） |
+
+删除在模组主线程原子执行（与命令的模拟/提交串行化），**响应即最终结果**：
+
+| 响应 | 说明 |
+| --- | --- |
+| `204` | 记录已删除 |
+| `400 {"error":"invalid_access_id"}` / `{"error":"invalid_command_id"}` | 路径参数不是合法 UUID |
+| `404 {"error":"grid_not_found"}` | 网格不存在 |
+| `404 {"error":"command_not_found"}` | 命令记录不存在（含已被删除；重复删除不幂等） |
+| `500 {"error":"internal_error"}` | 主线程不可用或等待超时（服务器关闭中），可重试 |
+
+> 自动清理：每个网格只保留最近 `commandHistoryLimit`（模组配置，默认 50）条
+> 终态（`SUBMITTED`/`FAILED`）记录，超出时按 `submittedAt` 从旧到新自动删除，
+> `GET /commands` 的历史因此可能变短；`PENDING` 记录永不自动清理。
+> 删除按钮交互约定见 Web 契约 v0.9。
 
 ## 网格密码 API
 

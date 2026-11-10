@@ -44,6 +44,14 @@ public final class Config {
             .comment("Maximum number of item icons rendered per frame.")
             .defineInRange("iconRenderPerFrame", 2, 1, 64);
 
+    /**
+     * 每个网格保留的终态（SUBMITTED/FAILED）合成命令历史上限。
+     * 超出后按 submittedAt 从旧到新自动删除；PENDING 命令永不自动清理。
+     */
+    public static final ModConfigSpec.IntValue COMMAND_HISTORY_LIMIT = BUILDER
+            .comment("Maximum number of finished (SUBMITTED/FAILED) crafting commands kept per grid.")
+            .defineInRange("commandHistoryLimit", 50, 1, 1000);
+
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private Config() {

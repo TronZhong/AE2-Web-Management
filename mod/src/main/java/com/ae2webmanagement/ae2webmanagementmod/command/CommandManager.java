@@ -6,11 +6,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
 
@@ -36,6 +38,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.networking.ControllerBlockEntity;
 
+import com.ae2webmanagement.ae2webmanagementmod.Config;
 import com.ae2webmanagement.ae2webmanagementmod.data.CommandStore;
 import com.ae2webmanagement.ae2webmanagementmod.data.GridIdentityStore;
 import com.ae2webmanagement.ae2webmanagementmod.grid.GridIdentity;
@@ -45,18 +48,27 @@ import com.ae2webmanagement.ae2webmanagementmod.grid.GridIdentity;
  *
  * <p>HTTP 线程只调用 {@link #submit} 入队并立即返回；持久化、模拟和提交都在
  * 服务器主线程执行。模拟使用 AE2 的异步计算 Future，主线程只轮询完成状态，
- * 避免阻塞服务器 tick。
+ * 避免阻塞服务器 tick。</p>
+ *
+ * <p>删除（{@link #delete}）与提交不同：为杜绝「已删命令仍被提交」的竞态，
+ * HTTP 线程经 {@code MinecraftServer#execute} 把删除任务派发到主线程并同步等待
+ * 结果（超时上限 {@value #DELETE_TIMEOUT_MILLIS}ms，小于后端读超时 5s），
+ * 整个「查状态 → 取消在途计算 → 移除记录」在主线程一次跑完，响应即最终结果。</p>
  */
 public final class CommandManager {
 
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final long PLANNING_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(120);
     private static final int MAX_INCOMING_PER_TICK = 100;
+    /** 删除命令同步等待主线程的上限；须小于后端对模组的 5s 读超时。 */
+    private static final long DELETE_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(2);
 
     private final Map<UUID, CraftCommand> cache = new ConcurrentHashMap<>();
     private final Map<UUID, GridIdentity> identities = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<CraftCommand> incoming = new ConcurrentLinkedQueue<>();
     private final Map<UUID, PlanningJob> planning = new LinkedHashMap<>();
+    /** 服务端实例（start 时持有，stop 时置空）：供 HTTP 线程把删除任务派发到主线程。 */
+    private volatile MinecraftServer server;
 
     /** 服务端启动时恢复命令缓存与身份索引。 */
     public void start(MinecraftServer server) {
@@ -64,10 +76,17 @@ public final class CommandManager {
         this.planning.clear();
         this.cache.clear();
         this.identities.clear();
+        this.server = server;
         GridIdentityStore.get(server.overworld()).getAll()
                 .forEach(identity -> this.identities.put(identity.accessId(), identity));
-        CommandStore.get(server.overworld()).getAll()
+        CommandStore store = CommandStore.get(server.overworld());
+        store.getAll()
                 .forEach(command -> this.cache.put(command.id(), command));
+        // 存档可能残留超出上限的历史（旧版本遗留或配置调小）：启动时按网格清理一次
+        store.getAll().stream()
+                .map(CraftCommand::accessId)
+                .distinct()
+                .forEach(accessId -> pruneHistory(store, accessId));
         LOGGER.info("[AE2Web] Command manager started with {} cached commands", this.cache.size());
     }
 
@@ -119,7 +138,8 @@ public final class CommandManager {
      * 服务端停止时清空运行时状态。
      *
      * <p>未完成的 AE2 异步计算会被取消；已持久化到 {@link CommandStore} 的
-     * 命令历史保留在存档中，下次启动时恢复。
+     * 命令历史保留在存档中，下次启动时恢复。服务端引用同时置空，
+     * 让后续 HTTP 删除请求得到「不可用」而非永久挂起。</p>
      */
     public void stop() {
         for (PlanningJob job : this.planning.values()) {
@@ -129,6 +149,7 @@ public final class CommandManager {
         this.incoming.clear();
         this.cache.clear();
         this.identities.clear();
+        this.server = null;
     }
 
     /**
@@ -354,6 +375,116 @@ public final class CommandManager {
     private void update(CommandStore store, CraftCommand command) {
         store.put(command);
         this.cache.put(command.id(), command);
+        // 终态写入后按网格修剪历史（PENDING 的中间态写入不触发）
+        if (command.state() != CommandState.PENDING) {
+            pruneHistory(store, command.accessId());
+        }
+    }
+
+    /**
+     * 按网格修剪超出上限的终态命令历史（主线程调用）。
+     *
+     * <p>每个网格只保留最近 {@code Config#COMMAND_HISTORY_LIMIT} 条
+     * {@code SUBMITTED}/{@code FAILED} 记录，超出时按 {@code submittedAt}
+     * 从旧到新从持久化表与运行时缓存同时移除；{@code PENDING} 记录
+     * 永不自动清理（还在排队的命令不能悄悄丢）。</p>
+     */
+    private void pruneHistory(CommandStore store, UUID accessId) {
+        int limit = Math.max(1, Config.COMMAND_HISTORY_LIMIT.get());
+        List<CraftCommand> terminal = store.getForGrid(accessId).stream()
+                .filter(command -> command.state() != CommandState.PENDING)
+                .toList();
+        // getForGrid 按提交时间升序排列，列表头部即最旧记录
+        for (int i = 0; i < terminal.size() - limit; i++) {
+            CraftCommand stale = terminal.get(i);
+            store.remove(stale.id());
+            this.cache.remove(stale.id());
+        }
+    }
+
+    /** 删除命令请求的处理结果，供 HTTP 层映射响应码。 */
+    public enum DeletionResult {
+        /** 记录已删除。 */
+        DELETED,
+        /** 记录不存在（含已被删除）。 */
+        NOT_FOUND,
+        /** 主线程不可用或等待超时，结果未知（HTTP 层按 internal_error 处理）。 */
+        UNAVAILABLE
+    }
+
+    /**
+     * HTTP 线程入口：请求删除一条命令记录，同步等待主线程原子执行。
+     *
+     * <p>删除与主线程的模拟/提交串行化，响应即最终结果：删除 {@code PENDING}
+     * 记录即撤销（不会提交给 AE2，含取消在途计算），删除终态记录仅清理历史。
+     * 派发经 {@code MinecraftServer#execute}，等待上限 {@value #DELETE_TIMEOUT_MILLIS}ms。</p>
+     *
+     * @param accessId  目标网格
+     * @param commandId 命令 ID
+     * @return 删除结果；主线程关闭中或超时为 {@link DeletionResult#UNAVAILABLE}
+     */
+    public DeletionResult delete(UUID accessId, UUID commandId) {
+        MinecraftServer current = this.server;
+        if (current == null) {
+            return DeletionResult.UNAVAILABLE;
+        }
+
+        CompletableFuture<Boolean> done = new CompletableFuture<>();
+        try {
+            current.execute(() -> {
+                try {
+                    done.complete(deleteOnMainThread(current, accessId, commandId));
+                } catch (RuntimeException exception) {
+                    done.completeExceptionally(exception);
+                }
+            });
+        } catch (RuntimeException exception) {
+            LOGGER.warn("[AE2Web] Could not schedule command deletion {}", commandId, exception);
+            return DeletionResult.UNAVAILABLE;
+        }
+
+        try {
+            return done.get(DELETE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                    ? DeletionResult.DELETED
+                    : DeletionResult.NOT_FOUND;
+        } catch (TimeoutException exception) {
+            LOGGER.warn("[AE2Web] Timed out waiting for main thread to delete command {}", commandId);
+            return DeletionResult.UNAVAILABLE;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return DeletionResult.UNAVAILABLE;
+        } catch (ExecutionException exception) {
+            LOGGER.error("[AE2Web] Command deletion failed on main thread {}", commandId, exception);
+            return DeletionResult.UNAVAILABLE;
+        }
+    }
+
+    /**
+     * 主线程原子执行删除：查状态 → 取消在途计算 → 移除持久化与缓存。
+     *
+     * <p>与 {@link #startPendingCalculations} / {@link #completeCalculations}
+     * 在同一主线程串行化，因此不存在「删除后仍被提交」或「已删命令复活」的
+     * 竞态：planning 条目与 store 条目同 tick 内一起消失。</p>
+     *
+     * @return 记录存在且已删除为 true；记录不存在（含已删除）为 false
+     */
+    private boolean deleteOnMainThread(MinecraftServer current, UUID accessId, UUID commandId) {
+        CommandStore store = CommandStore.get(current.overworld());
+        CraftCommand command = store.get(commandId).orElse(null);
+        if (command == null || !command.accessId().equals(accessId)) {
+            return false;
+        }
+
+        PlanningJob job = this.planning.remove(commandId);
+        if (job != null) {
+            // 不打断计算线程：结果已无人收割，仅阻止其继续占用
+            job.future().cancel(false);
+        }
+        store.remove(commandId);
+        this.cache.remove(commandId);
+        LOGGER.info("[AE2Web] Deleted crafting command {} for grid {} (state was {})",
+                commandId, accessId, command.state());
+        return true;
     }
 
     /** 将命令标记为失败，并把原因保存到 result 字段。 */
