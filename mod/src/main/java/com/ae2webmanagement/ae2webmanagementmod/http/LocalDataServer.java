@@ -36,8 +36,10 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 
 import com.ae2webmanagement.ae2webmanagementmod.Config;
+import com.ae2webmanagement.ae2webmanagementmod.account.AccountManager;
 import com.ae2webmanagement.ae2webmanagementmod.command.CommandManager;
 import com.ae2webmanagement.ae2webmanagementmod.command.CraftCommand;
+import com.ae2webmanagement.ae2webmanagementmod.data.AccountStore;
 import com.ae2webmanagement.ae2webmanagementmod.data.GridPasswords;
 import com.ae2webmanagement.ae2webmanagementmod.grid.GridIdentity;
 import com.ae2webmanagement.ae2webmanagementmod.icon.IconExporter;
@@ -60,13 +62,15 @@ public final class LocalDataServer {
 
     private final SnapshotManager snapshots;
     private final CommandManager commands;
+    private final AccountManager accounts;
     private HttpServer server;
     private ExecutorService executor;
 
-    /** 注入线程安全的快照缓存与命令队列。 */
-    public LocalDataServer(SnapshotManager snapshots, CommandManager commands) {
+    /** 注入线程安全的快照缓存、命令队列与账号镜像。 */
+    public LocalDataServer(SnapshotManager snapshots, CommandManager commands, AccountManager accounts) {
         this.snapshots = snapshots;
         this.commands = commands;
+        this.accounts = accounts;
     }
 
     /**
@@ -159,10 +163,14 @@ public final class LocalDataServer {
         }
     }
 
-    /** 分发只读接口：健康检查、网格列表、单个网格快照和命令历史。 */
+    /** 分发只读接口：健康检查、账号列表、网格列表、单个网格快照和命令历史。 */
     private void handleGet(HttpExchange exchange, String path) throws IOException {
         if ("/health".equals(path)) {
             sendJson(exchange, 200, Map.of("ok", true));
+            return;
+        }
+        if ("/accounts".equals(path)) {
+            sendJson(exchange, 200, Map.of("accounts", listAccounts()));
             return;
         }
         if ("/grids".equals(path)) {
@@ -485,9 +493,36 @@ public final class LocalDataServer {
             grid.put("hasPassword", !this.snapshots.getPasswordHash(identity.accessId()).isEmpty());
             // 最近一次在线时间（0.0.14 起随快照循环回写，契约 v0.10）
             grid.put("lastSeenAt", identity.lastSeenAt());
+            // 注册者（0.1.0 起，契约「账号制」）：无主网格（旧存档）省略两个字段
+            if (identity.ownerUuid() != null) {
+                grid.put("ownerUuid", identity.ownerUuid().toString());
+                String ownerName = this.accounts.nameOf(identity.ownerUuid());
+                if (ownerName != null && !ownerName.isEmpty()) {
+                    grid.put("ownerName", ownerName);
+                }
+            }
             grids.add(grid);
         }
         return grids;
+    }
+
+    /**
+     * 组装账号列表（{@code GET /accounts}，0.1.0 起；供后端同步做本地登录校验）。
+     *
+     * <p>含 PBKDF2 哈希——后端在本地校验登录（明文不出模组），因此哈希必须在
+     * 同步通道中传输；通道仅本机回环 + 共享密钥可达，泄漏面与网格密码一致。</p>
+     */
+    private List<Map<String, Object>> listAccounts() {
+        List<Map<String, Object>> accounts = new ArrayList<>();
+        for (AccountStore.AccountEntry entry : this.accounts.getAll()) {
+            Map<String, Object> account = new LinkedHashMap<>();
+            account.put("playerUuid", entry.playerUuid().toString());
+            account.put("playerName", entry.playerName());
+            account.put("passwordHash", entry.passwordHash());
+            account.put("createdAt", entry.createdAt());
+            accounts.add(account);
+        }
+        return accounts;
     }
 
     /** 返回单个网格的库存与合成 CPU 快照。 */

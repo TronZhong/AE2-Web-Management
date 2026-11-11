@@ -64,7 +64,8 @@ class GridControllerTests {
 	void gridsFieldNamesMatchContract() throws Exception {
 		when(this.gridService.listGrids(42L)).thenReturn(new GridListResponse(List.of(
 				new GridSummaryResponse(ACCESS_ID, "主基地 ME 网格", "minecraft:overworld",
-						128, 64, -256, true, 1760000000000L, 17, 2, true, false, 1759990000000L))));
+						128, 64, -256, true, 1760000000000L, 17, 2, true, false, 1759990000000L,
+						"9b2ad6c1-4b7a-4c1e-9a3f-2f8f6f41a099", "Steve"))));
 
 		this.mockMvc.perform(get("/api/grids"))
 			.andExpect(status().isOk())
@@ -79,7 +80,10 @@ class GridControllerTests {
 			.andExpect(jsonPath("$.grids[0].inventoryEntries").value(17))
 			.andExpect(jsonPath("$.grids[0].cpuCount").value(2))
 			.andExpect(jsonPath("$.grids[0].hasPassword").value(true))
-			.andExpect(jsonPath("$.grids[0].unlocked").value(false));
+			.andExpect(jsonPath("$.grids[0].unlocked").value(false))
+			// 契约 v0.11：owner 字段透传（网格卡片显示创建者）
+			.andExpect(jsonPath("$.grids[0].ownerUuid").value("9b2ad6c1-4b7a-4c1e-9a3f-2f8f6f41a099"))
+			.andExpect(jsonPath("$.grids[0].ownerName").value("Steve"));
 	}
 
 	/** GET /api/grids/{accessId}/snapshot：快照嵌套字段名与契约逐一断言（含可选 nameKey，roadmap.md §4）。 */

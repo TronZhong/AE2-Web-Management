@@ -13,6 +13,7 @@ import com.ae2webmanagement.backend.client.ModApiClient;
 import com.ae2webmanagement.backend.client.ModApiException;
 import com.ae2webmanagement.backend.dto.ModGridListResponse;
 import com.ae2webmanagement.backend.dto.ModGridSummaryResponse;
+import com.ae2webmanagement.backend.repository.GridAccessRepository;
 
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.never;
@@ -21,12 +22,12 @@ import static org.mockito.Mockito.when;
 
 /**
  * {@link GridStateSyncService} 单元测试：指纹比对与事件广播语义
- * （roadmap 已完成项：SSE 实时推送）。
+ * （roadmap 已完成项：SSE 实时推送）+ 网格消失时的孤儿解锁记录清理（roadmap §11）。
  *
  * <p>覆盖：无变化不广播；新网格出现 → {@code grids-updated}；快照被刷新
  * （{@code capturedAt}/{@code online} 变化）→ 该网格的 {@code grid-snapshot-updated}；
- * 名称/密码变化 → {@code grids-updated}；网格移除 → {@code grids-updated}；
- * 模组不可达静默跳过。</p>
+ * 名称/密码变化 → {@code grids-updated}；网格移除 → {@code grids-updated} +
+ * 删除该网格全部解锁记录；模组不可达静默跳过。</p>
  */
 @ExtendWith(MockitoExtension.class)
 class GridStateSyncServiceTests {
@@ -39,6 +40,9 @@ class GridStateSyncServiceTests {
 
 	@Mock
 	private RealtimeEventHub eventHub;
+
+	@Mock
+	private GridAccessRepository gridAccessRepository;
 
 	@InjectMocks
 	private GridStateSyncService service;
@@ -97,9 +101,9 @@ class GridStateSyncServiceTests {
 		verify(this.eventHub).broadcast(new java.util.HashMap<>(java.util.Map.of("type", "grids-updated")));
 	}
 
-	/** 网格被移除 → 广播 grids-updated。 */
+	/** 网格被移除 → 广播 grids-updated + 清理该网格的孤儿解锁记录（roadmap §11）。 */
 	@Test
-	void removedGridBroadcastsGridsUpdated() {
+	void removedGridBroadcastsGridsUpdatedAndCleansOrphanAccess() {
 		when(this.modApiClient.listGrids())
 			.thenReturn(new ModGridListResponse(List.of(
 					summary(ID_A, false, true, 1_000L, "主基地"),
@@ -110,6 +114,8 @@ class GridStateSyncServiceTests {
 		this.service.sync();
 
 		verify(this.eventHub).broadcast(new java.util.HashMap<>(java.util.Map.of("type", "grids-updated")));
+		// 网格消失 → 删除该网格全部解锁记录
+		verify(this.gridAccessRepository).deleteByAccessId(ID_B);
 	}
 
 	/** 模组不可达（连接失败）→ 静默跳过，不广播不抛异常。 */
@@ -144,6 +150,6 @@ class GridStateSyncServiceTests {
 	private static ModGridSummaryResponse summary(
 			String accessId, boolean hasPassword, boolean online, long capturedAt, String displayName) {
 		return new ModGridSummaryResponse(accessId, displayName, "minecraft:overworld",
-				128, 64, -256, online, capturedAt, 17, 2, hasPassword, capturedAt);
+				128, 64, -256, online, capturedAt, 17, 2, hasPassword, capturedAt, null, null);
 	}
 }

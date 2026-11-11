@@ -11,6 +11,7 @@ import org.springframework.web.client.ResourceAccessException;
 
 import com.ae2webmanagement.backend.client.ModApiClient;
 import com.ae2webmanagement.backend.client.ModApiException;
+import com.ae2webmanagement.backend.domain.Account;
 import com.ae2webmanagement.backend.domain.GridAccess;
 import com.ae2webmanagement.backend.dto.CommandListResponse;
 import com.ae2webmanagement.backend.dto.CraftAcceptedResponse;
@@ -20,6 +21,7 @@ import com.ae2webmanagement.backend.dto.GridSummaryResponse;
 import com.ae2webmanagement.backend.dto.ModGridListResponse;
 import com.ae2webmanagement.backend.dto.ModGridSummaryResponse;
 import com.ae2webmanagement.backend.dto.SnapshotResponse;
+import com.ae2webmanagement.backend.repository.AccountRepository;
 import com.ae2webmanagement.backend.repository.GridAccessRepository;
 
 /**
@@ -35,9 +37,10 @@ import com.ae2webmanagement.backend.repository.GridAccessRepository;
  *       含网格密码的 {@code invalid_password}（401）。</li>
  * </ul>
  *
- * <p>网格访问控制（v0.3）：网格设有密码且当前账号未解锁时，
- * snapshot / craft / commands 在转发模组前拒绝，返回 {@code 403 grid_locked}；
- * 解锁状态（{@code account_grid_access} 表）按账号持久记忆。
+ * <p>网格访问控制（v0.3；v0.11 起 owner 免密，roadmap §11）：网格设有密码且
+ * 当前账号未解锁且非 owner 时，snapshot / craft / commands 在转发模组前拒绝，
+ * 返回 {@code 403 grid_locked}；解锁状态（{@code account_grid_access} 表）按账号
+ * 持久记忆，owner（账号绑定玩家 == 网格 ownerUuid）恒放行。
  * 访问控制检查通过 {@code GET /grids} 列表完成——网格不在列表中时不拦截，
  * 让模组对未知网格返回精确的 404 错误码（snapshot_not_found / grid_not_found）。</p>
  */
@@ -50,13 +53,19 @@ public class GridService {
 
 	private final GridAccessRepository gridAccessRepository;
 
+	/** 账号表访问（owner 免密判定需要当前账号绑定的 playerUuid，roadmap §11）。 */
+	private final AccountRepository accountRepository;
+
 	/**
 	 * @param modApiClient         访问模组的唯一入口
 	 * @param gridAccessRepository 已解锁网格记录表访问
+	 * @param accountRepository    账号表访问（owner 免密判定用）
 	 */
-	public GridService(ModApiClient modApiClient, GridAccessRepository gridAccessRepository) {
+	public GridService(ModApiClient modApiClient, GridAccessRepository gridAccessRepository,
+			AccountRepository accountRepository) {
 		this.modApiClient = modApiClient;
 		this.gridAccessRepository = gridAccessRepository;
+		this.accountRepository = accountRepository;
 	}
 
 	/**
@@ -170,11 +179,13 @@ public class GridService {
 	}
 
 	/**
-	 * 网格访问控制检查：网格设有密码且当前账号未解锁 → {@code 403 grid_locked}。
+	 * 网格访问控制检查：网格设有密码且当前账号未解锁且**非 owner** →
+	 * {@code 403 grid_locked}。
 	 *
 	 * <p>网格不在模组列表中时不拦截（hasPassword 按 false 处理），把 404 语义
 	 * 留给模组端点本身（snapshot_not_found / grid_not_found），与直连模组时
-	 * 的错误口径一致。旧版模组无 hasPassword 字段 → 一律放行（向后兼容）。</p>
+	 * 的错误口径一致。旧版模组无 hasPassword 字段 → 一律放行（向后兼容）；
+	 * owner 免密（v0.11，roadmap §11）：登录账号绑定的玩家 == 网格 ownerUuid 恒放行。</p>
 	 *
 	 * @param id        已解析的网格接入 ID
 	 * @param accountId 当前登录账号 ID
@@ -185,6 +196,7 @@ public class GridService {
 			.filter((summary) -> summary.accessId().equals(id.toString()))
 			.findFirst()
 			.map((summary) -> Boolean.TRUE.equals(summary.hasPassword())
+					&& !isOwner(summary, accountId)
 					&& !this.gridAccessRepository.existsByAccountIdAndAccessId(accountId, summary.accessId()))
 			.orElse(false);
 		if (locked) {
@@ -193,10 +205,29 @@ public class GridService {
 	}
 
 	/**
+	 * 判定当前登录账号是否为网格 owner（v0.11 owner 免密，roadmap §11）：
+	 * 摘要携带 {@code ownerUuid} 且与账号绑定的 {@code playerUuid} 一致。
+	 *
+	 * @param summary   模组网格摘要（ownerUuid 可空）
+	 * @param accountId 当前登录账号 ID
+	 * @return 该账号绑定玩家即为网格 owner 为 {@code true}
+	 */
+	private boolean isOwner(ModGridSummaryResponse summary, long accountId) {
+		if (summary.ownerUuid() == null) {
+			return false;
+		}
+		return this.accountRepository.findById(accountId)
+			.map(Account::getPlayerUuid)
+			.map((playerUuid) -> playerUuid != null && playerUuid.equals(summary.ownerUuid()))
+			.orElse(false);
+	}
+
+	/**
 	 * 把模组摘要映射为带访问控制字段的 Web 摘要。
 	 *
 	 * <p>{@code unlocked} = 未设密码（含旧版模组缺字段的情况，反序列化为 null）
-	 * 或该账号已有解锁记录；密码被清除的网格顺带撤销全部解锁记录。</p>
+	 * 或该账号为网格 owner（owner 免密）或已有解锁记录；密码被清除的网格顺带
+	 * 撤销全部解锁记录。owner 字段（v0.11）原样透传（null 在 Web 响应省略）。</p>
 	 *
 	 * @param summary   模组返回的原始摘要（hasPassword 可空，null 视为未设密码）
 	 * @param accountId 当前登录账号 ID
@@ -208,11 +239,12 @@ public class GridService {
 			this.gridAccessRepository.deleteByAccessId(summary.accessId());
 		}
 		boolean unlocked = !hasPassword
+				|| isOwner(summary, accountId)
 				|| this.gridAccessRepository.existsByAccountIdAndAccessId(accountId, summary.accessId());
 		return new GridSummaryResponse(summary.accessId(), summary.displayName(), summary.dimension(),
 				summary.controllerX(), summary.controllerY(), summary.controllerZ(),
 				summary.online(), summary.capturedAt(), summary.inventoryEntries(), summary.cpuCount(),
-				hasPassword, unlocked, summary.lastSeenAt());
+				hasPassword, unlocked, summary.lastSeenAt(), summary.ownerUuid(), summary.ownerName());
 	}
 
 	/**

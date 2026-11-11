@@ -68,7 +68,9 @@ class ModApiClientTests {
 						"inventoryEntries":17,
 						"cpuCount":2,
 						"hasPassword":true,
-						"lastSeenAt":1760000000001
+						"lastSeenAt":1760000000001,
+						"ownerUuid":"9b2ad6c1-4b7a-4c1e-9a3f-2f8f6f41a099",
+						"ownerName":"Steve"
 					}]}
 				""", MediaType.APPLICATION_JSON));
 
@@ -88,6 +90,34 @@ class ModApiClientTests {
 		assertThat(response.grids().get(0).hasPassword()).isTrue();
 		// 契约 v0.10：lastSeenAt 最近一次在线时间随摘要透传
 		assertThat(response.grids().get(0).lastSeenAt()).isEqualTo(1760000000001L);
+		// 契约 v0.11（模组 0.1.0）：owner 字段随摘要透传
+		assertThat(response.grids().get(0).ownerUuid()).isEqualTo("9b2ad6c1-4b7a-4c1e-9a3f-2f8f6f41a099");
+		assertThat(response.grids().get(0).ownerName()).isEqualTo("Steve");
+		this.server.verify();
+	}
+
+	/** 契约 v0.11（模组 0.1.0）：GET /accounts 解析账号列表（含 PBKDF2 哈希与 createdAt）。 */
+	@Test
+	void listAccountsParsesAccountsArray() {
+		this.server.expect(requestTo(BASE_URL + "/accounts"))
+			.andExpect(method(HttpMethod.GET))
+			.andExpect(header("X-Shared-Secret", "test-secret"))
+			.andRespond(withSuccess("""
+					{"accounts":[{
+						"playerUuid":"9b2ad6c1-4b7a-4c1e-9a3f-2f8f6f41a099",
+						"playerName":"Steve",
+						"passwordHash":"pbkdf2:60000:c2FsdA==:aGFzaA==",
+						"createdAt":1760000000000
+					}]}
+				""", MediaType.APPLICATION_JSON));
+
+		var response = this.client.listAccounts();
+
+		assertThat(response.accounts()).hasSize(1);
+		assertThat(response.accounts().get(0).playerUuid()).isEqualTo("9b2ad6c1-4b7a-4c1e-9a3f-2f8f6f41a099");
+		assertThat(response.accounts().get(0).playerName()).isEqualTo("Steve");
+		assertThat(response.accounts().get(0).passwordHash()).isEqualTo("pbkdf2:60000:c2FsdA==:aGFzaA==");
+		assertThat(response.accounts().get(0).createdAt()).isEqualTo(1760000000000L);
 		this.server.verify();
 	}
 
@@ -116,6 +146,9 @@ class ModApiClientTests {
 		assertThat(response.grids().get(0).hasPassword()).isNull();
 		// 旧版模组（<0.0.14）无 lastSeenAt 字段 → null，Web 响应省略（向后兼容）
 		assertThat(response.grids().get(0).lastSeenAt()).isNull();
+		// 旧版模组（<0.1.0）无 owner 字段 → null，Web 响应省略（向后兼容）
+		assertThat(response.grids().get(0).ownerUuid()).isNull();
+		assertThat(response.grids().get(0).ownerName()).isNull();
 		this.server.verify();
 	}
 

@@ -12,11 +12,13 @@ import org.springframework.web.client.ResourceAccessException;
 
 import com.ae2webmanagement.backend.client.ModApiClient;
 import com.ae2webmanagement.backend.client.ModApiException;
+import com.ae2webmanagement.backend.domain.Account;
 import com.ae2webmanagement.backend.domain.GridAccess;
 import com.ae2webmanagement.backend.dto.GridListResponse;
 import com.ae2webmanagement.backend.dto.GridSummaryResponse;
 import com.ae2webmanagement.backend.dto.ModGridListResponse;
 import com.ae2webmanagement.backend.dto.ModGridSummaryResponse;
+import com.ae2webmanagement.backend.repository.AccountRepository;
 import com.ae2webmanagement.backend.repository.GridAccessRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,7 +34,7 @@ import static org.mockito.Mockito.when;
 /**
  * {@link GridService} 测试：错误翻译表（accessId 校验、mod_unreachable、
  * mod_unavailable、其余错误码透传）与网格访问控制（v0.3 grid_locked、
- * unlocked 计算、旧版模组向后兼容、unlock 记录）。
+ * unlocked 计算、旧版模组向后兼容、unlock 记录、v0.11 owner 免密）。
  */
 @ExtendWith(MockitoExtension.class)
 class GridServiceTests {
@@ -43,11 +45,17 @@ class GridServiceTests {
 
 	private static final long ACCOUNT_ID = 42L;
 
+	/** 当前账号绑定的游戏内玩家 UUID（模组账号同步产物形状）。 */
+	private static final String PLAYER_UUID = "9b2ad6c1-4b7a-4c1e-9a3f-2f8f6f41a099";
+
 	@Mock
 	private ModApiClient modApiClient;
 
 	@Mock
 	private GridAccessRepository gridAccessRepository;
+
+	@Mock
+	private AccountRepository accountRepository;
 
 	@InjectMocks
 	private GridService service;
@@ -92,7 +100,7 @@ class GridServiceTests {
 	void otherModErrorsPassThrough() {
 		when(this.modApiClient.getSnapshot(any(UUID.class))).thenThrow(new ModApiException(404, "snapshot_not_found"));
 		when(this.modApiClient.listGrids())
-			.thenReturn(new ModGridListResponse(List.of(modSummary(false, false))));
+			.thenReturn(new ModGridListResponse(List.of(modSummary(false, false, null))));
 
 		assertThatThrownBy(() -> this.service.getSnapshot(ACCESS_ID, ACCOUNT_ID))
 			.isInstanceOfSatisfying(ModApiException.class, e -> {
@@ -106,7 +114,7 @@ class GridServiceTests {
 	void legacyModWithoutPasswordFieldTreatsGridsAsPublic() {
 		// 旧版模组响应无 hasPassword 字段 → Boolean 组件为 null → service 归一为公开
 		when(this.modApiClient.listGrids())
-			.thenReturn(new ModGridListResponse(List.of(modSummary(false, null))));
+			.thenReturn(new ModGridListResponse(List.of(modSummary(false, null, null))));
 
 		GridListResponse response = this.service.listGrids(ACCOUNT_ID);
 
@@ -121,13 +129,15 @@ class GridServiceTests {
 	@Test
 	void lockedGridBlocksSnapshotWithGridLocked() {
 		when(this.modApiClient.listGrids())
-			.thenReturn(new ModGridListResponse(List.of(modSummary(true, true))))
-			.thenReturn(new ModGridListResponse(List.of(modSummary(true, true))));
+			.thenReturn(new ModGridListResponse(List.of(modSummary(true, true, null))))
+			.thenReturn(new ModGridListResponse(List.of(modSummary(true, true, null))));
 		when(this.gridAccessRepository.existsByAccountIdAndAccessId(ACCOUNT_ID, ACCESS_ID)).thenReturn(false);
 
 		GridListResponse response = this.service.listGrids(ACCOUNT_ID);
 		assertThat(response.grids().get(0).hasPassword()).isTrue();
 		assertThat(response.grids().get(0).unlocked()).isFalse();
+		// owner 字段透传（v0.11）：无主网格 → null，Web 响应省略
+		assertThat(response.grids().get(0).ownerUuid()).isNull();
 
 		assertThatThrownBy(() -> this.service.getSnapshot(ACCESS_ID, ACCOUNT_ID))
 			.isInstanceOfSatisfying(ModApiException.class, e -> {
@@ -137,10 +147,51 @@ class GridServiceTests {
 		verify(this.modApiClient, never()).getSnapshot(any(UUID.class));
 	}
 
+	/** owner 免密（契约 v0.11，roadmap §11）：owner 账号不解锁也 unlocked=true，snapshot 直接放行。 */
+	@Test
+	void ownerAccountBypassesGridLock() {
+		when(this.modApiClient.listGrids())
+			.thenReturn(new ModGridListResponse(List.of(modSummary(true, true, PLAYER_UUID))))
+			.thenReturn(new ModGridListResponse(List.of(modSummary(true, true, PLAYER_UUID))));
+		when(this.accountRepository.findById(ACCOUNT_ID)).thenReturn(java.util.Optional.of(account(PLAYER_UUID)));
+
+		GridListResponse response = this.service.listGrids(ACCOUNT_ID);
+		assertThat(response.grids().get(0).unlocked()).isTrue();
+		assertThat(response.grids().get(0).ownerUuid()).isEqualTo(PLAYER_UUID);
+		assertThat(response.grids().get(0).ownerName()).isEqualTo("Steve");
+
+		this.service.getSnapshot(ACCESS_ID, ACCOUNT_ID);
+		verify(this.modApiClient).getSnapshot(UUID.fromString(ACCESS_ID));
+	}
+
+	/** 非 owner 账号不享有 owner 免密（ownerUuid 指向他人）。 */
+	@Test
+	void nonOwnerAccountDoesNotBypassGridLock() {
+		when(this.modApiClient.listGrids())
+			.thenReturn(new ModGridListResponse(List.of(modSummary(true, true, "1a2ad6c1-4b7a-4c1e-9a3f-2f8f6f41a088"))));
+		when(this.accountRepository.findById(ACCOUNT_ID)).thenReturn(java.util.Optional.of(account(PLAYER_UUID)));
+		when(this.gridAccessRepository.existsByAccountIdAndAccessId(ACCOUNT_ID, ACCESS_ID)).thenReturn(false);
+
+		GridListResponse response = this.service.listGrids(ACCOUNT_ID);
+		assertThat(response.grids().get(0).unlocked()).isFalse();
+	}
+
+	/** 遗留账号（无绑定 playerUuid）不享有 owner 免密。 */
+	@Test
+	void legacyAccountWithoutPlayerUuidDoesNotBypassGridLock() {
+		when(this.modApiClient.listGrids())
+			.thenReturn(new ModGridListResponse(List.of(modSummary(true, true, PLAYER_UUID))));
+		when(this.accountRepository.findById(ACCOUNT_ID)).thenReturn(java.util.Optional.of(account(null)));
+		when(this.gridAccessRepository.existsByAccountIdAndAccessId(ACCOUNT_ID, ACCESS_ID)).thenReturn(false);
+
+		GridListResponse response = this.service.listGrids(ACCOUNT_ID);
+		assertThat(response.grids().get(0).unlocked()).isFalse();
+	}
+
 	/** 设了密码但账号已解锁 → unlocked=true，snapshot 正常转发模组。 */
 	@Test
 	void unlockedAccountPassesSnapshotThrough() {
-		when(this.modApiClient.listGrids()).thenReturn(new ModGridListResponse(List.of(modSummary(true, true))));
+		when(this.modApiClient.listGrids()).thenReturn(new ModGridListResponse(List.of(modSummary(true, true, null))));
 		when(this.gridAccessRepository.existsByAccountIdAndAccessId(ACCOUNT_ID, ACCESS_ID)).thenReturn(true);
 
 		GridListResponse response = this.service.listGrids(ACCOUNT_ID);
@@ -166,7 +217,7 @@ class GridServiceTests {
 	/** 后端观察到密码被清除（hasPassword=false）→ 删除该网格全部解锁记录（撤销语义）。 */
 	@Test
 	void clearedPasswordRevokesUnlockRecords() {
-		when(this.modApiClient.listGrids()).thenReturn(new ModGridListResponse(List.of(modSummary(false, false))));
+		when(this.modApiClient.listGrids()).thenReturn(new ModGridListResponse(List.of(modSummary(false, false, null))));
 
 		this.service.listGrids(ACCOUNT_ID);
 
@@ -212,7 +263,7 @@ class GridServiceTests {
 	/** 删除命令：锁定且未解锁网格 → 403 grid_locked，不转发模组。 */
 	@Test
 	void deleteCommandBlockedByGridLock() {
-		when(this.modApiClient.listGrids()).thenReturn(new ModGridListResponse(List.of(modSummary(true, true))));
+		when(this.modApiClient.listGrids()).thenReturn(new ModGridListResponse(List.of(modSummary(true, true, null))));
 		when(this.gridAccessRepository.existsByAccountIdAndAccessId(ACCOUNT_ID, ACCESS_ID)).thenReturn(false);
 
 		assertThatThrownBy(() -> this.service.deleteCommand(ACCESS_ID, COMMAND_ID, ACCOUNT_ID))
@@ -226,7 +277,7 @@ class GridServiceTests {
 	/** 删除命令：已解锁 → 转发模组（UUID 解析正确），模组 404 command_not_found 原样透传。 */
 	@Test
 	void deleteCommandPassesThroughAfterLockCheck() {
-		when(this.modApiClient.listGrids()).thenReturn(new ModGridListResponse(List.of(modSummary(true, true))));
+		when(this.modApiClient.listGrids()).thenReturn(new ModGridListResponse(List.of(modSummary(true, true, null))));
 		when(this.gridAccessRepository.existsByAccountIdAndAccessId(ACCOUNT_ID, ACCESS_ID)).thenReturn(true);
 		doThrow(new ModApiException(404, "command_not_found"))
 			.when(this.modApiClient).deleteCommand(any(UUID.class), any(UUID.class));
@@ -243,9 +294,20 @@ class GridServiceTests {
 	 * 构造模组侧网格摘要（{@code ModGridSummaryResponse}）。
 	 *
 	 * @param hasPassword 模组侧可空密码标记（null = 旧版模组缺字段）
+	 * @param ownerUuid   网格 owner 的玩家 UUID（null = 无主网格 / 旧版模组缺字段）
 	 */
-	private static ModGridSummaryResponse modSummary(boolean locked, Boolean hasPassword) {
+	private static ModGridSummaryResponse modSummary(boolean locked, Boolean hasPassword, String ownerUuid) {
 		return new ModGridSummaryResponse(ACCESS_ID, "主基地 ME 网格", "minecraft:overworld",
-				128, 64, -256, true, 1760000000000L, 17, 2, hasPassword, 1759990000000L);
+				128, 64, -256, true, 1760000000000L, 17, 2, hasPassword, 1759990000000L,
+				ownerUuid, ownerUuid == null ? null : "Steve");
+	}
+
+	/** 构造账号实体（模组账号同步产物形状；playerUuid 可空模拟遗留账号）。 */
+	private static Account account(String playerUuid) {
+		Account account = new Account();
+		account.setUsername("Steve");
+		account.setPlayerUuid(playerUuid);
+		account.setPasswordHash("pbkdf2:60000:c2FsdA==:aGFzaA==");
+		return account;
 	}
 }

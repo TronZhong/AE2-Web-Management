@@ -105,21 +105,34 @@ public final class AccessRegistration {
     // ------------------------------ 网络协议（C2S/S2C payload） ------------------------------
 
     /**
-     * 注册自定义网络包：GUI 提交网格密码（C2S）、提交新显示名（C2S）、
-     * 服务端推送身份信息（S2C）。NeoForge 默认把处理器调度到主线程，
-     * 满足 {@code SavedData} 写入的线程要求。
+     * 注册自定义网络包（roadmap §11 账号制）：C2S——账号注册、注册网格（名称+密码）、
+     * 提交新显示名、修改网格密码（旧+新）、删除网格；S2C——服务端推送身份信息
+     * （accessId/displayName/控制器位置/owner 标记）。NeoForge 默认把处理器调度到
+     * 主线程，满足 {@code SavedData} 写入的线程要求。
      */
     @SubscribeEvent
     public static void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
         registrar.playToServer(
-                GridPasswordPayload.TYPE,
-                GridPasswordPayload.STREAM_CODEC,
-                GridPasswordPayload::handleOnServer);
+                AccountRegisterPayload.TYPE,
+                AccountRegisterPayload.STREAM_CODEC,
+                AccountRegisterPayload::handleOnServer);
+        registrar.playToServer(
+                GridRegisterPayload.TYPE,
+                GridRegisterPayload.STREAM_CODEC,
+                GridRegisterPayload::handleOnServer);
         registrar.playToServer(
                 GridRenamePayload.TYPE,
                 GridRenamePayload.STREAM_CODEC,
                 GridRenamePayload::handleOnServer);
+        registrar.playToServer(
+                GridChangePasswordPayload.TYPE,
+                GridChangePasswordPayload.STREAM_CODEC,
+                GridChangePasswordPayload::handleOnServer);
+        registrar.playToServer(
+                GridDeletePayload.TYPE,
+                GridDeletePayload.STREAM_CODEC,
+                GridDeletePayload::handleOnServer);
         registrar.playToClient(
                 GridIdentityPayload.TYPE,
                 GridIdentityPayload.STREAM_CODEC,

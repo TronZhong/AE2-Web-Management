@@ -37,7 +37,5 @@ app:
       - http://localhost:5173
   auth:
     # 是否在后端强制登录校验（/api/** 除登录端点）；仅测试切片需要关闭
+    # 账号只能在游戏内接入方块 GUI 注册，由账号同步服务（GET /accounts）入库，无引导建号
     enabled: true
-    # 首次启动且账户表为空时引导创建的初始管理员（密码只以 BCrypt 哈希入库）；部署前务必替换
-    admin-username: admin
-    admin-password: change-me

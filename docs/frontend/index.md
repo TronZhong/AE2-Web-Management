@@ -13,7 +13,7 @@
 | 样式 | Tailwind CSS v4（设计令牌在 `src/style.css` 的 `@theme`，暗色终端风） |
 | 数据源 | 默认真实请求（实时数据）；`VITE_USE_MOCK=true`（或 `npm run dev:mock`）启用 mock（dev 走 Vite `/api` 代理） |
 | 认证 | 账号制（后端 satoken Cookie 会话）；未登录一律重定向登录页 |
-| 契约 | [`contracts/web-api.md`](../../contracts/web-api.md)（v0.10，指向 `docs/contracts/web-api.md`） |
+| 契约 | [`contracts/web-api.md`](../../contracts/web-api.md)（v0.11，指向 `docs/contracts/web-api.md`） |
 
 ## 目录结构与源码映射
 
@@ -28,8 +28,8 @@
 | **`api/`** — 后端调用层（组件唯一网络出口） | |
 | [`../../web/frontend/src/api/index.js`](../../web/frontend/src/api/index.js) | `login` / `logout` / `fetchMe`（认证）+ `fetchGrids` / `fetchSnapshot` / `submitCraft` / `fetchCommands` / `deleteCommand`（v0.9 删除命令记录）/ `unlockGrid`（v0.3 解锁）+ `iconUrlOf`（v0.7 图标 URL 构造）；`USE_MOCK` 开关（默认实时，`VITE_USE_MOCK=true` 启用 mock）、契约错误码归一化、`onUnauthorized` 401 统一回调 |
 | [`../../web/frontend/src/api/events.js`](../../web/frontend/src/api/events.js) | SSE 实时事件订阅（`EventSource` 连 `/api/events`；`USE_MOCK` 时 no-op）：`grids-updated` → 刷新列表，`grid-snapshot-updated` → 刷新对应网格；断线由浏览器自动重连，轮询兜底 |
-| [`../../web/frontend/src/api/mock/fixtures.js`](../../web/frontend/src/api/mock/fixtures.js) | 三个示例网格（两在线一离线）的列表与快照固定数据；`GRID_PASSWORDS` 演示密码表（主基地网格 `1234`） |
-| [`../../web/frontend/src/api/mock/index.js`](../../web/frontend/src/api/mock/index.js) | mock 读取：模拟延迟；在线快照推进 `capturedAt` 并少量漂移数量；命令队列模拟（在线网格 PENDING 延时转 SUBMITTED，离线保持排队；终态超 50 条自动修剪）+ `deleteCommand` 删除记录；网格密码模拟（锁定网格 snapshot/craft/commands 抛 `grid_locked`，`unlockGrid` 按会话记住解锁）；mock 登录接受任意非空凭证 |
+| [`../../web/frontend/src/api/mock/fixtures.js`](../../web/frontend/src/api/mock/fixtures.js) | 三个示例网格（两在线一离线）的列表与快照固定数据（v0.11 含 `ownerUuid`/`ownerName` 创建者字段）；`GRID_PASSWORDS` 演示密码表（主基地网格 `1234`） |
+| [`../../web/frontend/src/api/mock/index.js`](../../web/frontend/src/api/mock/index.js) | mock 读取：模拟延迟；在线快照推进 `capturedAt` 并少量漂移数量；命令队列模拟（在线网格 PENDING 延时转 SUBMITTED，离线保持排队；终态超 50 条自动修剪）+ `deleteCommand` 删除记录；网格密码模拟（锁定网格 snapshot/craft/commands 抛 `grid_locked`，`unlockGrid` 按会话记住解锁）；mock 会话（登录后记住用户名，`fetchMe` 返回 `username` + `playerName`，契约 v0.11）；mock 登录接受任意非空凭证 |
 | [`../../web/frontend/src/api/events.js`](../../web/frontend/src/api/events.js) | SSE 事件订阅（EventSource → `/api/events`；`USE_MOCK` 时 no-op） |
 | **`composables/`** — 状态与轮询 | |
 | [`../../web/frontend/src/composables/useAuth.js`](../../web/frontend/src/composables/useAuth.js) | 账号登录态单例：`ensureReady`（启动恢复会话）、`login` / `logout` / `clearSession` |
@@ -53,7 +53,7 @@
 | [`../../web/frontend/src/components/base/ItemTooltip.vue`](../../web/frontend/src/components/base/ItemTooltip.vue) | 跟随鼠标的 MC 风格 tooltip（teleport 到 body，按缩放系数换算坐标） |
 | [`../../web/frontend/src/components/base/HoverDetail.vue`](../../web/frontend/src/components/base/HoverDetail.vue) | 截断文本悬浮详情：单行截断 + 末尾向下小箭头（仅溢出时出现），**悬停箭头**弹出完整内容的信息窗口（teleport 到 body、窗口左上角对齐鼠标使鼠标恰在窗口内；悬浮截断文本不触发）；移入窗口保持、移出窗口即关 |
 | **`components/grid/`** — 选择页组件 | |
-| [`../../web/frontend/src/components/grid/GridCard.vue`](../../web/frontend/src/components/grid/GridCard.vue) | 网格卡片：名称、在线徽标、锁定徽标（v0.3 `hasPassword && !unlocked`）、控制器位置、快照摘要、时间行（在线「数据截至」/ 离线「最后在线」，契约 v0.10 `lastSeenAt`，缺字段回退 `capturedAt`）、进入/解锁按钮 |
+| [`../../web/frontend/src/components/grid/GridCard.vue`](../../web/frontend/src/components/grid/GridCard.vue) | 网格卡片：名称、在线徽标、锁定徽标（v0.3 `hasPassword && !unlocked`）、创建者行（v0.11 `ownerName`，旧后端/无主网格缺字段整行省略）、控制器位置、快照摘要、时间行（在线「数据截至」/ 离线「最后在线」，契约 v0.10 `lastSeenAt`，缺字段回退 `capturedAt`）、进入/解锁按钮 |
 | [`../../web/frontend/src/components/grid/UnlockGate.vue`](../../web/frontend/src/components/grid/UnlockGate.vue) | 网格解锁门（v0.3）：锁定网格的详情页以此面板替代内容，密码提交 `POST /unlock`，`invalid_password` 等错误码直出，成功后冒泡 `unlocked` 事件 |
 | **`components/snapshot/`** — 详情页组件 | |
 | [`../../web/frontend/src/components/snapshot/StatusCpuCard.vue`](../../web/frontend/src/components/snapshot/StatusCpuCard.vue) | 状态 + 合成 CPU + 合成命令合并卡（详情页首行左卡，与样板卡横向对半分）：上半为在线态、数据截至、控制器、accessId；下半上下堆叠——上为 CPU 忙闲/存储/协处理器、下为合成命令列表（均最多完整显示 2 条，超出滚动）；过长控制器位置 / accessId 文本经 HoverDetail 悬浮展开 |
@@ -62,7 +62,7 @@
 | [`../../web/frontend/src/components/snapshot/CraftPlanModal.vue`](../../web/frontend/src/components/snapshot/CraftPlanModal.vue) | 计划合成弹窗：z 轴更高 + 背景模糊；输入需求以 MC 格子展示（角标 = 候选 × 倍率 × 批次）；「开始合成」提交 `POST /craft`，成功展示受理回执（commandId + 时间），契约错误码直接透出 |
 | [`../../web/frontend/src/components/snapshot/CommandList.vue`](../../web/frontend/src/components/snapshot/CommandList.vue) | 合成命令列表（嵌入视图，无卡片外壳）：由状态卡下半内嵌使用，栏目标题与计数由宿主提供；命令历史倒序展示（最新在上，最多完整显示 2 条，超出滚动），状态徽标（排队中/已提交/失败）、模组回执与失败原因；过长回执 / 物品 id 经 HoverDetail 悬浮展开；每行删除按钮（契约 v0.9，两段式确认）emit `delete` 由页面调 API 后刷新——删 PENDING 即撤销、删终态仅清理历史 |
 | **`pages/`** — 页面 | |
-| [`../../web/frontend/src/pages/LoginPage.vue`](../../web/frontend/src/pages/LoginPage.vue) | 登录页：用户名/密码表单，unauthorized → 「用户名或密码错误」，成功后回跳 `?redirect=` |
+| [`../../web/frontend/src/pages/LoginPage.vue`](../../web/frontend/src/pages/LoginPage.vue) | 登录页：用户名（游戏内玩家名）/密码表单，unauthorized → 「用户名或密码错误」，成功后回跳 `?redirect=`；文案注明「账号只能在游戏内接入方块 GUI 注册，网页端无注册口」（契约 v0.11） |
 | [`../../web/frontend/src/pages/GridSelectPage.vue`](../../web/frontend/src/pages/GridSelectPage.vue) | 选择页：网格卡片栅格，10s 轮询 + SSE 事件即时刷新 |
 | [`../../web/frontend/src/pages/GridDetailPage.vue`](../../web/frontend/src/pages/GridDetailPage.vue) | 详情页：首行「状态·CPU·命令」合并卡与样板卡横向对半分（合并卡内 CPU 上、命令下），库存卡整行（固定视口滚动）；快照与命令列表各 5s 轮询 + SSE 事件即时刷新，离线提示条；快照返回 `grid_locked` 时以解锁门替代内容，解锁成功刷新快照与列表 |
 
@@ -86,6 +86,7 @@
 - [x] 命令删除接线（契约 v0.9）：`CommandList` 每行删除按钮两段式确认（点一次变「确认删除」再点一次生效，blur 复位），PENDING 行提示「删除即撤销」；`StatusCpuCard` 冒泡 `delete`、详情页调 `deleteCommand` 后刷新命令列表（`command_not_found` 视为已删除静默通过）；mock 层模拟删除与 50 条终态自动修剪。
 - [x] 最后在线展示（契约 v0.10）：网格摘要新增 `lastSeenAt` 透传，`GridCard` 离线网格显示「最后在线」行（在线网格与旧后端缺字段时省略）；mock 层在线网格推导为当前时间、离线网格用 fixture 值。
 - [x] 数据源默认实时 + 徽标精简（2026-11）：`USE_MOCK` 默认翻转为 false——前端启动即走真实请求，启用 mock 需参数 `VITE_USE_MOCK=true`（`npm run dev:mock` + `.env.mock`）；顶栏与详情页仅 mock 模式显示「MOCK 数据」徽标，实时数据不再显示徽标；`GridCard` 离线网格以「最后在线」单行替代原「数据截至」+「最后在线」两行；选择页移除手动刷新按钮（SSE 实时推送 + 轮询兜底已覆盖）。
+- [x] 账号制登录语义与创建者展示（契约 v0.11，roadmap.md §11）：登录页文案/占位符改为「用户名（游戏内玩家名）」并注明账号只能在游戏内接入方块 GUI 注册（网页端无注册口）；`GridCard` 新增创建者行（`ownerName`，旧后端/无主网格缺字段整行省略）；mock fixtures 摘要补 `ownerUuid`/`ownerName`、mock `fetchMe` 返回 `playerName`。无网页端注册/改密/删除界面（全部在游戏内 GUI，roadmap §11 拍板）。
 
 ## 约定
 

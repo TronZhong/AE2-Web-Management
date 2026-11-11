@@ -32,6 +32,8 @@
 | 后端实时推送（指纹轮询与广播） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/GridStateSyncService.java` |
 | 后端实时事件端点 | `web/backend/src/main/java/com/ae2webmanagement/backend/controller/RealtimeController.java` |
 | 后端错误码翻译（mod_unreachable / mod_unavailable） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/GridService.java`（直连转发路径的兜底在 `controller/GlobalExceptionHandler.java`） |
+| 后端账号同步（游戏内账号入库） | `web/backend/src/main/java/com/ae2webmanagement/backend/service/AccountSyncService.java` |
+| 后端 PBKDF2 密码本地校验 | `web/backend/src/main/java/com/ae2webmanagement/backend/service/PasswordHashes.java` |
 | 后端物品图标转发端点 | `web/backend/src/main/java/com/ae2webmanagement/backend/controller/IconController.java` |
 | 前端图标 URL 构造 | `web/frontend/src/api/index.js`（`iconUrlOf()`） |
 | 后端 Web 端点（/api/**） | `web/backend/src/main/java/com/ae2webmanagement/backend/controller/` |
@@ -41,6 +43,9 @@
 | 模组主类 / 方块物品注册 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/AE2WebManagement.java` |
 | 模组配置 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/Config.java` |
 | 网格身份表（SavedData） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/GridIdentityStore.java` |
+| 模组账号表（SavedData，游戏内注册） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/AccountStore.java` |
+| 模组账号镜像缓存（HTTP 线程读） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/account/AccountManager.java` |
+| 接入方块 GUI 权限状态机 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessBlockEntity.java`（`resolveView` 与写操作校验） |
 | 快照表（SavedData） | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/SnapshotStore.java` |
 | 快照采集与缓存 | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/SnapshotManager.java` |
 | 样板摘要 record | `mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/Snapshot.java` |

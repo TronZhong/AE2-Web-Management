@@ -204,6 +204,23 @@ public final class SnapshotManager {
     }
 
     /**
+     * 删除网格的运行时镜像与落盘快照（「删除网格」级联清理，主线程调用；roadmap §11）。
+     *
+     * <p>清空内存缓存（快照、身份镜像、密码镜像）并移除 {@link SnapshotStore}
+     * 中的落盘记录，HTTP 网格列表随即不再出现该网格；身份表记录由
+     * {@code GridIdentityStore#remove} 单独移除。</p>
+     *
+     * @param accessId  网格接入 ID
+     * @param overworld Overworld（SavedData 挂载层）
+     */
+    public void removeGrid(UUID accessId, ServerLevel overworld) {
+        this.cache.remove(accessId);
+        this.identityCache.remove(accessId);
+        this.passwordHashCache.remove(accessId);
+        SnapshotStore.get(overworld).remove(accessId);
+    }
+
+    /**
      * @param accessId 网格接入 ID
      * @return 身份表是否存在该网格（HTTP 线程可调用）
      */

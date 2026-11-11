@@ -21,6 +21,8 @@ import net.minecraft.world.level.Level;
  * @param lastSeenAt      最近一次在线时间（epoch 毫秒）
  * @param passwordHash    网格密码的 PBKDF2 哈希（{@code GridPasswords#hash} 格式）；
  *                        空字符串表示未设密码（公开网格）
+ * @param ownerUuid       注册该网格的玩家 UUID（roadmap §11 账号制，0.1.0 起）；
+ *                        {@code null} = 无主（旧存档 NBT 缺失字段按无主处理，不做迁移）
  */
 public record GridIdentity(
         UUID accessId,
@@ -30,5 +32,6 @@ public record GridIdentity(
         String displayName,
         long createdAt,
         long lastSeenAt,
-        String passwordHash) {
+        String passwordHash,
+        UUID ownerUuid) {
 }

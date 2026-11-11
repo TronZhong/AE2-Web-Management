@@ -6,6 +6,7 @@
  * 在线网格的 PENDING 命令经延时后转为 SUBMITTED，离线网格保持排队。
  * 网格密码（契约 v0.5）：主基地网格设有密码，锁定网格的 snapshot/craft/commands
  * 抛 grid_locked，unlockGrid 校验 fixtures.GRID_PASSWORDS 并按会话记住解锁。
+ * 账号制（契约 v0.11）：网格摘要带 ownerUuid/ownerName（创建者），me 返回 playerName。
  */
 import { GRIDS, GRID_PASSWORDS, SNAPSHOTS } from './fixtures.js'
 
@@ -266,11 +267,11 @@ export async function logout() {
   return {}
 }
 
-/** GET /api/auth/me（mock）：已登录返回用户名，否则抛 unauthorized。 */
+/** GET /api/auth/me（mock）：已登录返回用户名与绑定玩家名（v0.11），否则抛 unauthorized。 */
 export async function fetchMe() {
   await latency()
   if (!mockSession) {
     throw new Error('unauthorized')
   }
-  return { ...mockSession }
+  return { username: mockSession.username, playerName: mockSession.username }
 }

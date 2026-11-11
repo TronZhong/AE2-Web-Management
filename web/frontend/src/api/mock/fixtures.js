@@ -25,6 +25,8 @@ export const GRIDS = [
     controllerZ: -256,
     online: true,
     hasPassword: true,
+    ownerUuid: '9b2ad6c1-4b7a-4c1e-9a3f-2f8f6f41a099',
+    ownerName: 'Steve',
   },
   {
     accessId: '0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a002',
@@ -35,6 +37,8 @@ export const GRIDS = [
     controllerZ: 384,
     online: true,
     hasPassword: false,
+    ownerUuid: '1a2ad6c1-4b7a-4c1e-9a3f-2f8f6f41a088',
+    ownerName: 'Alex',
   },
   {
     accessId: '0f2d6c1e-4b7a-4c1e-9a3f-2f8f6f41a003',

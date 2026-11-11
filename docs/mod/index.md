@@ -15,7 +15,7 @@
 | Gradle 插件 | NeoGradle ModDev 2.0.148 |
 | 映射 | Parchment `2024.11.17`（MC 1.21.1） |
 | Java | 21 |
-| 版本 | `0.0.14` |
+| 版本 | `0.1.0` |
 | mod_id / 包名 | `ae2webmanagement` / `com.ae2webmanagement.ae2webmanagementmod` |
 
 ## 目录结构与源码映射
@@ -25,7 +25,7 @@
 | [`../../mod/build.gradle`](../../mod/build.gradle) | 构建脚本：Modrinth 仓库、AE2 依赖声明、运行配置、jar 元数据 |
 | [`../../mod/gradle.properties`](../../mod/gradle.properties) | 所有版本号与 mod 元数据（含 `ae2_version`） |
 | [`../../mod/settings.gradle`](../../mod/settings.gradle) | Gradle 插件仓库与工具链解析 |
-| [`../../mod/src/main/java/.../AE2WebManagement.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/AE2WebManagement.java) | 模组主类：注册配置、接入方块，启动/停止快照、命令和本地 API |
+| [`../../mod/src/main/java/.../AE2WebManagement.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/AE2WebManagement.java) | 模组主类：注册配置、接入方块，启动/停止快照、命令和本地 API；`AccountManager` 账号镜像随服务端启停恢复/清空、`PlayerLoggedInEvent` 跟随更新账号表玩家名（改名同步，0.1.0） |
 | [`../../mod/src/main/java/.../Config.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/Config.java) | 运行时配置（HTTP 监听地址/端口、共享密钥、快照间隔） |
 | [`../../mod/src/main/java/.../AE2WebManagementClient.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/AE2WebManagementClient.java) | 仅客户端：配置界面注册（专用服不加载） |
 | **`grid/`** — AE2 网格工具（可复用） | |
@@ -33,28 +33,34 @@
 | [`../../mod/src/main/java/.../grid/ControllerLocator.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/grid/ControllerLocator.java) | 从 `IGrid` 定位 ME 控制器（`getOwner() instanceof ControllerBlockEntity`） |
 | **`access/`** — 接入方块（网格节点 + 控制器定位） | |
 | [`../../mod/src/main/java/.../access/AccessBlock.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessBlock.java) | 接入方块的方块类，右击打开 GUI |
-| [`../../mod/src/main/java/.../access/AccessBlockEntity.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessBlockEntity.java) | 接入方块的方块实体：托管网格节点、定位控制器、缓存锚点；`setGridPassword`/`isPasswordSet` 网格密码读写 |
-| [`../../mod/src/main/java/.../access/AccessMenu.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessMenu.java) | 注册菜单：`containerData[0]` 注册状态、`containerData[1]` 密码标记，随 `broadcastChanges` 每 tick 从方块实体实时刷新；`handleSetPassword`/`handleRename` 接收 payload；服务端把身份信息经 `GridIdentityPayload` 推给客户端 |
-| [`../../mod/src/main/java/.../access/GridPasswordPayload.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/GridPasswordPayload.java) | C2S 自定义 payload：GUI 提交网格密码（空串 = 清除），服务端主线程处理并校验 containerId |
-| [`../../mod/src/main/java/.../access/GridRenamePayload.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/GridRenamePayload.java) | C2S 自定义 payload：GUI 提交新显示名（displayName 改名），服务端主线程处理并校验 containerId |
-| [`../../mod/src/main/java/.../access/GridIdentityPayload.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/GridIdentityPayload.java) | S2C 自定义 payload：服务端推送 accessId/displayName/控制器位置给客户端 GUI 展示 |
-| [`../../mod/src/main/java/.../access/client/AccessScreen.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/client/AccessScreen.java) | 客户端界面：标题、实时状态、身份信息（accessId/displayName/控制器位置）、改名区 + 注册按钮 + 密码区（EditBox 掩码、设置/清除按钮），无物品栏 |
-| [`../../mod/src/main/java/.../access/AccessRegistration.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessRegistration.java) | 方块/物品/方块实体注册、AE2 capability 注册、C2S payload 注册、创造标签页 |
+| [`../../mod/src/main/java/.../access/AccessBlockEntity.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessBlockEntity.java) | 接入方块的方块实体：托管网格节点、定位控制器、缓存锚点；GUI 权限状态机 `resolveView`（无控制器 → 无账号 → 网格未注册 → 他人只读 / 本人管理，roadmap §11）与全部写操作（注册账号 / 注册网格 / 改名 / 改密 / 删除）的服务端校验与执行 |
+| [`../../mod/src/main/java/.../access/AccessMenu.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessMenu.java) | 注册菜单：`containerData[0]` GUI 视图状态机（`VIEW_*`）、`containerData[1]` 注册反馈（`STATUS_*`）、`containerData[2]` 网格密码标记，随 `broadcastChanges` 每 tick 从方块实体实时刷新；各写操作 payload 入口（`handleAccountRegister` / `handleRegister` / `handleRename` / `handleChangePassword` / `handleDelete`）；身份信息变化经 `GridIdentityPayload` 推给客户端 |
+| [`../../mod/src/main/java/.../access/AccountRegisterPayload.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccountRegisterPayload.java) | C2S 自定义 payload：GUI 提交网页账号注册（密码 + 确认在客户端比对，服务端只收一个密码），PBKDF2 哈希入账号表；服务端主线程处理并校验 containerId |
+| [`../../mod/src/main/java/.../access/GridRegisterPayload.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/GridRegisterPayload.java) | C2S 自定义 payload：GUI 提交注册网格（名称 + 密码，都可空 = 默认名 + 公开网格），服务端校验后创建身份记录并记 `ownerUuid` |
+| [`../../mod/src/main/java/.../access/GridRenamePayload.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/GridRenamePayload.java) | C2S 自定义 payload：GUI 提交新显示名（displayName 改名），服务端校验 owner 后主线程处理并校验 containerId |
+| [`../../mod/src/main/java/.../access/GridChangePasswordPayload.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/GridChangePasswordPayload.java) | C2S 自定义 payload：GUI 提交改密（旧 + 新密码；未设密码时旧密码须为空串，新密码空串 = 清除），取代已删除的 `GridPasswordPayload` |
+| [`../../mod/src/main/java/.../access/GridDeletePayload.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/GridDeletePayload.java) | C2S 自定义 payload：GUI 提交删除网格（二次确认在客户端），服务端主线程级联清理（身份 + 快照 + 命令记录 + 镜像） |
+| [`../../mod/src/main/java/.../access/GridIdentityPayload.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/GridIdentityPayload.java) | S2C 自定义 payload：服务端推送 accessId/displayName/控制器位置 + `hasAccount`/`isOwner`/`ownerName` 给客户端 GUI 展示（字段超 6 个，`StreamCodec.ofMember` 手写 write/read） |
+| [`../../mod/src/main/java/.../access/client/AccessScreen.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/client/AccessScreen.java) | 客户端界面：按 `containerData` 视图状态机切换表单——账号注册（密码 + 确认）、网格注册（名称 + 密码）、他人网格只读（显示创建者名）、本人网格管理（改名 / 改密旧+新 / 删除二次确认）；身份信息展示沿用 `GridIdentityPayload`，实现 `renderBg` 绘制背景，无物品栏 |
+| [`../../mod/src/main/java/.../access/AccessRegistration.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/access/AccessRegistration.java) | 方块/物品/方块实体注册、AE2 capability 注册、payload 注册（5 个 C2S：账号注册 / 网格注册 / 改名 / 改密 / 删除；1 个 S2C：`GridIdentityPayload`）、创造标签页 |
 | **`grid/`** — 网格身份 | |
-| [`../../mod/src/main/java/.../grid/GridIdentity.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/grid/GridIdentity.java) | 网格接入身份（数据记录：`accessId` + 控制器锚点 + token + `passwordHash` + `lastSeenAt`） |
-| [`../../mod/src/main/java/.../data/GridIdentityStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/GridIdentityStore.java) | Overworld 网格身份表（`ae2web_identities.dat`），`setPassword` 写密码哈希、`rename` 改显示名、`touchLastSeen` 快照循环回写最近在线时间 |
+| [`../../mod/src/main/java/.../grid/GridIdentity.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/grid/GridIdentity.java) | 网格接入身份（数据记录：`accessId` + 控制器锚点 + token + `passwordHash` + `lastSeenAt` + `ownerUuid`（0.1.0，可空 = 无主）） |
+| [`../../mod/src/main/java/.../data/GridIdentityStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/GridIdentityStore.java) | Overworld 网格身份表（`ae2web_identities.dat`），`register` 注册网格（记 `ownerUuid`）、`remove` 删除网格、`setPassword` 写密码哈希、`rename` 改显示名、`touchLastSeen` 快照循环回写最近在线时间；NBT 缺 `ownerUuid` 字段按无主处理（不做迁移） |
+| **`account/` + 账号表** — 网页账号（0.1.0，roadmap §11） | |
+| [`../../mod/src/main/java/.../data/AccountStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/AccountStore.java) | Overworld 账号表（`ae2web_accounts.dat`）：`playerUuid` 唯一键 + PBKDF2 哈希（复用 `GridPasswords` 格式），`register` 注册（已存在或密码非法返回空）、`updateName` 玩家改名跟随（账号只能在游戏内注册，网页端无注册口） |
+| [`../../mod/src/main/java/.../account/AccountManager.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/account/AccountManager.java) | 账号镜像缓存：主线程写 / HTTP 线程读（对应 `SnapshotManager` 的镜像模式），服务端启动恢复、注册/改名后由主线程刷新；HTTP 线程经它读账号列表（`GET /accounts`）与解析网格 owner 名字 |
 | **`snapshot/`** — 快照 | |
 | [`../../mod/src/main/java/.../snapshot/Snapshot.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/Snapshot.java) | 库存、合成 CPU、样板摘要、采样时间和在线态 |
-| [`../../mod/src/main/java/.../snapshot/SnapshotManager.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/SnapshotManager.java) | 主线程 4 秒采样、内存缓存、离线保留；快照循环对在线网格回写身份表 `lastSeenAt`（0.0.14）；密码哈希镜像（`getPasswordHash`/`updatePasswordHash`，HTTP 线程可读）；改名后 `updateIdentity` 即时刷新身份镜像 |
-| [`../../mod/src/main/java/.../data/SnapshotStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/SnapshotStore.java) | Overworld 快照表（`ae2web_snapshots.dat`），含库存、CPU 和样板摘要 |
+| [`../../mod/src/main/java/.../snapshot/SnapshotManager.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/snapshot/SnapshotManager.java) | 主线程 4 秒采样、内存缓存、离线保留；快照循环对在线网格回写身份表 `lastSeenAt`（0.0.14）；密码哈希镜像（`getPasswordHash`/`updatePasswordHash`，HTTP 线程可读）；改名后 `updateIdentity` 即时刷新身份镜像；`removeGrid` 删除网格时级联清理内存快照与镜像（0.1.0） |
+| [`../../mod/src/main/java/.../data/SnapshotStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/SnapshotStore.java) | Overworld 快照表（`ae2web_snapshots.dat`），含库存、CPU 和样板摘要；`remove` 删除网格快照（0.1.0 级联清理） |
 | **`command/`** — 合成命令 | |
 | [`../../mod/src/main/java/.../command/CraftCommand.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/command/CraftCommand.java) | 合成意图记录：目标 `AEKey`、数量、状态、结果 |
 | [`../../mod/src/main/java/.../command/CommandState.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/command/CommandState.java) | 命令状态枚举（PENDING/SUBMITTED/FAILED） |
-| [`../../mod/src/main/java/.../command/CommandManager.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/command/CommandManager.java) | HTTP 入队与主线程调度：持久化、AE2 异步重算、提交；`delete` 同步派发主线程原子删除（撤销 PENDING / 清理历史）、终态写入后按网格自动修剪历史 |
+| [`../../mod/src/main/java/.../command/CommandManager.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/command/CommandManager.java) | HTTP 入队与主线程调度：持久化、AE2 异步重算、提交；`delete` 同步派发主线程原子删除（撤销 PENDING / 清理历史）、终态写入后按网格自动修剪历史；`removeGridCommands` 删除网格时清理其全部命令记录（含 PENDING，0.1.0 级联清理） |
 | [`../../mod/src/main/java/.../data/CommandStore.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/CommandStore.java) | Overworld 命令表（`ae2web_commands.dat`），支持 `remove` 删除记录 |
-| [`../../mod/src/main/java/.../data/GridPasswords.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/GridPasswords.java) | 网格密码 PBKDF2 哈希工具（纯 JDK；`pbkdf2:<迭代>:<盐B64>:<哈希B64>`，上限 64 字符） |
+| [`../../mod/src/main/java/.../data/GridPasswords.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/data/GridPasswords.java) | 网格密码 PBKDF2 哈希工具（纯 JDK；`pbkdf2:<迭代>:<盐B64>:<哈希B64>`，上限 64 字符）；0.1.0 起账号密码同样复用本工具 |
 | **`http/`** — 本地数据 API | |
-| [`../../mod/src/main/java/.../http/LocalDataServer.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/http/LocalDataServer.java) | 仅回环绑定；`/health`、`/grids` 网格/快照查询（含 `hasPassword`）、合成命令投递与查询、`DELETE /grids/{id}/commands/{commandId}` 删除命令记录、`verify-password` 密码校验、`/icons` 图标静态文件服务（只读磁盘，含路径穿越防护与 404 惰性补齐） |
+| [`../../mod/src/main/java/.../http/LocalDataServer.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/http/LocalDataServer.java) | 仅回环绑定；`/health`、`/grids` 网格/快照查询（含 `hasPassword`、`lastSeenAt`、0.1.0 起 `ownerUuid`/`ownerName`）、合成命令投递与查询、`DELETE /grids/{id}/commands/{commandId}` 删除命令记录、`verify-password` 密码校验、`/accounts` 账号列表（0.1.0，含哈希，供后端同步后本地校验登录）、`/icons` 图标静态文件服务（只读磁盘，含路径穿越防护与 404 惰性补齐） |
 | **`icon/`** — 图标导出（公共侧） | |
 | [`../../mod/src/main/java/.../icon/IconPaths.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/icon/IconPaths.java) | 图标缓存根目录（`config/ae2webmanagement/icons/<分辨率>`，当前 `64x64`；分辨率编入路径，调整 `ICON_RESOLUTION` 后旧缓存自动失效），服务端与客户端共用 |
 | [`../../mod/src/main/java/.../icon/IconExporter.java`](../../mod/src/main/java/com/ae2webmanagement/ae2webmanagementmod/icon/IconExporter.java) | 图标导出网关：客户端注册实现，专用服务器保持 no-op；HTTP 线程经它做 404 惰性补齐 |
@@ -72,7 +78,7 @@
 | `minecraft_version` | `1.21.1` | 目标 MC 版本 |
 | `neo_version` | `21.1.265` | 必须与 MC 版本一致 |
 | `ae2_version` | `19.2.18` | AE2 依赖版本（`build.gradle` 引用） |
-| `mod_version` | `0.0.14` | 每次提交递增补丁号 |
+| `mod_version` | `0.1.0` | 版本号 `0.<次版本>.<补丁>` 三段式（roadmap.md 引言）：补丁位 0–9 每批次递增、满 9 进位次版本（`0.1.9→0.2.0`），次版本不向首位进位 |
 | `mod_id` | `ae2webmanagement` | 必须与主类 `MODID` 一致 |
 | `mod_name` | `AE2 Web Management` | 展示名 |
 | `mod_group_id` | `com.ae2webmanagement.ae2webmanagementmod` | 应与源码基础包一致 |
@@ -109,6 +115,7 @@ $env:JAVA_HOME = "D:\Jvav\Java\jdk-21"
 - [x] **CPU 序号显示（0.0.12）**：AE2 合成 CPU 无法命名，快照 `craftingCpus[]` 移除 `name` 字段（`CpuEntry` / `SavedData` NBT / HTTP JSON 同步移除；旧存档残留 `name` 键读取时忽略）；采集时按游戏内 `CraftingCPUCycler` 同序排序（协处理器↓、存储↓），网页按列表序号显示 `#N`、与游戏内编号一致。
 - [x] **命令记录删除与历史自动清理（契约 v0.9，0.0.13）**：`DELETE /grids/{id}/commands/{commandId}` 物理删除命令记录——删 PENDING 即撤销（主线程原子执行：与模拟/提交串行化并取消在途 AE2 计算，保证不会提交），删终态仅清理历史；HTTP 线程经 `MinecraftServer#execute` 同步等待（上限 2s < 后端 5s 读超时），响应即最终结果；每个网格自动保留最近 `commandHistoryLimit`（默认 50）条终态记录（`update` 终态写入后修剪 + 启动时全量修剪一次），PENDING 不自动清理。
 - [x] **`lastSeenAt` 随快照回写（契约 v0.10，0.0.14）**：`SnapshotManager.tick` 对在线网格调 `GridIdentityStore.touchLastSeen` 回写最近在线时间（离线轮不更新），返回的新身份覆盖回镜像缓存；`GET /grids` 摘要新增 `lastSeenAt` 字段，旧版后端/前端可忽略。
+- [x] **账号制与 GUI 权限分层（`roadmap.md` §11，契约 v0.11，0.1.0）**：账号只能在游戏内接入方块 GUI 注册（网页端无注册口）——`AccountStore`（`ae2web_accounts.dat`，`playerUuid` 唯一键 + PBKDF2 哈希，复用 `GridPasswords` 格式）+ `AccountManager` 镜像（主线程写 / HTTP 线程读）；GUI 按「无控制器 → 无账号（注册表单）→ 网格未注册（名称 + 密码，记 owner）→ 他人网格只读（显示创建者）/ 本人网格管理（改名 / 改密旧+新 / 删除二次确认）」分层（`containerData` 视图状态机每 tick 刷新，原地切换视图）；全部写操作服务端校验「账号存在 + 玩家 UUID == ownerUuid + 网格存在」，不依赖客户端隐藏按钮；删除网格级联清理身份 + 快照（内存与 `SnapshotStore` 落盘）+ 全部命令记录（含 PENDING）+ 身份镜像；本地 API 新增 `GET /accounts`（共享密钥保护，供后端同步哈希后本地校验登录）、`GET /grids` 摘要新增 `ownerUuid`/`ownerName`（无主网格省略）；玩家改名经 `PlayerLoggedInEvent` 跟随更新账号表（网页登录名随后端同步自动跟随）。
 
 > 实现顺序与完整方案见 [技术设计](../design.md)：锚点身份（控制器 + `SavedData`）→ 注册器方块 → 4 秒快照循环 → 命令队列 → 本地 127.0.0.1 数据口。
 

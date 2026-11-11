@@ -1,6 +1,7 @@
 <script setup>
 /**
- * 登录页：账号制认证入口（语义：密码是后端账号密码，与 Minecraft/AE2 无关）。
+ * 登录页：账号制认证入口（语义 v0.11：账号只能在游戏内接入方块 GUI 注册，
+ * 用户名即游戏内玩家名）。
  * 提交 POST /login；unauthorized 显示「用户名或密码错误」，其余错误码原样透出。
  * 成功后回跳 ?redirect= 指向的页面（默认首页）；已登录访问会被路由守卫送回首页。
  */
@@ -57,13 +58,13 @@ async function submit() {
     >
       <h1 class="text-lg font-medium text-ink">登录 ae2web</h1>
       <p class="mt-1.5 font-mono text-[11px] text-ink-faint">
-        后端账号登录 · 登录后可见全部已注册网格
+        游戏内玩家名登录 · 登录后可见全部已注册网格
       </p>
 
       <div class="mt-6 space-y-4">
         <div>
           <label class="mb-1 block font-mono text-[10px] uppercase tracking-widest text-ink-faint" for="login-username">
-            用户名
+            用户名（游戏内玩家名）
           </label>
           <input
             id="login-username"
@@ -72,7 +73,7 @@ async function submit() {
             autocomplete="username"
             autofocus
             class="w-full rounded-md border border-line bg-panel-2 px-2.5 py-1.5 font-mono text-xs text-ink placeholder:text-ink-faint focus:border-accent/60 focus:outline-none"
-            placeholder="admin"
+            placeholder="Steve"
           />
         </div>
         <div>
@@ -99,7 +100,9 @@ async function submit() {
       </BaseButton>
 
       <p class="mt-4 font-mono text-[10px] leading-4 text-ink-faint">
-        {{ USE_MOCK ? 'MOCK 模式：任意非空用户名/密码均可登录' : '初始账号由后端 app.auth.admin-* 配置引导创建' }}
+        {{ USE_MOCK
+          ? 'MOCK 模式：任意非空用户名/密码均可登录'
+          : '账号只能在游戏内接入方块 GUI 注册（密码 + 确认）；网页端无注册口' }}
       </p>
     </form>
   </div>

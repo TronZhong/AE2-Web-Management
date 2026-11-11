@@ -71,7 +71,7 @@ cd .\web\backend
 ## 提交与 PR
 
 - 沿用现有 Conventional Commits：`feat:`、`fix:`、`docs:`、`build:`、`test:`、`refactor:`，后接简短说明，例如 `feat: 支持网络库存查询`。
-- 版本号在 `mod/gradle.properties` 的 `mod_version` 中维护；当前为 `0.0.7`，以后每完成一次提交，下一版本号递增 1，例如 `0.0.8`、`0.0.9`。
+- 版本号在 `mod/gradle.properties` 的 `mod_version` 中维护；当前为 `0.1.0`，采用三段式 `0.<次版本>.<补丁>`：每完成一次模组批次提交，补丁位递增 1（0–9），满 9 进位到次版本（如 `0.1.9→0.2.0`、`0.12.9→0.13.0`），次版本不向首位进位（首位恒为 `0`）。
 - 一次提交只处理一个主题；PR 说明应包含变更范围、行为变化、验证命令和相关 Issue。
 - UI 变更附截图；API、契约、配置或依赖变更必须单独说明。
 - 合并前确保模组 CI 与受影响的本地测试通过。
@@ -82,7 +82,7 @@ cd .\web\backend
 前端:5173 → 后端:8080 → 模组 127.0.0.1:8090
 ```
 
-后端通过 `X-Shared-Secret` 调用模组；模组数据口不得对外暴露。所有 Minecraft/AE2 状态访问必须经 `MinecraftServer#execute` 调度到主线程。Web 端另有账号制用户认证（Sa-Token，`satoken` Cookie 会话）：初始账号由 `app.auth.admin-*` 引导创建，部署前替换 `change-me`（共享密钥与初始管理员密码）和空共享密钥，禁止提交数据库、运行目录或凭证。
+后端通过 `X-Shared-Secret` 调用模组；模组数据口不得对外暴露。所有 Minecraft/AE2 状态访问必须经 `MinecraftServer#execute` 调度到主线程。Web 端另有账号制用户认证（Sa-Token，`satoken` Cookie 会话）：账号只能在游戏内接入方块 GUI 注册（网页端无注册口），登录用户名即游戏内玩家名，账号由后端定时拉取模组 `GET /accounts` 同步入库并在本地校验（无 `app.auth.admin-*` 引导建号）；部署前替换 `change-me`（共享密钥）和空共享密钥，禁止提交数据库、运行目录或凭证。
 
 ## 相关文档
 

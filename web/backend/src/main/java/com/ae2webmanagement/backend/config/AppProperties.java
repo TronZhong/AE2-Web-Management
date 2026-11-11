@@ -21,9 +21,12 @@ public record AppProperties(Mod mod, Cors cors, Auth auth) {
 	}
 
 	/**
-	 * 账号认证配置：{@code enabled} 为 {@code false} 时关闭登录校验（仅测试切片）；
-	 * {@code adminUsername} / {@code adminPassword} 仅在账户表为空的首次启动时引导建号。
+	 * 账号认证配置：{@code enabled} 为 {@code false} 时关闭登录校验（仅测试切片）。
+	 *
+	 * <p>roadmap §11 起无引导建号：账号只能在游戏内接入方块 GUI 注册，
+	 * 经 {@code AccountSyncService} 同步入库（原 {@code adminUsername/adminPassword}
+	 * 引导配置已移除——admin 不绑定任何游戏内 ID，与新语义冲突）。</p>
 	 */
-	public record Auth(boolean enabled, String adminUsername, String adminPassword) {
+	public record Auth(boolean enabled) {
 	}
 }

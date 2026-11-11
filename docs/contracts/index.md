@@ -17,6 +17,7 @@
 - **CPU 名称字段移除（模组 0.0.12，Web 契约 v0.8）**：AE2 合成 CPU 无法命名，快照 `craftingCpus[]` 不再携带 `name`——模组采集 / `SavedData` NBT / HTTP JSON、后端 DTO 透传、前端展示全链路同步移除；网页按列表序号显示 `#N`，模组按游戏内同序（协处理器↓、存储↓）排序，编号与游戏内未命名 CPU 一致。
 - **命令记录删除与历史自动清理（模组 0.0.13，Web 契约 v0.9）**：新增 `DELETE /grids/{accessId}/commands/{commandId}`——**物理删除**命令记录：删除 `PENDING` 记录即撤销（不会提交给 AE2，含取消在途计算），删除 `SUBMITTED`/`FAILED` 记录仅清理历史（不影响 AE2 已受理的任务）。删除在模组主线程原子执行（与模拟/提交串行化，杜绝「已删命令仍被提交」的竞态），响应即最终结果。另：每个网格自动保留最近 `commandHistoryLimit`（模组配置，默认 50）条终态记录，超出删除最旧；`PENDING` 不参与自动清理。详见下方「合成命令 API」。
 - **`lastSeenAt` 随快照回写（模组 0.0.14，Web 契约 v0.10）**：快照循环对**在线**网格回写身份表 `lastSeenAt`（离线轮不更新），该字段由「建档时间」变为可信的「最近一次在线时间」，随 `SavedData` 持久化、跨重启正确；`GET /grids` 摘要新增 `lastSeenAt` 字段，旧版模组（<0.0.14）无该字段时后端省略（向后兼容）。
+- **账号制与权限分层（模组 0.1.0，Web 契约 v0.11，roadmap.md §11）**：账号与游戏内玩家绑定、**只能在游戏内接入方块 GUI 注册**——模组新增账号表 `ae2web_accounts.dat`（`playerUuid` 唯一键 + PBKDF2 哈希，格式与网格密码一致），本地 API 新增 `GET /accounts`（共享密钥保护，含哈希，供后端同步后本地校验登录）；接入方块 GUI 按「无账号 → 注册账号 → 注册网格（记 owner）→ 他人网格只读 / 本人网格管理（改名/改密/删除）」分层，全部写操作由服务端校验「账号存在 + 玩家 UUID == ownerUuid + 网格存在」；`GET /grids` 摘要新增 `ownerUuid` / `ownerName`（无主网格省略）。详见下方「账号 API」。
 - 完整 schema、JSON Schema/OpenAPI 仍待定义；字段变更前先更新本页。
 - 目录：`contracts/`（当前以文档形式维护初版 API 形状）。
 
@@ -33,11 +34,33 @@
 | 端点 | 用途 |
 | --- | --- |
 | `GET /health` | 健康检查，返回 `{"ok":true}` |
-| `GET /grids` | 网格列表，含 `accessId`、显示名、控制器维度/坐标、在线态、快照摘要、`hasPassword` 与 `lastSeenAt`（0.0.14 起） |
+| `GET /grids` | 网格列表，含 `accessId`、显示名、控制器维度/坐标、在线态、快照摘要、`hasPassword`、`lastSeenAt`（0.0.14 起）与 `ownerUuid`/`ownerName`（0.1.0 起，无主网格省略） |
 | `GET /grids/{accessId}/snapshot` | 单网格快照，含 `inventory`、`craftingCpus` 和 `patterns` |
 | `GET /icons/{namespace}/{path}.png` | 物品/流体图标静态文件（64×64 PNG，模组 0.0.11 起；16 GUI 单位逻辑画布 4× 超采样）。`namespace`/`path` 来自快照 key 的 `id`（如 `minecraft/iron_block.png`），仅允许 `[a-z0-9_.-]`；文件缺失返回 `404 {"error":"icon_not_found"}` 并惰性补齐（客户端后台渲染，下一次请求大概率命中）；非法路径段返回 `400 {"error":"invalid_icon_path"}`。响应 `Content-Type: image/png` + `Cache-Control: public, max-age=86400`（图标一经渲染即静态） |
+| `GET /accounts` | 账号列表（0.1.0 起，roadmap.md §11 账号制），见下方「账号 API」 |
 
 `GET /grids` 摘要中的 `lastSeenAt`（0.0.14 起）为该网格**最近一次在线时间**（epoch 毫秒）：快照循环发现网格在线时回写身份表，离线轮保持不变；网格从未在线过时等于建档时间。旧版模组无该字段，响应省略。
+
+`GET /grids` 摘要中的 `ownerUuid`（0.1.0 起）为**注册该网格的玩家 UUID**，`ownerName` 为经账号表解析的玩家最新名：注册网格时记录 owner，删除网格后两者一并消失；旧存档的无主网格省略这两个字段（旧版模组响应同样省略）。
+
+## 账号 API
+
+### `GET /accounts`
+
+列出全部游戏内注册的网页账号（模组 0.1.0 起，roadmap.md §11）。账号只能在游戏内接入方块 GUI 注册（网页端无注册口）；后端启动 + 定时拉取本端点，按 `playerUuid` upsert 后**在本地校验登录**（游戏未启动时网页仍可登录——登录是唯一不依赖游戏的端点，不能倒退）。
+
+响应 `200`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `accounts` | array | 账号记录列表 |
+| `accounts[].playerUuid` | string (UUID) | 绑定玩家的 UUID（唯一键；离线模式由名字派生，同样稳定） |
+| `accounts[].playerName` | string | 玩家最新名（网页登录别名；玩家改名后随同步更新） |
+| `accounts[].passwordHash` | string | PBKDF2 哈希（`pbkdf2:<迭代>:<盐B64>:<哈希B64>`，与网格密码同格式）。**哈希必须在同步通道中传输**——后端在本地校验登录，明文不出模组；通道仅本机回环 + 共享密钥可达，泄漏面与网格密码一致 |
+| `accounts[].createdAt` | number | 注册时间（epoch 毫秒） |
+
+> 数据来自内存镜像（主线程写 / HTTP 线程读）：GUI 注册、玩家改名后立即刷新，
+> HTTP 读取不等待主线程调度。共享密钥校验与其他端点一致。
 
 快照中的 `inventory[].key` 是 AE2 `AEKey` 通用 NBT 转换后的 JSON；`amount` 为 long。
 `inventory[]` / `patterns[]` 的每个 stack 条目（`primaryOutput`、`outputs[]`、`inputs[].possibleInputs[]`）均可能携带**可选** `nameKey`：物品翻译键（如 `block.minecraft.stone` / `item.ae2.controller`，取自 `Item#getDescriptionId()`；流体为 `fluid_type.*`），供前端查中文语言表（roadmap.md §4）。无翻译键时字段省略（旧版模组 / 自定义名称物品）。
@@ -132,9 +155,12 @@
 - `401 {"error":"invalid_password"}`：密码不匹配；
 - `404 {"error":"grid_not_found"}`：网格不存在。
 
-> 密码只能在游戏内接入方块 GUI 设置/清除（C2S 自定义 payload，主线程写入
+> 密码只能在游戏内接入方块 GUI 设置/清除/修改（C2S 自定义 payload，主线程写
 > 身份表）；模组身份表只存 PBKDF2 哈希（`pbkdf2:<迭代>:<盐B64>:<哈希B64>`），
-> 明文不出模组，HTTP 层无设置/清除端点。
+> 明文不出模组，HTTP 层无设置/清除端点。roadmap.md §11 起：仅网格 **owner**
+> 可改密（GUI 改密须先验旧密码），owner 访问自己的网格在网页侧免密
+> （后端按 `ownerUuid` 与登录账号绑定的 `playerUuid` 比对，见 Web 契约 v0.11）；
+> 网格密码只保留给非 owner 的共享授权。
 
 ## 原则
 

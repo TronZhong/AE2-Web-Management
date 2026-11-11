@@ -22,13 +22,13 @@
 ### 设计
 
 - [技术设计（已收敛）](design.md) — 控制器锚点身份、快照缓存、命令队列、在线判定、契约形状。
-- [后续迭代路线](roadmap.md) — 已拍板待实施：附魔属性展示、前端小改进；术语统一为 grid、物品中文名称、物品图标、命令删除、`lastSeenAt` 回写均已完成。
+- [后续迭代路线](roadmap.md) — 已拍板待实施：附魔属性展示、前端小改进；术语统一为 grid、物品中文名称、物品图标、命令删除、`lastSeenAt` 回写、账号制（游戏内注册）与接入方块 GUI 权限分层均已完成。
 
 ### 组件
 
-- [模组（NeoForge）](mod/index.md) — 游戏内数据出口：接入方块、身份表、快照、命令队列和本机 API。
-- [后端（Spring Boot）](backend/index.md) — Web API、认证、授权、持久化，以及到模组的数据转发。
-- [前端](frontend/index.md) — 浏览器 UI（Vue 3 + Vite 脚手架，业务 UI 待接入）。
+- [模组（NeoForge）](mod/index.md) — 游戏内数据出口：接入方块（GUI 账号/权限分层）、身份表、账号表、快照、命令队列和本机 API。
+- [后端（Spring Boot）](backend/index.md) — Web API、认证（游戏内账号同步 + 本地登录校验）、授权、持久化，以及到模组的数据转发。
+- [前端](frontend/index.md) — 浏览器 UI（Vue 3 + Vite）：登录（用户名即游戏内玩家名）、网格选择页与详情页。
 - [数据契约](contracts/index.md) — 模组与后端之间的初版本机 API 约定。
 
 ## 快速定位速查

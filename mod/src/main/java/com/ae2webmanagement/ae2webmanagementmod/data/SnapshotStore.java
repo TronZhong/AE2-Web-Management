@@ -234,6 +234,20 @@ public final class SnapshotStore extends SavedData {
         return Optional.ofNullable(this.snapshots.get(accessId));
     }
 
+    /**
+     * 删除某网格的最后快照（「删除网格」级联清理，主线程调用；roadmap §11）。
+     *
+     * @param accessId 网格接入 ID
+     * @return 快照是否存在且已删除
+     */
+    public boolean remove(UUID accessId) {
+        boolean removed = this.snapshots.remove(accessId) != null;
+        if (removed) {
+            setDirty();
+        }
+        return removed;
+    }
+
     /** 获取全部最后快照的只读视图。 */
     public Collection<Snapshot> getAll() {
         return Collections.unmodifiableCollection(this.snapshots.values());

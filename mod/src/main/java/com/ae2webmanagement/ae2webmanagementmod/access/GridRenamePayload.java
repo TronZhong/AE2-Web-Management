@@ -13,11 +13,13 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import com.ae2webmanagement.ae2webmanagementmod.AE2WebManagement;
 
 /**
- * C2S：接入方块 GUI 提交新的显示名（displayName 改名，roadmap 已完成项：GUI 迭代）。
+ * C2S：接入方块 GUI 提交新的显示名（displayName 改名）。
  *
- * <p>复用 {@link GridPasswordPayload} 的通道模式（字符串无法进 containerData，
+ * <p>复用 {@link GridRegisterPayload} 的通道模式（字符串无法进 containerData，
  * 用自定义 payload 走 C2S）；服务端处理器由 NeoForge 默认调度到主线程，
- * 并校验玩家当前打开的菜单与 payload 携带的 containerId 一致，防止越权改名。</p>
+ * 并校验玩家当前打开的菜单与 payload 携带的 containerId 一致。roadmap §11 起
+ * 改名是写操作：服务端在菜单层校验「账号存在 + 玩家 == owner + 网格存在」，
+ * 非本人网格一律拒绝（不能只靠客户端隐藏按钮）。</p>
  *
  * <p>改名只影响网页展示名（HTTP 网格列表的 {@code displayName} 字段），
  * 不改 accessId / token / 密码哈希；空串或超长由服务端忽略。</p>

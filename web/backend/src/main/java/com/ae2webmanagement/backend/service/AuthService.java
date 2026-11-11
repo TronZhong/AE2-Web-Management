@@ -1,69 +1,60 @@
 package com.ae2webmanagement.backend.service;
 
-import java.time.Instant;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import cn.dev33.satoken.stp.StpUtil;
 
 import com.ae2webmanagement.backend.client.ModApiException;
-import com.ae2webmanagement.backend.config.AppProperties;
 import com.ae2webmanagement.backend.domain.Account;
 import com.ae2webmanagement.backend.dto.LoginResponse;
 import com.ae2webmanagement.backend.dto.MeResponse;
 import com.ae2webmanagement.backend.repository.AccountRepository;
 
 /**
- * 账号制认证用例（契约 v0.2「认证端点」）：登录 / 注销 / 当前账号，
- * 以及首次启动时引导创建初始管理员。
+ * 账号制认证用例（契约 v0.2「认证端点」；v0.11 起账号真源在游戏内）：
+ * 登录 / 注销 / 当前账号。
  *
- * <p>语义（roadmap 已完成项，账号制认证）：密码是后端账号密码，与 Minecraft/AE2 无关；
- * 登录后可见全部已注册网格；会话由 Sa-Token 管理（satoken Cookie / 请求头）。
- * 密码只存 BCrypt 哈希；登录失败统一 {@code 401 unauthorized}，不区分
- * 「用户不存在」与「密码错误」。</p>
+ * <p>语义（roadmap §11）：账号只能在**游戏内接入方块 GUI 注册**（网页无注册口），
+ * 本表由 {@link AccountSyncService} 按模组 {@code GET /accounts} 同步；登录用户名
+ * 即游戏内玩家名（绑定 playerUuid），密码哈希为模组同步来的 PBKDF2 哈希，
+ * 由 {@link PasswordHashes} 在后端本地校验——游戏未启动时网页仍可登录
+ * （登录是唯一不依赖游戏的端点）。登录失败统一 {@code 401 unauthorized}，
+ * 不区分「用户不存在」与「密码错误」。</p>
  */
 @Service
-public class AuthService implements ApplicationRunner {
+public class AuthService {
 
 	private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
 	private final AccountRepository accountRepository;
 
-	private final AppProperties properties;
-
-	/** BCrypt 哈希与校验器（线程安全，可复用单实例）。 */
-	private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-
 	/**
-	 * @param accountRepository 账号表访问
-	 * @param properties        {@code app.*} 配置（初始管理员引导参数）
+	 * @param accountRepository 账号表访问（数据由账号同步服务写入）
 	 */
-	public AuthService(AccountRepository accountRepository, AppProperties properties) {
+	public AuthService(AccountRepository accountRepository) {
 		this.accountRepository = accountRepository;
-		this.properties = properties;
 	}
 
 	/**
 	 * 登录：校验用户名密码后建立 Sa-Token 会话（写 satoken Cookie）。
 	 *
-	 * <p>契约条目：docs/contracts/web-api.md「POST /api/auth/login」。</p>
+	 * <p>契约条目：docs/contracts/web-api.md「POST /api/auth/login」；
+	 * 密码按模组同步来的 PBKDF2 哈希本地校验（{@link PasswordHashes#matches}）。</p>
 	 *
-	 * @param username 用户名（controller 已确保非空白）
+	 * @param username 用户名（controller 已确保非空白；即游戏内玩家名）
 	 * @param password 密码原文
 	 * @return 受理响应（token 名、token 值、用户名回显）
 	 */
 	public LoginResponse login(String username, String password) {
 		Account account = this.accountRepository.findByUsername(username)
 			.orElseThrow(AuthService::unauthorized);
-		if (!this.encoder.matches(password, account.getPasswordHash())) {
+		if (!PasswordHashes.matches(password, account.getPasswordHash())) {
 			throw unauthorized();
 		}
 		StpUtil.login(account.getId());
+		log.info("登录成功：{}（playerUuid={}）", account.getUsername(), account.getPlayerUuid());
 		return new LoginResponse(StpUtil.getTokenName(), StpUtil.getTokenValue(), account.getUsername());
 	}
 
@@ -77,12 +68,13 @@ public class AuthService implements ApplicationRunner {
 	/**
 	 * 当前登录账号（契约「GET /api/auth/me」）；前端启动时调用以恢复会话。
 	 *
-	 * @return 当前用户名
+	 * @return 当前用户名与绑定的游戏内玩家名（遗留无绑定账号的 playerName 为 null）
 	 */
 	public MeResponse me() {
 		long loginId = StpUtil.getLoginIdAsLong();
 		return this.accountRepository.findById(loginId)
-			.map((account) -> new MeResponse(account.getUsername()))
+			.map((account) -> new MeResponse(account.getUsername(),
+					account.getPlayerUuid() == null ? null : account.getUsername()))
 			.orElseThrow(AuthService::unauthorized);
 	}
 
@@ -93,27 +85,6 @@ public class AuthService implements ApplicationRunner {
 	 */
 	public long currentAccountId() {
 		return StpUtil.getLoginIdAsLong();
-	}
-
-	/**
-	 * 首次启动引导：账户表为空时按 {@code app.auth.admin-*} 创建初始管理员。
-	 *
-	 * <p>已有账号时跳过（不在本轮实现改密/建号端点）；默认密码会输出 WARN 提醒部署者替换。</p>
-	 */
-	@Override
-	public void run(ApplicationArguments args) {
-		if (this.accountRepository.existsBy()) {
-			return;
-		}
-		Account admin = new Account();
-		admin.setUsername(this.properties.auth().adminUsername());
-		admin.setPasswordHash(this.encoder.encode(this.properties.auth().adminPassword()));
-		admin.setCreatedAt(Instant.now());
-		this.accountRepository.save(admin);
-		log.info("账户表为空，已创建初始管理员账号 {}（密码来自 app.auth.admin-password 配置）", admin.getUsername());
-		if ("change-me".equals(this.properties.auth().adminPassword())) {
-			log.warn("初始管理员密码为默认值 change-me，部署前请修改 app.auth.admin-password 后重建账户表");
-		}
 	}
 
 	/**

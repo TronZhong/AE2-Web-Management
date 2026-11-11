@@ -47,6 +47,8 @@ public final class GridIdentityStore extends SavedData {
     private static final String KEY_CREATED_AT = "createdAt";
     private static final String KEY_LAST_SEEN_AT = "lastSeenAt";
     private static final String KEY_PASSWORD_HASH = "passwordHash";
+    /** 注册者玩家 UUID（roadmap §11 账号制，0.1.0 起）；旧存档无该字段 = 无主。 */
+    private static final String KEY_OWNER_UUID = "ownerUuid";
 
     private final Map<UUID, GridIdentity> identities = new HashMap<>();
     private final Map<String, UUID> anchorToId = new HashMap<>();
@@ -84,9 +86,11 @@ public final class GridIdentityStore extends SavedData {
             long lastSeenAt = entry.getLong(KEY_LAST_SEEN_AT);
             // 旧版本存档无 passwordHash 字段：getString 对缺失键返回空串 = 未设密码
             String passwordHash = entry.getString(KEY_PASSWORD_HASH);
+            // 0.1.0 起记录注册者玩家 UUID；旧存档缺失按无主处理（不做迁移，roadmap §11）
+            UUID ownerUuid = entry.hasUUID(KEY_OWNER_UUID) ? entry.getUUID(KEY_OWNER_UUID) : null;
 
             GridIdentity identity = new GridIdentity(
-                    accessId, levelKey, pos, token, displayName, createdAt, lastSeenAt, passwordHash);
+                    accessId, levelKey, pos, token, displayName, createdAt, lastSeenAt, passwordHash, ownerUuid);
             store.identities.put(accessId, identity);
             store.anchorToId.put(anchorKey(levelKey, pos), accessId);
         }
@@ -109,6 +113,9 @@ public final class GridIdentityStore extends SavedData {
             entry.putLong(KEY_CREATED_AT, id.createdAt());
             entry.putLong(KEY_LAST_SEEN_AT, id.lastSeenAt());
             entry.putString(KEY_PASSWORD_HASH, id.passwordHash() == null ? "" : id.passwordHash());
+            if (id.ownerUuid() != null) {
+                entry.putUUID(KEY_OWNER_UUID, id.ownerUuid());
+            }
             list.add(entry);
         }
         tag.put(KEY_IDENTITIES, list);
@@ -118,12 +125,18 @@ public final class GridIdentityStore extends SavedData {
     // ==================== 业务方法 ====================
 
     /**
-     * 为给定的控制器锚点登记（或返回已有）身份。
+     * 注册（或返回已有）给定控制器锚点的网格身份（接入方块 GUI「注册网格」提交，主线程调用）。
      *
-     * @param anchor 控制器锚点
+     * <p>roadmap §11 账号制：注册即记 {@code ownerUuid}（调用方须先校验玩家已有账号），
+     * 显示名空白时回退默认 {@code Grid @ x,y,z}，密码哈希可直接随建档写入（空串 = 公开网格）。</p>
+     *
+     * @param anchor       控制器锚点
+     * @param ownerUuid    注册者玩家 UUID
+     * @param displayName  显示名（空白回退默认名；trim 与长度校验由调用方负责）
+     * @param passwordHash 网格密码哈希；空串表示未设密码（公开）
      * @return 已有的身份（{@link Result#ALREADY_EXISTS}）或新创建的身份（{@link Result#CREATED}）
      */
-    public Result addOrGet(ControllerAnchor anchor) {
+    public Result register(ControllerAnchor anchor, UUID ownerUuid, String displayName, String passwordHash) {
         String key = anchorKey(anchor.levelKey(), anchor.pos());
         UUID existing = anchorToId.get(key);
         if (existing != null) {
@@ -133,10 +146,13 @@ public final class GridIdentityStore extends SavedData {
         long now = System.currentTimeMillis();
         UUID accessId = UUID.randomUUID();
         String token = UUID.randomUUID().toString().replace("-", "");
-        String displayName = "Grid @ " + anchor.pos().toShortString();
+        String name = (displayName == null || displayName.isBlank())
+                ? "Grid @ " + anchor.pos().toShortString()
+                : displayName;
 
         GridIdentity identity = new GridIdentity(
-                accessId, anchor.levelKey(), anchor.pos(), token, displayName, now, now, "");
+                accessId, anchor.levelKey(), anchor.pos(), token, name, now, now,
+                passwordHash == null ? "" : passwordHash, ownerUuid);
         identities.put(accessId, identity);
         anchorToId.put(key, accessId);
         setDirty();
@@ -168,7 +184,8 @@ public final class GridIdentityStore extends SavedData {
         String hash = password == null ? "" : GridPasswords.hash(password);
         GridIdentity updated = new GridIdentity(
                 identity.accessId(), identity.controllerLevel(), identity.controllerPos(),
-                identity.token(), identity.displayName(), identity.createdAt(), identity.lastSeenAt(), hash);
+                identity.token(), identity.displayName(), identity.createdAt(), identity.lastSeenAt(),
+                hash, identity.ownerUuid());
         identities.put(accessId, updated);
         setDirty();
         return Optional.of(updated);
@@ -193,7 +210,8 @@ public final class GridIdentityStore extends SavedData {
         }
         GridIdentity updated = new GridIdentity(
                 identity.accessId(), identity.controllerLevel(), identity.controllerPos(),
-                identity.token(), newName, identity.createdAt(), identity.lastSeenAt(), identity.passwordHash());
+                identity.token(), newName, identity.createdAt(), identity.lastSeenAt(),
+                identity.passwordHash(), identity.ownerUuid());
         identities.put(accessId, updated);
         setDirty();
         return Optional.of(updated);
@@ -218,10 +236,32 @@ public final class GridIdentityStore extends SavedData {
         }
         GridIdentity updated = new GridIdentity(
                 identity.accessId(), identity.controllerLevel(), identity.controllerPos(),
-                identity.token(), identity.displayName(), identity.createdAt(), timestamp, identity.passwordHash());
+                identity.token(), identity.displayName(), identity.createdAt(), timestamp,
+                identity.passwordHash(), identity.ownerUuid());
         identities.put(accessId, updated);
         setDirty();
         return Optional.of(updated);
+    }
+
+    /**
+     * 删除网格身份记录（「删除网格」级联清理的第一步，主线程调用；roadmap §11）。
+     *
+     * <p>只移除身份本身；快照（内存 + 落盘）、命令记录由调用方
+     * （{@code AccessBlockEntity#deleteGrid}）级联清理。删除后该控制器锚点
+     * 恢复未注册态，任何有账号的玩家可重新注册。</p>
+     *
+     * @param accessId 网格接入 ID
+     * @return 记录是否存在且已删除
+     */
+    public boolean remove(UUID accessId) {
+        GridIdentity identity = identities.remove(accessId);
+        if (identity == null) {
+            return false;
+        }
+        // 同锚点可能被多个接入方块共享；仅当仍指向本记录时移除索引
+        anchorToId.remove(anchorKey(identity.controllerLevel(), identity.controllerPos()), accessId);
+        setDirty();
+        return true;
     }
 
     /** 全部身份（只读）。 */

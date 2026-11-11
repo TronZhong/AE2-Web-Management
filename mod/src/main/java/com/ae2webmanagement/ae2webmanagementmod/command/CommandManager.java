@@ -487,6 +487,32 @@ public final class CommandManager {
         return true;
     }
 
+    /**
+     * 删除网格时级联清理该网格全部命令记录（含 PENDING），主线程调用（roadmap §11）。
+     *
+     * <p>「删除网格」会连网页命令历史一起清除：取消在途 AE2 计算、移除运行时
+     * 缓存与持久化记录、丢弃尚未落盘的入队命令，并同步移除身份索引
+     * （否则 {@code hasGrid} 仍会对已删网格放行后续投递）。此后该网格的
+     * craft/commands 请求得到 {@code grid_not_found}。</p>
+     *
+     * @param accessId 待清理的网格接入 ID
+     * @param server   服务端实例（主线程事件上下文）
+     */
+    public void removeGridCommands(UUID accessId, MinecraftServer server) {
+        CommandStore store = CommandStore.get(server.overworld());
+        for (CraftCommand command : List.copyOf(store.getForGrid(accessId))) {
+            PlanningJob job = this.planning.remove(command.id());
+            if (job != null) {
+                job.future().cancel(false);
+            }
+            store.remove(command.id());
+            this.cache.remove(command.id());
+        }
+        // 丢弃 HTTP 线程刚入队、尚未被主线程消费的命令，避免删除后又被落盘
+        this.incoming.removeIf(command -> command.accessId().equals(accessId));
+        this.identities.remove(accessId);
+    }
+
     /** 将命令标记为失败，并把原因保存到 result 字段。 */
     private void fail(CommandStore store, CraftCommand command, String result) {
         update(store, command.withState(CommandState.FAILED, System.currentTimeMillis(), result));

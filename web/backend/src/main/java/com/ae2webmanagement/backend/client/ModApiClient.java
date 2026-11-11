@@ -16,6 +16,7 @@ import org.springframework.web.client.RestClientResponseException;
 import com.ae2webmanagement.backend.dto.CommandListResponse;
 import com.ae2webmanagement.backend.dto.CraftAcceptedResponse;
 import com.ae2webmanagement.backend.dto.CraftRequest;
+import com.ae2webmanagement.backend.dto.ModAccountListResponse;
 import com.ae2webmanagement.backend.dto.ModGridListResponse;
 import com.ae2webmanagement.backend.dto.SnapshotResponse;
 import com.ae2webmanagement.backend.dto.VerifyPasswordRequest;
@@ -64,6 +65,23 @@ public class ModApiClient {
 			.uri("/grids")
 			.retrieve()
 			.body(ModGridListResponse.class));
+	}
+
+	/**
+	 * 拉取游戏内注册的账号列表（契约条目：docs/contracts/index.md「账号 API」，
+	 * 模组 0.1.0 起提供；roadmap §11 账号制）。
+	 *
+	 * <p>由 {@code AccountSyncService} 启动 + 定时调用，按 playerUuid upsert 后在
+	 * 后端本地校验登录（游戏未启动时网页仍可登录）。含 PBKDF2 哈希——明文不出
+	 * 模组，哈希必须在同步通道中传输。旧版模组无该端点 → 404，由调用方静默跳过。</p>
+	 *
+	 * @return 模组 {@code GET /accounts} 的响应
+	 */
+	public ModAccountListResponse listAccounts() {
+		return call(() -> this.modRestClient.get()
+			.uri("/accounts")
+			.retrieve()
+			.body(ModAccountListResponse.class));
 	}
 
 	/**

@@ -21,9 +21,13 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * @param inventoryEntries 库存物品种类数（非数量）
  * @param cpuCount         合成 CPU 数量
  * @param hasPassword      是否设置了网格密码（v0.3；旧版模组恒 false）
- * @param unlocked         当前账号是否可访问：未设密码恒 true；设了密码则为该账号是否已解锁（v0.3）
+ * @param unlocked         当前账号是否可访问：未设密码恒 true；设了密码则为「该账号是否为网格 owner（v0.11 owner 免密）或已解锁」（v0.3）
  * @param lastSeenAt       最近一次在线时间（v0.10，模组 0.0.14 随快照回写）；
  *                         旧版模组无该字段 → null，经 {@code @JsonInclude(NON_NULL)} 在 Web 响应省略
+ * @param ownerUuid        注册该网格的玩家 UUID（v0.11，模组 0.1.0 透传）；
+ *                         无主网格 / 旧版模组 → null，经 {@code @JsonInclude(NON_NULL)} 在 Web 响应省略
+ * @param ownerName        注册者玩家最新名（v0.11，经模组账号表解析）；
+ *                         无主网格 / 旧版模组 → null，经 {@code @JsonInclude(NON_NULL)} 在 Web 响应省略
  */
 public record GridSummaryResponse(
 		String accessId,
@@ -38,5 +42,7 @@ public record GridSummaryResponse(
 		int cpuCount,
 		boolean hasPassword,
 		boolean unlocked,
-		@JsonInclude(JsonInclude.Include.NON_NULL) Long lastSeenAt) {
+		@JsonInclude(JsonInclude.Include.NON_NULL) Long lastSeenAt,
+		@JsonInclude(JsonInclude.Include.NON_NULL) String ownerUuid,
+		@JsonInclude(JsonInclude.Include.NON_NULL) String ownerName) {
 }

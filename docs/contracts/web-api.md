@@ -17,6 +17,11 @@
 - **v0.8（2026-11）**：**移除 `craftingCpus[].name`**——AE2 合成 CPU 无法命名，前端与游戏内 GUI 一致按列表序号显示 `#N`（模组 0.0.12 同步移除传输与持久化字段；`craftingCpus[]` 现按协处理器多者→存储大者排序，`#N` 与游戏内未命名 CPU 编号一致）。
 - **v0.9（2026-11）**：新增 `DELETE /api/grids/{accessId}/commands/{commandId}` **删除命令记录**（纯转发模组同名端点，模组 0.0.13）：删除 `PENDING` 记录即撤销（不会提交给 AE2），删除 `SUBMITTED`/`FAILED` 记录仅清理历史；模组在主线程原子执行，响应即最终结果（204 已删除 / 404 `grid_not_found` / `command_not_found`）。`grid_locked` 访问控制同样适用。另：模组侧每个网格自动保留最近 50 条（可配置）终态命令记录。见「合成命令端点」。
 - **v0.10（2026-11）**：`GET /api/grids` 网格摘要新增 `lastSeenAt`（纯转发模组 0.0.14 字段）：**最近一次在线时间**（epoch 毫秒），由模组快照循环对在线网格回写身份表，随 `SavedData` 持久化；旧版模组（<0.0.14）无该字段 → 后端反序列化为 null 并在 Web 响应省略（向后兼容，同 `nameKey` 模式）。前端离线网格卡片显示「最后在线」。
+- **v0.11（2026-11）**：**账号制（游戏内注册）与权限分层**（与模组 0.1.0、roadmap.md §11 同步）：
+  - 登录语义变更：账号只能**在游戏内接入方块 GUI 注册**（网页无注册口），用户名即游戏内**玩家名**（绑定 `playerUuid`，玩家改名后随同步跟随）；密码哈希由模组 PBKDF2 同步而来（登录校验在后端本地进行，游戏未启动仍可登录）；
+  - 移除 `app.auth.admin-*` 引导建号（admin 不绑定游戏内 ID，与新语义冲突）；
+  - `GET /api/auth/me` 响应新增 `playerName`（绑定的游戏内玩家名）；
+  - `GET /api/grids` 摘要新增 `ownerUuid` / `ownerName`（模组 0.1.0 字段透传，无主网格/旧版模组省略）；`unlocked` 计算新增「**owner 恒 true**」——网格 owner（登录账号绑定的玩家 == ownerUuid）免网格密码，网格密码只保留给非 owner 的共享授权。
 
 > 注（2026-11，前端数据源）：前端默认走真实请求（实时数据）；`VITE_USE_MOCK=true`（或 `npm run dev:mock`）启用内置 mock，响应形状与本契约一致。API 端点形状无变化（此前默认 mock、以 `VITE_USE_MOCK=false` 切真实，见 v0.1）。
 
@@ -35,7 +40,7 @@
   - `invalid_command_id`（400，v0.9）：命令删除端点的 `commandId` 路径参数不是合法 UUID；
   - `command_not_found`（404，v0.9）：要删除的命令记录不存在（含已被删除）。
 - `amount` 以 JSON number 透传（Java 侧为 long；超过 2^53 的值理论上丢精度，实际库存量达不到）。
-- **用户认证（账号制，v0.2 起）**：密码是**后端账号密码**，与 Minecraft/AE2 无关；登录后可见全部已注册网格。
+- **用户认证（账号制，v0.2 起；v0.11 起账号真源在游戏内）**：账号只能在**游戏内接入方块 GUI 注册**，网页端无注册口；登录用户名即游戏内**玩家名**（绑定 `playerUuid`，玩家改名后登录名跟随）；密码为游戏内注册时设置的密码（PBKDF2 哈希由模组经本地 API 同步到后端，后端在本地校验，游戏未启动时登录不受影响）。登录后可见全部已注册网格。
   - 会话凭证：登录成功后，后端通过响应头 `Set-Cookie` 下发 `satoken` Cookie（HttpOnly），并在响应体返回 token 值；后续请求**同源自动携带 Cookie**，非 Cookie 客户端可用请求头 `satoken: <tokenValue>` 等价传递。
   - 未登录 / 会话过期访问受保护端点 → `401 {"error":"unauthorized"}`；登录页凭此错误码跳转。
   - `unauthorized` 同时用于登录失败（用户名或密码错误）。
@@ -48,8 +53,8 @@
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `username` | string | 用户名（非空） |
-| `password` | string | 密码（非空，明文传输依赖部署层 TLS；后端只存 BCrypt 哈希） |
+| `username` | string | 用户名（非空；v0.11 起即游戏内**玩家名**，账号在游戏内接入方块 GUI 注册） |
+| `password` | string | 密码（非空，明文传输依赖部署层 TLS；后端只存模组同步来的 PBKDF2 哈希并本地校验） |
 
 响应 `200`：
 
@@ -67,7 +72,9 @@
 
 ### `GET /api/auth/me`
 
-查询当前登录账号：需已登录。响应 `200 {"username":"..."}`；未登录 → `401 {"error":"unauthorized"}`。
+查询当前登录账号：需已登录。响应 `200 {"username":"...","playerName":"..."}`；
+未登录 → `401 {"error":"unauthorized"}`。`playerName`（v0.11 起）为绑定的
+游戏内玩家名（同步账号下与 `username` 相同）。
 
 > 前端在应用启动时调用本端点恢复会话；`401` 即跳转登录页。
 
@@ -89,8 +96,10 @@
 | `grids[].inventoryEntries` | number | 库存物品种类数（非数量） |
 | `grids[].cpuCount` | number | 合成 CPU 数量 |
 | `grids[].hasPassword` | boolean | 是否在游戏内设置了网格密码（v0.3；旧版模组恒 `false`） |
-| `grids[].unlocked` | boolean | 当前账号是否可访问：未设密码恒 `true`；设了密码则为该账号是否已解锁（v0.3，账号维度持久记忆） |
+| `grids[].unlocked` | boolean | 当前账号是否可访问：未设密码恒 `true`；设了密码则为「该账号是否为网格 owner（v0.11 起 owner 免密）或已有解锁记录」（v0.3，账号维度持久记忆） |
 | `grids[].lastSeenAt` | number | 最近一次在线时间（epoch 毫秒，v0.10）：模组快照循环对在线网格回写身份表，离线保持不变；旧版模组（<0.0.14）无该字段 → 响应省略 |
+| `grids[].ownerUuid` | string (UUID)（可选，v0.11） | 注册该网格的玩家 UUID（模组 0.1.0 透传）；无主网格（旧存档）与旧版模组 → 响应省略 |
+| `grids[].ownerName` | string（可选，v0.11） | 注册者玩家最新名（经模组账号表解析）；无主网格与旧版模组 → 响应省略。前端网格卡片显示「创建者」 |
 
 ### `GET /api/grids/{accessId}/snapshot`
 
@@ -221,6 +230,7 @@
 
 解锁设有网格密码的网格（v0.3）。密码由网格所有者在游戏内接入方块 GUI 设置；
 解锁状态按**账号**持久记忆（后端 H2），成功后该账号访问此网格不再需要密码。
+网格 owner 无需调用（owner 免密，v0.11 起）。
 请求体：
 
 | 字段 | 类型 | 说明 |
@@ -232,12 +242,16 @@
 模组不可达 → `503 mod_unreachable` / `mod_unavailable`。
 网格未设密码时调用同样返回 `204`（幂等，直接记录解锁）。
 
-## 网格访问控制（v0.3）
+## 网格访问控制（v0.3；v0.11 起 owner 免密）
 
 - 网格列表对所有已登录账号可见（含未解锁的锁定网格，卡片显示锁定态）。
 - `GET /snapshot`、`POST /craft`、`GET /commands`、`DELETE /commands/{commandId}`（v0.9 起）对
   `hasPassword && !unlocked` 的网格返回 `403 {"error":"grid_locked"}`；解锁后正常。
+- `unlocked` 判定（v0.11 起）：未设密码恒 `true`；设了密码时，网格 **owner**（登录账号
+  绑定的 `playerUuid` == 摘要 `ownerUuid`）恒 `true`（owner 免密），否则按该账号的
+  解锁记录判定。网格密码只保留给非 owner 的共享授权。
 - 访问控制在后端执行（转发模组前检查），模组数据口继续只信任共享密钥。
+- 网格被删除后，后端清理该网格全部解锁记录（孤儿清理，随 2s 状态轮询）。
 
 ## 实时事件端点（v0.4，SSE）
 

@@ -12,6 +12,7 @@ import org.springframework.web.client.ResourceAccessException;
 import com.ae2webmanagement.backend.client.ModApiClient;
 import com.ae2webmanagement.backend.client.ModApiException;
 import com.ae2webmanagement.backend.dto.ModGridSummaryResponse;
+import com.ae2webmanagement.backend.repository.GridAccessRepository;
 
 /**
  * 网格状态同步服务：每 2 秒拉取模组网格列表，与内存指纹比对，变化即通过
@@ -21,6 +22,10 @@ import com.ae2webmanagement.backend.dto.ModGridSummaryResponse;
  * 这里在轮询的基础上补一层「状态变化主动通知」，让前端不必干等 5s/10s 轮询。
  * 事件形状只推变更提示（{@code grids-updated} / {@code grid-snapshot-updated}），
  * 前端收到后自行 refetch，契约保持简单。</p>
+ *
+ * <p>roadmap §11：观察到网格从模组列表消失（游戏内删除网格）时，顺带清理
+ * {@code account_grid_access} 中该网格的孤儿解锁记录（「删除网格」功能引入前
+ * 不存在此泄漏）。</p>
  *
  * <p><b>指纹口径</b>：只含模组侧状态——网格数量 + 每个网格的
  * {@code accessId}/{@code online}/{@code capturedAt}/{@code hasPassword}/{@code displayName}；
@@ -42,6 +47,8 @@ public class GridStateSyncService {
 
 	private final RealtimeEventHub eventHub;
 
+	private final GridAccessRepository gridAccessRepository;
+
 	/** 上次比对用的网格指纹：accessId → 模组侧状态（不含 unlocked）。 */
 	private Map<String, GridFingerprint> previous = Map.of();
 
@@ -49,12 +56,15 @@ public class GridStateSyncService {
 	private boolean initialized = false;
 
 	/**
-	 * @param modApiClient 访问模组列表的唯一入口（原始模组响应，不含账号维度字段）
-	 * @param eventHub     实时事件枢纽（广播变更提示）
+	 * @param modApiClient         访问模组列表的唯一入口（原始模组响应，不含账号维度字段）
+	 * @param eventHub             实时事件枢纽（广播变更提示）
+	 * @param gridAccessRepository 已解锁网格记录表（网格消失时清理孤儿解锁记录）
 	 */
-	public GridStateSyncService(ModApiClient modApiClient, RealtimeEventHub eventHub) {
+	public GridStateSyncService(ModApiClient modApiClient, RealtimeEventHub eventHub,
+			GridAccessRepository gridAccessRepository) {
 		this.modApiClient = modApiClient;
 		this.eventHub = eventHub;
+		this.gridAccessRepository = gridAccessRepository;
 	}
 
 	/**
@@ -104,7 +114,8 @@ public class GridStateSyncService {
 	 *       变化 → 广播 {@code {"type":"grids-updated"}}（前端刷新网格列表）；</li>
 	 *   <li>某网格 {@code online}/{@code capturedAt} 变化（快照被刷新）
 	 *       → 广播 {@code {"type":"grid-snapshot-updated","accessId":...}}
-	 *       （详情页刷新该网格快照）。</li>
+	 *       （详情页刷新该网格快照）；</li>
+	 *   <li>网格消失（游戏内删除）→ 清理该网格的孤儿解锁记录（roadmap §11）。</li>
 	 * </ul>
 	 *
 	 * @param current 本次拉取的指纹
@@ -133,7 +144,8 @@ public class GridStateSyncService {
 		for (String accessId : this.previous.keySet()) {
 			if (!current.containsKey(accessId)) {
 				listChanged = true; // 网格被移除
-				break;
+				// 级联清理孤儿解锁记录（roadmap §11）：删除网格后 unlock 记录已无意义
+				this.gridAccessRepository.deleteByAccessId(accessId);
 			}
 		}
 		if (listChanged) {

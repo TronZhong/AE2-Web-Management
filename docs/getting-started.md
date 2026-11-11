@@ -48,11 +48,12 @@ cd .\web\backend
 后端首次启动会：
 - 在 `web/backend/data/` 生成 H2 文件数据库（已加入 `.gitignore`）。
 - 读取 `src/main/resources/application.yaml` 中的 `app.*` 配置。
-- 账户表为空时引导创建初始管理员（`app.auth.admin-username` / `app.auth.admin-password`，默认 `admin` / `change-me`，密码只以 BCrypt 哈希入库；部署前务必替换配置）。
+- 定时拉取模组 `GET /accounts` 同步游戏内注册的账号（无引导建号：账号只能在游戏内接入方块 GUI 注册，roadmap §11；登录用模组同步来的 PBKDF2 哈希本地校验）。
 
 ### 登录
 
 打开前端任意页面会先跳转登录页；除 `POST /api/auth/login` 外所有 `/api/**` 端点均要求已登录（`satoken` Cookie 会话，契约 v0.2）。
+登录用户名即游戏内**玩家名**——先在游戏内放置接入方块、右击 GUI 注册账号（密码 + 确认），再用该玩家名与密码登录网页（契约 v0.11）。
 
 ### 前端
 

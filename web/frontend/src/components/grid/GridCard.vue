@@ -1,10 +1,10 @@
 <script setup>
 /**
  * 网格卡片：选择页的单个网格条目。
- * 展示显示名、在线徽标、锁定徽标（v0.3：设有网格密码且未解锁）、
- * 控制器位置、快照摘要与时间行（在线「数据截至」/ 离线「最后在线」，契约 v0.10）；
- * 点击「进入网格」向父级发 enter 事件。
- * 账号登录承担服务器级访问控制，网格密码在详情页解锁门校验。
+ * 展示显示名、在线徽标、锁定徽标（v0.3：设有网格密码且未解锁）、创建者
+ * （v0.11：ownerName，旧后端/无主网格省略）、控制器位置、快照摘要与时间行
+ * （在线「数据截至」/ 离线「最后在线」，契约 v0.10）；点击「进入网格」向父级发 enter 事件。
+ * 账号登录承担服务器级访问控制，网格密码在详情页解锁门校验（owner 免密由后端判定）。
  */
 import { computed } from 'vue'
 
@@ -13,13 +13,13 @@ import StatusBadge from '../base/StatusBadge.vue'
 import { formatTime } from '../../lib/format.js'
 
 const props = defineProps({
-  /** 网格摘要对象，形状见 contracts/web-api.md 的 GET /api/grids（v0.5 含 hasPassword/unlocked）。 */
+  /** 网格摘要对象，形状见 contracts/web-api.md 的 GET /api/grids（v0.11 含 ownerUuid/ownerName）。 */
   grid: { type: Object, required: true },
 })
 
 defineEmits(['enter'])
 
-/** 是否处于锁定态：设有网格密码且当前账号未解锁。 */
+/** 是否处于锁定态：设有网格密码且当前账号未解锁（owner 免密由后端折算进 unlocked）。 */
 const locked = computed(() => Boolean(props.grid.hasPassword) && !props.grid.unlocked)
 
 /**
@@ -48,6 +48,11 @@ const timeRow = computed(() =>
     </header>
 
     <dl class="space-y-1 font-mono text-[11px] leading-5 text-ink-dim">
+      <!-- 创建者（契约 v0.11）：ownerName 缺省（旧后端 / 无主网格）时整行省略 -->
+      <div v-if="grid.ownerName" class="flex justify-between gap-2">
+        <dt class="shrink-0 text-ink-faint">创建者</dt>
+        <dd class="truncate" :title="grid.ownerName">{{ grid.ownerName }}</dd>
+      </div>
       <div class="flex justify-between gap-2">
         <dt class="shrink-0 text-ink-faint">控制器</dt>
         <dd
