@@ -10,6 +10,13 @@
 
   "gui.ae2webmanagement.rename.label": "Display name (web)",
   "gui.ae2webmanagement.button.rename": "Rename",
+  "gui.ae2webmanagement.button.rename_confirm": "Confirm rename",
+  "gui.ae2webmanagement.rename.hint": "Click again to confirm the rename.",
+  "gui.ae2webmanagement.identity.display_name": "Display name",
+  "gui.ae2webmanagement.identity.access_id": "Access ID",
+  "gui.ae2webmanagement.identity.controller": "Controller",
+  "gui.ae2webmanagement.identity.pos": "Position",
+  "gui.ae2webmanagement.identity.owner": "Owner",
   "gui.ae2webmanagement.identity.unregistered": "not registered",
   "gui.ae2webmanagement.identity.unowned": "(no owner on record)",
 
@@ -21,9 +28,18 @@
   "gui.ae2webmanagement.button.register_account": "Register account",
 
   "gui.ae2webmanagement.password.label": "Grid password (web access)",
+  "gui.ae2webmanagement.password.title": "Change password",
   "gui.ae2webmanagement.password.old": "Old password",
-  "gui.ae2webmanagement.password.new": "New password (empty = public)",
+  "gui.ae2webmanagement.password.new": "New password",
+  "gui.ae2webmanagement.password.confirm_new": "Confirm new password",
+  "gui.ae2webmanagement.password.confirm_button": "Confirm",
+  "gui.ae2webmanagement.password.confirm_hint": "Old password must match; empty = public.",
+  "gui.ae2webmanagement.password.mismatch": "New passwords do not match.",
+  "gui.ae2webmanagement.password.old_mismatch": "The old password is incorrect.",
+  "gui.ae2webmanagement.password.invalid_new": "New password length must be 1..64.",
+  "gui.ae2webmanagement.password.changed": "Password updated.",
   "gui.ae2webmanagement.button.change_password": "Change password",
+  "gui.ae2webmanagement.button.back": "Back",
   "gui.ae2webmanagement.status.password_set": "Password set: web access requires it.",
   "gui.ae2webmanagement.status.password_none": "No password: web access is open to logged-in users.",
 

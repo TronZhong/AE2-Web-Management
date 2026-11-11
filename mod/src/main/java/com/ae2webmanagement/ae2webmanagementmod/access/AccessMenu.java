@@ -25,6 +25,11 @@ import com.ae2webmanagement.ae2webmanagementmod.grid.ControllerAnchor;
  *       {@link #STATUS_NO_CONTROLLER} / {@link #STATUS_IDLE} /
  *       {@link #STATUS_CREATED} / {@link #STATUS_ALREADY_EXISTS}</li>
  *   <li>{@code containerData[2]} —— 网格密码标记：1 = 已设密码，0 = 未设（公开）</li>
+ *   <li>{@code containerData[3]} —— 改密反馈打包值 {@code (seq << 2) | code}：
+ *       低 2 位为 {@link #PASSWORD_CHANGE_IDLE} / {@link #PASSWORD_CHANGE_SUCCESS} /
+ *       {@link #PASSWORD_CHANGE_OLD_MISMATCH} / {@link #PASSWORD_CHANGE_INVALID}，
+ *       高位为随每次改密尝试递增的序号（containerData 只同步变化值，序号保证
+ *       「连续两次改密都成功」也能被客户端检测到边沿）</li>
  * </ul>
  *
  * <p>roadmap §11 账号制权限分层：无账号玩家先注册账号；未注册网格由有账号玩家
@@ -55,17 +60,30 @@ public class AccessMenu extends AbstractContainerMenu {
     public static final int STATUS_CREATED = 2;
     public static final int STATUS_ALREADY_EXISTS = 3;
 
+    // ==================== 改密反馈状态（containerData[3] 低 2 位） ====================
+
+    /** 改密反馈：无（初始 / 本次尝试未产生有效结果）。 */
+    public static final int PASSWORD_CHANGE_IDLE = 0;
+    /** 改密反馈：修改成功（新密码生效，或已清除密码）。 */
+    public static final int PASSWORD_CHANGE_SUCCESS = 1;
+    /** 改密反馈：旧密码不匹配，修改被拒绝。 */
+    public static final int PASSWORD_CHANGE_OLD_MISMATCH = 2;
+    /** 改密反馈：新密码非法（长度超出 1..64），修改被忽略。 */
+    public static final int PASSWORD_CHANGE_INVALID = 3;
+
     /** containerData 槽位索引：GUI 视图状态机。 */
     public static final int DATA_VIEW = 0;
     /** containerData 槽位索引：注册反馈状态。 */
     public static final int DATA_STATUS = 1;
     /** containerData 槽位索引：网格密码标记（1 = 已设）。 */
     public static final int DATA_PASSWORD_SET = 2;
+    /** containerData 槽位索引：改密反馈打包值 {@code (seq << 2) | code}（seq 随尝试递增）。 */
+    public static final int DATA_PASSWORD_STATUS = 3;
 
     /** displayName 最大长度（对齐网格密码上限，防止恶意撑爆存档）。 */
     public static final int MAX_DISPLAY_NAME_LENGTH = 64;
 
-    private static final int DATA_SLOT_COUNT = 3;
+    private static final int DATA_SLOT_COUNT = 4;
 
     /** 仅客户端构造：由 {@code MenuType} 调用。 */
     public AccessMenu(int containerId, Inventory playerInv) {
@@ -134,6 +152,7 @@ public class AccessMenu extends AbstractContainerMenu {
         this.statusData.set(DATA_VIEW, view);
         this.statusData.set(DATA_STATUS, status);
         this.statusData.set(DATA_PASSWORD_SET, this.be.isPasswordSet() ? 1 : 0);
+        this.statusData.set(DATA_PASSWORD_STATUS, this.be.getPasswordChangePacked());
     }
 
     /**
@@ -243,7 +262,9 @@ public class AccessMenu extends AbstractContainerMenu {
      * 处理 {@link GridChangePasswordPayload} 提交的旧/新密码（仅服务端菜单；主线程）。
      *
      * <p>服务端校验 owner 权限与旧密码（未设密码时旧密码须为空串）；新密码为
-     * 空串 = 清除（恢复公开网格）。处理后刷新密码标记同步回客户端。</p>
+     * 空串 = 清除（恢复公开网格）。结果（成功 / 旧密码不匹配 / 新密码非法）
+     * 由方块实体写入反馈状态，经 {@code containerData[3]} 打包值同步回客户端
+     * 展示；处理后刷新密码标记同步回客户端。</p>
      *
      * @param oldPassword 旧密码原文
      * @param newPassword 新密码原文；空串 = 清除

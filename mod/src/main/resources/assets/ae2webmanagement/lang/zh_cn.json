@@ -10,6 +10,13 @@
 
   "gui.ae2webmanagement.rename.label": "显示名（网页展示）",
   "gui.ae2webmanagement.button.rename": "改名",
+  "gui.ae2webmanagement.button.rename_confirm": "确认改名",
+  "gui.ae2webmanagement.rename.hint": "再次点击确认改名。",
+  "gui.ae2webmanagement.identity.display_name": "显示名",
+  "gui.ae2webmanagement.identity.access_id": "接入 ID",
+  "gui.ae2webmanagement.identity.controller": "控制器",
+  "gui.ae2webmanagement.identity.pos": "坐标",
+  "gui.ae2webmanagement.identity.owner": "所有者",
   "gui.ae2webmanagement.identity.unregistered": "未注册",
   "gui.ae2webmanagement.identity.unowned": "（存档记录无主）",
 
@@ -21,9 +28,18 @@
   "gui.ae2webmanagement.button.register_account": "注册账号",
 
   "gui.ae2webmanagement.password.label": "网格密码（网页访问）",
+  "gui.ae2webmanagement.password.title": "修改密码",
   "gui.ae2webmanagement.password.old": "旧密码",
-  "gui.ae2webmanagement.password.new": "新密码（留空 = 公开网格）",
+  "gui.ae2webmanagement.password.new": "新密码",
+  "gui.ae2webmanagement.password.confirm_new": "确认新密码",
+  "gui.ae2webmanagement.password.confirm_button": "确认修改",
+  "gui.ae2webmanagement.password.confirm_hint": "旧密码须匹配；新密码留空 = 公开网格。",
+  "gui.ae2webmanagement.password.mismatch": "两次输入的新密码不一致。",
+  "gui.ae2webmanagement.password.old_mismatch": "旧密码不正确。",
+  "gui.ae2webmanagement.password.invalid_new": "新密码长度须为 1~64 个字符。",
+  "gui.ae2webmanagement.password.changed": "密码已更新。",
   "gui.ae2webmanagement.button.change_password": "修改密码",
+  "gui.ae2webmanagement.button.back": "返回",
   "gui.ae2webmanagement.status.password_set": "已设密码：网页访问需输入密码。",
   "gui.ae2webmanagement.status.password_none": "未设密码：已登录用户可直接访问。",
 

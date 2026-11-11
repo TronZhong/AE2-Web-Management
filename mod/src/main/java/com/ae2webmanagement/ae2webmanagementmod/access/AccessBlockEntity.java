@@ -65,6 +65,15 @@ public class AccessBlockEntity extends BlockEntity
     /** 最近一次「注册网格」操作的结果状态码（{@link AccessMenu#STATUS_NO_CONTROLLER} 等）。 */
     private int registrationStatus = AccessMenu.STATUS_NO_CONTROLLER;
 
+    /** 最近一次改密尝试的反馈状态码（{@link AccessMenu#PASSWORD_CHANGE_IDLE} 等，主线程写、菜单读取）。 */
+    private int passwordChangeStatus = AccessMenu.PASSWORD_CHANGE_IDLE;
+
+    /**
+     * 改密尝试序号：每次改密尝试递增并与状态码打包同步给客户端。
+     * containerData 只同步变化值，序号保证「连续两次改密都成功」也能被客户端检测到。
+     */
+    private int passwordChangeSeq = 0;
+
     public AccessBlockEntity(BlockPos pos, BlockState blockState) {
         super(AccessRegistration.ACCESS_BLOCK_ENTITY.get(), pos, blockState);
 
@@ -357,7 +366,11 @@ public class AccessBlockEntity extends BlockEntity
      * 修改网格密码（{@link AccessMenu#handleChangePassword} 转发，主线程）。
      *
      * <p>服务端权限校验：仅 owner 可改；旧密码须与当前哈希匹配（未设密码时
-     * 旧密码必须为空串）。新密码空串 = 清除（恢复公开网格）；非法输入静默忽略。
+     * 旧密码必须为空串）。新密码空串 = 清除（恢复公开网格）；非法输入不再静默——
+     * 结果写入 {@link #passwordChangeStatus}（旧密码不匹配 / 新密码非法 / 成功），
+     * 随 {@code containerData} 打包同步回 GUI 展示。每次尝试先递增
+     * {@link #passwordChangeSeq} 并 14 位回绕（与状态码打包后必须落在
+     * containerData 的 0..65535 范围内），保证重复结果也能被客户端边沿检测。
      * 成功后立即刷新身份镜像缓存（含密码哈希），HTTP 校验端点无需等待采样周期。</p>
      *
      * @param player      操作玩家（须为 owner）
@@ -365,6 +378,9 @@ public class AccessBlockEntity extends BlockEntity
      * @param newPassword 新密码原文；空串 = 清除密码
      */
     public void changeGridPassword(ServerPlayer player, String oldPassword, String newPassword) {
+        this.passwordChangeSeq = (this.passwordChangeSeq + 1) & 0x3FFF;
+        this.passwordChangeStatus = AccessMenu.PASSWORD_CHANGE_IDLE;
+
         GridIdentityStore store = identityStoreOrNull();
         if (store == null) {
             return;
@@ -385,12 +401,14 @@ public class AccessBlockEntity extends BlockEntity
                 ? (oldPassword == null || oldPassword.isEmpty())
                 : GridPasswords.verify(oldPassword, currentHash);
         if (!oldMatches) {
+            this.passwordChangeStatus = AccessMenu.PASSWORD_CHANGE_OLD_MISMATCH;
             LOGGER.warn("[AE2Web] Denied password change: old password mismatch for grid {}", identity.accessId());
             return;
         }
 
         boolean clear = newPassword == null || newPassword.isEmpty();
         if (!clear && !GridPasswords.isValidPassword(newPassword)) {
+            this.passwordChangeStatus = AccessMenu.PASSWORD_CHANGE_INVALID;
             LOGGER.warn("[AE2Web] Ignored invalid grid password (length out of 1..{}): {}",
                     GridPasswords.MAX_PASSWORD_LENGTH, this.worldPosition);
             return;
@@ -398,10 +416,22 @@ public class AccessBlockEntity extends BlockEntity
 
         UUID accessId = identity.accessId();
         store.setPassword(accessId, clear ? null : newPassword).ifPresent((updated) -> {
+            this.passwordChangeStatus = AccessMenu.PASSWORD_CHANGE_SUCCESS;
             AE2WebManagement.snapshotManager().updateIdentity(updated);
             LOGGER.info("[AE2Web] Grid password {} for grid {}",
                     clear ? "cleared" : "updated", accessId);
         });
+    }
+
+    /**
+     * 改密反馈打包值（供 {@link AccessMenu} 同步到客户端，主线程调用）：
+     * {@code (seq << 2) | status}，seq 为 {@link #passwordChangeSeq}（14 位），
+     * 低 2 位为 {@link AccessMenu#PASSWORD_CHANGE_*} 状态码。
+     *
+     * @return 打包后的改密反馈值，范围 0..65535（containerData 安全）
+     */
+    public int getPasswordChangePacked() {
+        return ((this.passwordChangeSeq & 0x3FFF) << 2) | (this.passwordChangeStatus & 0x3);
     }
 
     // ===================== 改名 =====================
