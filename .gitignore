@@ -24,3 +24,6 @@ out/
 mod/run/
 mod/repo/
 mod/src/generated/**/.cache/
+
+# Learn details about this project
+笔记.md
